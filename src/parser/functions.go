@@ -47,7 +47,7 @@ func (p *Parser) parseFunctionDeclaration() {
 		case "int":
 			returnType = types.I64
 		case "string":
-			returnType = types.NewPointer(types.I8)
+			returnType = nil
 		case "float64":
 			returnType = types.Double
 		case "duration":
@@ -63,11 +63,46 @@ func (p *Parser) parseFunctionDeclaration() {
 	f := p.Module.NewFunc(name, returnType, params...)
 	prevBlock := p.CurrentBlock
 	p.CurrentBlock = f.NewBlock("fn-" + name)
-	for p.Tokens[p.Pos].Type != "PUNCT" || p.Tokens[p.Pos].Value != "}" {
-		p.parseStatement()
+	if returnType != types.Void {
+		p.Pos++ // "{"
 	}
-	p.CurrentBlock.NewRet(nil)
+	fmt.Println("Start of function", name)
+	for p.Tokens[p.Pos].Type != "PUNCT" || p.Tokens[p.Pos].Value != "}" {
+		token := p.Tokens[p.Pos]
+		switch token.Type {
+		case "IDENT":
+			if token.Value == "return" {
+				p.Pos++ // "return"
+				value := p.parseExpression()
+				if returnType == nil {
+					returnType = value.Type()
+				}
+				if returnType != value.Type() {
+					panic(fmt.Sprintf("Function %s returns %s, but got %s", name, returnType, value.Type()))
+				}
+				fmt.Println("Return", value)
+				p.CurrentBlock.NewRet(value)
+			} else if token.Value == "print" {
+				p.parsePrint()
+			} else if token.Value == "sleep" {
+				p.parseSleep()
+			} else if token.Value == "func" {
+				p.parseFunctionDeclaration()
+			} else {
+				fmt.Println("[W]", token.Location, "Unexpected identifier:", token.Value)
+				p.Pos++
+			}
+		default:
+			fmt.Println("[W]", token.Location, "Unexpected token:", token.Value)
+			p.Pos++
+		}
+	}
+	if returnType == types.Void {
+		p.CurrentBlock.NewRet(nil)
+	}
 	p.CurrentBlock = prevBlock
+	fmt.Println("End of function", name)
+	fmt.Println("Function", name, "has a return type of", returnType)
 	p.SymbolTable[name] = f
 	p.Pos++ // "}"
 }
@@ -187,11 +222,8 @@ func (p *Parser) parseNonVoidFunctionCall() constant.Constant {
 	p.Pos++ // ")"
 	fmt.Println("Call", name, args)
 
-	// Create a call instruction
-	call := ir.NewCall(function, args...)
-
 	// Add the call instruction to the current block
-	p.CurrentBlock.NewCall(call)
+	call := p.CurrentBlock.NewCall(function, args...)
 
 	// Create a global variable to hold the result
 	tmp := ir.NewGlobal("", function.Sig.RetType)
