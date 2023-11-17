@@ -1,7 +1,2 @@
-var greeting: string = "Hello, World";
-print greeting;
-
-var a: int = 5;
-var b: int = 10;
-var sum: int = a + b;
-print sum;
+var a:int = 5;
+print a;

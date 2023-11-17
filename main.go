@@ -150,6 +150,7 @@ func (p *Parser) parsePrint() {
 		val,
 	}
 	p.currentBlock.NewCall(printf, args...)
+	fmt.Println("Print", val)
 
 	p.pos++ // ";"
 }
