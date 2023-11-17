@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -43,16 +44,18 @@ func (l *Lexer) Lex() []Token {
 }
 
 type Parser struct {
-	module       *ir.Module
-	symbolTable  map[string]constant.Constant
-	tokens       []Token
-	pos          int
-	currentBlock *ir.Block
+	module            *ir.Module
+	symbolTable       map[string]constant.Constant
+	tokens            []Token
+	pos               int
+	currentBlock      *ir.Block
+	internalFunctions map[string]*ir.Func
 }
 
 func (p *Parser) Parse() {
 	f := p.module.NewFunc("main", types.Void)
 	p.currentBlock = f.NewBlock("")
+	p.registerInternalFunctions()
 
 	for p.pos < len(p.tokens) {
 		token := p.tokens[p.pos]
@@ -111,17 +114,39 @@ func (p *Parser) defineVariable(name string, val constant.Constant) {
 	p.symbolTable[name] = val
 }
 
+func (p *Parser) registerInternalFunctions() {
+	p.internalFunctions = make(map[string]*ir.Func)
+
+	// Create a declaration for the printf function
+	printf := p.module.NewFunc("printf", types.I32, ir.NewParam("", types.NewPointer(types.I8)))
+	p.internalFunctions["printf"] = printf
+
+	// Create a declaration for the sleep function
+	sleep := p.module.NewFunc("sleep", types.Void, ir.NewParam("", types.I64))
+	p.internalFunctions["sleep"] = sleep
+}
+
 func (p *Parser) parsePrint() {
 	p.pos++ // "print"
 	val := p.parseExpression()
 
 	// Create a declaration for the printf function
-	printf := p.module.NewFunc("printf", types.I32, ir.NewParam("", types.NewPointer(types.I8)))
+	printf := p.internalFunctions["printf"]
 
 	// Create a call to printf
-	format := constant.NewCharArrayFromString("%d\n")
+	var format *ir.Global
+	for _, global := range p.module.Globals {
+		if global.Name() == "format" {
+			format = global
+			break
+		}
+	}
+
+	if format == nil {
+		format = p.module.NewGlobalDef("format", constant.NewCharArrayFromString("%d\n"))
+	}
 	args := []value.Value{
-		ir.NewGlobal(format.String(), types.NewArray(uint64(len(format.String())), types.I8)),
+		format,
 		val,
 	}
 	p.currentBlock.NewCall(printf, args...)
@@ -134,7 +159,7 @@ func (p *Parser) parseSleep() {
 	value := p.parseExpression()
 
 	// Create a declaration for the sleep function
-	sleep := p.module.NewFunc("sleep", types.Void, ir.NewParam("", types.I64))
+	sleep := p.internalFunctions["sleep"]
 
 	// Create a call to sleep
 	p.currentBlock.NewCall(sleep, value)
@@ -295,6 +320,8 @@ func main() {
 	p := Parser{tokens: tokens, module: mod, symbolTable: make(map[string]constant.Constant)}
 	p.Parse()
 
-	fmt.Println("\n---\nModule:\n---")
-	fmt.Println(mod)
+	err = os.WriteFile("output.ll", []byte(p.module.String()), 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
