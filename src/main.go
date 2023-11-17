@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"text/scanner"
@@ -122,7 +123,7 @@ func (p *Parser) registerInternalFunctions() {
 	p.internalFunctions["printf"] = printf
 
 	// Create a declaration for the sleep function
-	sleep := p.module.NewFunc("sleep", types.Void, ir.NewParam("", types.I64))
+	sleep := p.module.NewFunc("sleep_ms", types.Void, ir.NewParam("", types.I64))
 	p.internalFunctions["sleep"] = sleep
 }
 
@@ -158,6 +159,7 @@ func (p *Parser) parsePrint() {
 func (p *Parser) parseSleep() {
 	p.pos++ // "sleep"
 	value := p.parseExpression()
+	fmt.Println("Sleep", value)
 
 	// Create a declaration for the sleep function
 	sleep := p.internalFunctions["sleep"]
@@ -304,7 +306,11 @@ func (p *Parser) parseIdentifier() constant.Constant {
 }
 
 func main() {
-	const filename = "example.caffc"
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: ./main <filename>")
+		os.Exit(1)
+	}
+	var filename = os.Args[1]
 	src, err := os.ReadFile(filename)
 	if err != nil {
 		fmt.Println("Error reading file:", err)
@@ -325,4 +331,30 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Compile the C code into an object file
+	cmd := exec.Command("gcc", "-c", "./c_files/sleep.c", "-o", "sleep.o")
+	err = cmd.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Build the Go code
+	cmd = exec.Command("llc", "-filetype=obj", "output.ll")
+	err = cmd.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Link everything together
+	cmd = exec.Command("gcc", "output.o", "sleep.o", "-o", "output")
+	err = cmd.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Remove the temporary files
+	os.Remove("output.ll")
+	os.Remove("output.o")
+	os.Remove("sleep.o")
 }
