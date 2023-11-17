@@ -1,0 +1,9 @@
+var greeting: string = "Hello, World";
+print greeting;
+
+sleep 100ms;
+
+var a: int = 5;
+var b: int = 10;
+var sum: int = a + b;
+print sum;

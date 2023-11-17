@@ -1,0 +1,46 @@
+program          ::= statement*
+
+statement        ::= variableDeclaration
+                  | assignmentStatement
+                  | expressionStatement
+                  | sleepStatement
+                  | caffeineStatement
+                  | printStatement
+                  | goStatement
+
+variableDeclaration ::= "var" identifier ":" type ( "=" expression )? ";"
+
+assignmentStatement ::= identifier "=" expression ";"
+
+expressionStatement ::= expression ";"
+
+sleepStatement    ::= "sleep" expression ";"
+
+caffeineStatement ::= "caffeinate" expression ";"
+
+printStatement    ::= "print" expression ";"
+
+goStatement       ::= "async" identifier "(" argumentList? ")" ";"
+
+expression       ::= term (("+" | "-") term)*
+
+term             ::= factor (("*" | "/") factor)*
+
+factor           ::= number
+                  | identifier
+                  | "(" expression ")"
+                  | stringLiteral
+                  | durationLiteral
+
+number           ::= digit+ ("." digit+)? (("e" | "E") ("+" | "-")? digit+)?
+
+stringLiteral    ::= "\"" .*? "\""
+
+durationLiteral  ::= number ("ns" | "us" | "ms" | "s" | "m" | "h")
+
+identifier       ::= letter (letter | digit | "_")*
+
+type             ::= "int" | "float64" | "string" | "bool"
+                  | "[]" type | "chan" "<" type ">"
+
+argumentList     ::= expression ("," expression)*
