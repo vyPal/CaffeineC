@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -55,7 +56,7 @@ type Parser struct {
 
 func (p *Parser) Parse() {
 	f := p.module.NewFunc("main", types.Void)
-	p.currentBlock = f.NewBlock("")
+	p.currentBlock = f.NewBlock("main")
 	p.registerInternalFunctions()
 
 	for p.pos < len(p.tokens) {
@@ -68,6 +69,10 @@ func (p *Parser) Parse() {
 				p.parsePrint()
 			} else if token.Value == "sleep" {
 				p.parseSleep()
+			} else if token.Value == "func" {
+				p.parseFunctionDeclaration()
+			} else if p.isFunctionName(p.tokens[p.pos].Value) {
+				p.parseFunctionCall()
 			} else {
 				fmt.Println("[W]", token.Location, "Unexpected identifier:", token.Value)
 				p.pos++
@@ -92,7 +97,7 @@ func (p *Parser) parseVarDecl() {
 		value := p.parseExpression()
 		fmt.Printf("Declare variable %s of type %s with value %v\n", name, typeName, value)
 		switch typeName {
-		case "int", "string", "duration":
+		case "int", "string", "float64", "duration":
 			p.module.NewGlobalDef(name, value)
 		default:
 			panic(fmt.Sprintf("Unknown type %s", typeName))
@@ -109,6 +114,91 @@ func (p *Parser) parseVarDecl() {
 		p.defineVariable(name, constant.NewZeroInitializer(types.I64))
 	}
 	p.pos++ // ";"
+}
+
+func (p *Parser) parseFunctionDeclaration() {
+	p.pos++ // "func"
+	name := p.tokens[p.pos].Value
+	p.pos++ // name
+	p.pos++ // "("
+	// Parse the parameters
+	var params []*ir.Param
+	for p.tokens[p.pos].Type != "PUNCT" || p.tokens[p.pos].Value != ")" {
+		paramName := p.tokens[p.pos].Value
+		p.pos++ // name
+		p.pos++ // ":"
+		paramType := p.tokens[p.pos].Value
+		p.pos++ // type
+		switch paramType {
+		case "int":
+			params = append(params, ir.NewParam(paramName, types.I64))
+		case "string":
+			params = append(params, ir.NewParam(paramName, types.NewPointer(types.I8)))
+		case "float64":
+			params = append(params, ir.NewParam(paramName, types.Double))
+		case "duration":
+			params = append(params, ir.NewParam(paramName, types.I64))
+		default:
+			panic(fmt.Sprintf("Unknown type %s", paramType))
+		}
+		if p.tokens[p.pos].Type == "PUNCT" && p.tokens[p.pos].Value == "," {
+			p.pos++ // ","
+		}
+	}
+	p.pos++ // ")"
+	// Check if the function returns a value
+	var returnType types.Type
+	if p.tokens[p.pos].Type == "PUNCT" && p.tokens[p.pos].Value == ":" {
+		p.pos++ // ":"
+		switch p.tokens[p.pos].Value {
+		case "int":
+			returnType = types.I64
+		case "string":
+			returnType = types.NewPointer(types.I8)
+		case "float64":
+			returnType = types.Double
+		case "duration":
+			returnType = types.I64
+		default:
+			panic(fmt.Sprintf("Unknown type %s", p.tokens[p.pos].Value))
+		}
+	} else {
+		returnType = types.Void
+	}
+	p.pos++ // type
+	fmt.Printf("Declare function %s with return type %s\n", name, returnType)
+	f := p.module.NewFunc(name, returnType, params...)
+	prevBlock := p.currentBlock
+	p.currentBlock = f.NewBlock("fn-" + name)
+	for p.tokens[p.pos].Type != "PUNCT" || p.tokens[p.pos].Value != "}" {
+		token := p.tokens[p.pos]
+		switch token.Type {
+		case "IDENT":
+			if token.Value == "return" {
+				p.pos++ // "return"
+				value := p.parseExpression()
+				fmt.Println("Return", value)
+				p.currentBlock.NewRet(value)
+				p.pos++ // ";"
+			} else if token.Value == "print" {
+				p.parsePrint()
+			} else if token.Value == "sleep" {
+				p.parseSleep()
+			} else if token.Value == "func" {
+				p.parseFunctionDeclaration()
+			} else {
+				fmt.Println("[W]", token.Location, "Unexpected identifier:", token.Value)
+				p.pos++
+			}
+		default:
+			fmt.Println("[W]", token.Location, "Unexpected token:", token.Value)
+			p.pos++
+		}
+	}
+	p.currentBlock.NewRet(nil)
+	p.currentBlock = prevBlock
+	p.symbolTable[name] = f
+	p.pos++ // "}"
 }
 
 func (p *Parser) defineVariable(name string, val constant.Constant) {
@@ -226,10 +316,89 @@ func (p *Parser) parseFactor() constant.Constant {
 	case "STRING":
 		return p.parseString()
 	case "IDENT":
+		if p.isFunctionName(p.tokens[p.pos].Value) {
+			return p.parseNonVoidFunctionCall()
+		}
 		return p.parseIdentifier()
 	default:
 		panic("Expected factor, found " + p.tokens[p.pos].Type)
 	}
+}
+
+func (p *Parser) isFunctionName(name string) bool {
+	symbol, exists := p.symbolTable[name]
+	if !exists {
+		return false
+	}
+	_, isFunction := symbol.(*ir.Func)
+	return isFunction
+}
+
+func (p *Parser) parseFunctionCall() {
+	// Parse the function name
+	name := p.tokens[p.pos].Value
+	p.pos++
+
+	// Get the function from the symbol table
+	function := p.symbolTable[name].(*ir.Func)
+
+	// Parse the argument list
+	var args []value.Value
+	p.pos++ // "("
+	for p.tokens[p.pos].Type != "PUNCT" || p.tokens[p.pos].Value != ")" {
+		args = append(args, p.parseExpression())
+		if p.tokens[p.pos].Type == "PUNCT" && p.tokens[p.pos].Value == "," {
+			p.pos++ // ","
+		}
+	}
+	p.pos++ // ")"
+	fmt.Println("Call", name, args)
+
+	// Create a call instruction
+	p.currentBlock.NewCall(function, args...)
+
+	p.pos++ // ";"
+}
+
+func (p *Parser) parseNonVoidFunctionCall() constant.Constant {
+	// Parse the function name
+	name := p.tokens[p.pos].Value
+	p.pos++
+
+	// Get the function from the symbol table
+	function := p.symbolTable[name].(*ir.Func)
+
+	// Check if the function returns void
+	if _, ok := function.Sig.RetType.(*types.VoidType); ok {
+		panic("Function " + name + " returns void")
+	}
+
+	// Parse the argument list
+	var args []value.Value
+	p.pos++ // "("
+	for p.tokens[p.pos].Type != "PUNCT" || p.tokens[p.pos].Value != ")" {
+		args = append(args, p.parseExpression())
+		if p.tokens[p.pos].Type == "PUNCT" && p.tokens[p.pos].Value == "," {
+			p.pos++ // ","
+		}
+	}
+	p.pos++ // ")"
+	fmt.Println("Call", name, args)
+
+	// Create a call instruction
+	call := ir.NewCall(function, args...)
+
+	// Add the call instruction to the current block
+	p.currentBlock.NewCall(call)
+
+	// Create a global variable to hold the result
+	tmp := ir.NewGlobal("", function.Sig.RetType)
+
+	// Store the result of the function call in the global variable
+	p.currentBlock.NewStore(call, tmp)
+
+	// Return the global variable as the result of the function call expression
+	return tmp
 }
 
 func (p *Parser) parseNumber() constant.Constant {
@@ -307,13 +476,40 @@ func (p *Parser) parseIdentifier() constant.Constant {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: ./main <filename>")
+		fmt.Println("Usage: ./main <command> [<args>]")
 		os.Exit(1)
 	}
-	var filename = os.Args[1]
-	src, err := os.ReadFile(filename)
-	if err != nil {
-		fmt.Println("Error reading file:", err)
+
+	var src []byte
+	var filename string
+	var no_cleanup *bool
+	switch os.Args[1] {
+	case "build":
+		buildCmd := flag.NewFlagSet("build", flag.ExitOnError)
+		no_cleanup = buildCmd.Bool("n", false, "Don't remove temporary files")
+
+		// Parse the flags for the build command
+		buildCmd.Parse(os.Args[2:])
+
+		if buildCmd.NArg() < 1 {
+			fmt.Println("Usage: ./main build [-n] <filename>")
+			os.Exit(1)
+		}
+
+		filename = buildCmd.Arg(0)
+
+		code, err := os.ReadFile(filename)
+		if err != nil {
+			fmt.Println("Error reading file:", err)
+			os.Exit(1)
+		}
+		src = code
+
+		// Use src and *noCleanup here...
+
+	default:
+		fmt.Println("Unknown command:", os.Args[1])
+		fmt.Println("Usage: ./main <command> [<args>]")
 		os.Exit(1)
 	}
 
@@ -327,7 +523,7 @@ func main() {
 	p := Parser{tokens: tokens, module: mod, symbolTable: make(map[string]constant.Constant)}
 	p.Parse()
 
-	err = os.WriteFile("output.ll", []byte(p.module.String()), 0644)
+	err := os.WriteFile("output.ll", []byte(p.module.String()), 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -354,7 +550,10 @@ func main() {
 	}
 
 	// Remove the temporary files
-	os.Remove("output.ll")
-	os.Remove("output.o")
-	os.Remove("sleep.o")
+	fmt.Println(*no_cleanup)
+	if !*no_cleanup {
+		os.Remove("output.ll")
+		os.Remove("output.o")
+		os.Remove("sleep.o")
+	}
 }

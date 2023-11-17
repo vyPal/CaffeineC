@@ -1,4 +1,4 @@
-program          ::= statement*
+program          ::= statement* functionDeclaration*
 
 statement        ::= variableDeclaration
                   | assignmentStatement
@@ -7,6 +7,7 @@ statement        ::= variableDeclaration
                   | caffeineStatement
                   | printStatement
                   | goStatement
+                  | functionCallStatement
 
 variableDeclaration ::= "var" identifier ":" type ( "=" expression )? ";"
 
@@ -22,7 +23,12 @@ printStatement    ::= "print" expression ";"
 
 goStatement       ::= "async" identifier "(" argumentList? ")" ";"
 
+functionDeclaration ::= "func" identifier "(" parameterList? ")" (":" type)? "{" statement* "}"
+
+functionCallStatement ::= identifier "(" argumentList? ")" ";"
+
 expression       ::= term (("+" | "-") term)*
+                  | functionCall
 
 term             ::= factor (("*" | "/") factor)*
 
@@ -31,6 +37,8 @@ factor           ::= number
                   | "(" expression ")"
                   | stringLiteral
                   | durationLiteral
+
+functionCall     ::= identifier "(" argumentList? ")"
 
 number           ::= digit+ ("." digit+)? (("e" | "E") ("+" | "-")? digit+)?
 
@@ -44,3 +52,5 @@ type             ::= "int" | "float64" | "string" | "bool"
                   | "[]" type | "chan" "<" type ">" | "duration"
 
 argumentList     ::= expression ("," expression)*
+
+parameterList    ::= variableDeclaration ("," variableDeclaration)*

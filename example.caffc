@@ -2,5 +2,9 @@ var a:int = 5;
 var b:int = 10;
 print a;
 print b;
+func c() {
+  print a;
+}
 sleep 1s;
 print a+b;
+c();
