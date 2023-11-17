@@ -3,8 +3,15 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"text/scanner"
+	"time"
+
+	"github.com/llir/llvm/ir"
+	"github.com/llir/llvm/ir/constant"
+	"github.com/llir/llvm/ir/types"
+	"github.com/llir/llvm/ir/value"
 )
 
 type Token struct {
@@ -31,15 +38,22 @@ func (l *Lexer) Lex() []Token {
 			tokens = append(tokens, Token{"PUNCT", l.s.TokenText(), l.s.Pos()})
 		}
 	}
+	fmt.Println(tokens)
 	return tokens
 }
 
 type Parser struct {
-	tokens []Token
-	pos    int
+	module       *ir.Module
+	symbolTable  map[string]constant.Constant
+	tokens       []Token
+	pos          int
+	currentBlock *ir.Block
 }
 
 func (p *Parser) Parse() {
+	f := p.module.NewFunc("main", types.Void)
+	p.currentBlock = f.NewBlock("")
+
 	for p.pos < len(p.tokens) {
 		token := p.tokens[p.pos]
 		switch token.Type {
@@ -59,6 +73,7 @@ func (p *Parser) Parse() {
 			p.pos++
 		}
 	}
+	p.currentBlock.NewRet(nil)
 }
 
 func (p *Parser) parseVarDecl() {
@@ -66,55 +81,116 @@ func (p *Parser) parseVarDecl() {
 	name := p.tokens[p.pos].Value
 	p.pos++ // name
 	p.pos++ // ":"
+	typeName := p.tokens[p.pos].Value
 	p.pos++ // type
 	if p.tokens[p.pos].Type == "PUNCT" && p.tokens[p.pos].Value == "=" {
 		p.pos++ // "="
 		value := p.parseExpression()
-		fmt.Printf("Declare variable %s with value %v\n", name, value)
+		fmt.Printf("Declare variable %s of type %s with value %v\n", name, typeName, value)
+		switch typeName {
+		case "int", "string", "duration":
+			p.module.NewGlobalDef(name, value)
+		default:
+			panic(fmt.Sprintf("Unknown type %s", typeName))
+		}
+		p.defineVariable(name, value)
+	} else {
+		fmt.Printf("Declare variable %s of type %s\n", name, typeName)
+		switch typeName {
+		case "int", "string", "duration":
+			p.module.NewGlobalDef(name, constant.NewZeroInitializer(types.I64))
+		default:
+			panic(fmt.Sprintf("Unknown type %s", typeName))
+		}
+		p.defineVariable(name, constant.NewZeroInitializer(types.I64))
 	}
 	p.pos++ // ";"
 }
 
+func (p *Parser) defineVariable(name string, val constant.Constant) {
+	p.symbolTable[name] = val
+}
+
 func (p *Parser) parsePrint() {
 	p.pos++ // "print"
-	value := p.parseExpression()
-	fmt.Printf("Print %v\n", value)
+	val := p.parseExpression()
+
+	// Create a declaration for the printf function
+	printf := p.module.NewFunc("printf", types.I32, ir.NewParam("", types.NewPointer(types.I8)))
+
+	// Create a call to printf
+	format := constant.NewCharArrayFromString("%d\n")
+	args := []value.Value{
+		ir.NewGlobal(format.String(), types.NewArray(uint64(len(format.String())), types.I8)),
+		val,
+	}
+	p.currentBlock.NewCall(printf, args...)
+
 	p.pos++ // ";"
 }
 
 func (p *Parser) parseSleep() {
 	p.pos++ // "sleep"
 	value := p.parseExpression()
-	fmt.Printf("Sleep %v\n", value)
+
+	// Create a declaration for the sleep function
+	sleep := p.module.NewFunc("sleep", types.Void, ir.NewParam("", types.I64))
+
+	// Create a call to sleep
+	p.currentBlock.NewCall(sleep, value)
+
 	p.pos++ // ";"
 }
 
-func (p *Parser) parseExpression() string {
+func (p *Parser) parseExpression() constant.Constant {
 	term := p.parseTerm()
 	for p.tokens[p.pos].Type == "PUNCT" && (p.tokens[p.pos].Value == "+" || p.tokens[p.pos].Value == "-") {
 		op := p.tokens[p.pos].Value
 		p.pos++ // op
 		rightTerm := p.parseTerm()
-		term = fmt.Sprintf("(%s %s %s)", term, op, rightTerm)
+		if op == "+" {
+			if term.Type() == types.I64 && rightTerm.Type() == types.I64 {
+				term = constant.NewAdd(term.(*constant.Int), rightTerm.(*constant.Int))
+			} else {
+				term = constant.NewFAdd(term, rightTerm)
+			}
+		} else {
+			if term.Type() == types.I64 && rightTerm.Type() == types.I64 {
+				term = constant.NewSub(term.(*constant.Int), rightTerm.(*constant.Int))
+			} else {
+				term = constant.NewFSub(term, rightTerm)
+			}
+		}
 	}
 	return term
 }
 
-func (p *Parser) parseTerm() string {
+func (p *Parser) parseTerm() constant.Constant {
 	factor := p.parseFactor()
 	for p.tokens[p.pos].Type == "PUNCT" && (p.tokens[p.pos].Value == "*" || p.tokens[p.pos].Value == "/") {
 		op := p.tokens[p.pos].Value
 		p.pos++ // op
 		rightFactor := p.parseFactor()
-		factor = fmt.Sprintf("(%s %s %s)", factor, op, rightFactor)
+		if op == "*" {
+			if factor.Type() == types.I64 && rightFactor.Type() == types.I64 {
+				factor = constant.NewMul(factor.(*constant.Int), rightFactor.(*constant.Int))
+			} else {
+				factor = constant.NewFMul(factor.(*constant.Float), rightFactor.(*constant.Float))
+			}
+		} else {
+			if factor.Type() == types.I64 && rightFactor.Type() == types.I64 {
+				factor = constant.NewSDiv(factor.(*constant.Int), rightFactor.(*constant.Int))
+			} else {
+				factor = constant.NewFDiv(factor.(*constant.Float), rightFactor.(*constant.Float))
+			}
+		}
 	}
 	return factor
 }
 
-func (p *Parser) parseFactor() string {
+func (p *Parser) parseFactor() constant.Constant {
 	switch p.tokens[p.pos].Type {
 	case "NUMBER":
-		// If the next token is an identifier and it's a duration unit, parse a duration
 		if p.tokens[p.pos+1].Type == "IDENT" && isDurationUnit(p.tokens[p.pos+1].Value) {
 			return p.parseDuration()
 		}
@@ -128,18 +204,53 @@ func (p *Parser) parseFactor() string {
 	}
 }
 
-func (p *Parser) parseNumber() string {
+func (p *Parser) parseNumber() constant.Constant {
 	value := p.tokens[p.pos].Value
 	p.pos++ // value
-	return value
+	if strings.Contains(value, ".") {
+		val, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			panic(err)
+		}
+		if strings.Contains(value, "e") {
+			return constant.NewFloat(types.Double, val)
+		} else {
+			return constant.NewFloat(types.Float, val)
+		}
+	} else {
+		val, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		return constant.NewInt(types.I64, val)
+	}
 }
 
-func (p *Parser) parseDuration() string {
-	value := p.tokens[p.pos].Value
+func (p *Parser) parseDuration() constant.Constant {
+	value, _ := strconv.ParseInt(p.tokens[p.pos].Value, 10, 64)
 	p.pos++ // value
 	unit := p.tokens[p.pos].Value
 	p.pos++ // unit
-	return value + unit
+
+	// Convert the value to nanoseconds
+	switch unit {
+	case "ns":
+		// value is already in nanoseconds
+	case "us":
+		value *= int64(time.Microsecond)
+	case "ms":
+		value *= int64(time.Millisecond)
+	case "s":
+		value *= int64(time.Second)
+	case "m":
+		value *= int64(time.Minute)
+	case "h":
+		value *= int64(time.Hour)
+	default:
+		panic("Unknown duration unit: " + unit)
+	}
+
+	return constant.NewInt(types.I64, value)
 }
 
 func isDurationUnit(s string) bool {
@@ -151,16 +262,19 @@ func isDurationUnit(s string) bool {
 	}
 }
 
-func (p *Parser) parseString() string {
+func (p *Parser) parseString() constant.Constant {
 	value := p.tokens[p.pos].Value
 	p.pos++ // value
-	return value
+	return constant.NewCharArray([]byte(value))
 }
 
-func (p *Parser) parseIdentifier() string {
-	value := p.tokens[p.pos].Value
+func (p *Parser) parseIdentifier() constant.Constant {
+	name := p.tokens[p.pos].Value
 	p.pos++ // value
-	return value
+	if val, ok := p.symbolTable[name]; ok {
+		return val
+	}
+	panic("Undefined identifier: " + name)
 }
 
 func main() {
@@ -176,6 +290,11 @@ func main() {
 	l.s.Filename = filename
 	tokens := l.Lex()
 
-	p := Parser{tokens: tokens}
+	mod := ir.NewModule()
+
+	p := Parser{tokens: tokens, module: mod, symbolTable: make(map[string]constant.Constant)}
 	p.Parse()
+
+	fmt.Println("\n---\nModule:\n---")
+	fmt.Println(mod)
 }

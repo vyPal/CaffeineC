@@ -41,6 +41,6 @@ durationLiteral  ::= number ("ns" | "us" | "ms" | "s" | "m" | "h")
 identifier       ::= letter (letter | digit | "_")*
 
 type             ::= "int" | "float64" | "string" | "bool"
-                  | "[]" type | "chan" "<" type ">"
+                  | "[]" type | "chan" "<" type ">" | "duration"
 
 argumentList     ::= expression ("," expression)*
