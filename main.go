@@ -8,8 +8,9 @@ import (
 )
 
 type Token struct {
-	Type  string
-	Value string
+	Type     string
+	Value    string
+	Location scanner.Position
 }
 
 type Lexer struct {
@@ -21,16 +22,15 @@ func (l *Lexer) Lex() []Token {
 	for tok := l.s.Scan(); tok != scanner.EOF; tok = l.s.Scan() {
 		switch tok {
 		case scanner.Ident:
-			tokens = append(tokens, Token{"IDENT", l.s.TokenText()})
+			tokens = append(tokens, Token{"IDENT", l.s.TokenText(), l.s.Pos()})
 		case scanner.Int, scanner.Float:
-			tokens = append(tokens, Token{"NUMBER", l.s.TokenText()})
+			tokens = append(tokens, Token{"NUMBER", l.s.TokenText(), l.s.Pos()})
 		case scanner.String:
-			tokens = append(tokens, Token{"STRING", l.s.TokenText()})
+			tokens = append(tokens, Token{"STRING", l.s.TokenText(), l.s.Pos()})
 		default:
-			tokens = append(tokens, Token{"PUNCT", l.s.TokenText()})
+			tokens = append(tokens, Token{"PUNCT", l.s.TokenText(), l.s.Pos()})
 		}
 	}
-	fmt.Println(tokens)
 	return tokens
 }
 
@@ -41,16 +41,21 @@ type Parser struct {
 
 func (p *Parser) Parse() {
 	for p.pos < len(p.tokens) {
-		switch p.tokens[p.pos].Type {
+		token := p.tokens[p.pos]
+		switch token.Type {
 		case "IDENT":
-			if p.tokens[p.pos].Value == "var" {
+			if token.Value == "var" {
 				p.parseVarDecl()
-			} else if p.tokens[p.pos].Value == "print" {
+			} else if token.Value == "print" {
 				p.parsePrint()
-			} else if p.tokens[p.pos].Value == "sleep" {
+			} else if token.Value == "sleep" {
 				p.parseSleep()
+			} else {
+				fmt.Println("[W]", token.Location, "Unexpected identifier:", token.Value)
+				p.pos++
 			}
 		default:
+			fmt.Println("[W]", token.Location, "Unexpected token:", token.Value)
 			p.pos++
 		}
 	}
@@ -159,7 +164,7 @@ func (p *Parser) parseIdentifier() string {
 }
 
 func main() {
-	const filename = "example.cf"
+	const filename = "example.caffc"
 	src, err := os.ReadFile(filename)
 	if err != nil {
 		fmt.Println("Error reading file:", err)
