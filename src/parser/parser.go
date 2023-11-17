@@ -2,14 +2,14 @@ package parser
 
 import (
 	"github.com/llir/llvm/ir"
-	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
+	"github.com/llir/llvm/ir/value"
 	"github.com/vyPal/CaffeineC/lexer"
 )
 
 type Parser struct {
 	Module            *ir.Module
-	SymbolTable       map[string]constant.Constant
+	SymbolTable       map[string]value.Value
 	Tokens            []lexer.Token
 	Pos               int
 	CurrentBlock      *ir.Block

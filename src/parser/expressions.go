@@ -8,6 +8,7 @@ import (
 
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
+	"github.com/llir/llvm/ir/value"
 )
 
 func (p *Parser) parseStatement() {
@@ -34,7 +35,7 @@ func (p *Parser) parseStatement() {
 	}
 }
 
-func (p *Parser) parseExpression() constant.Constant {
+func (p *Parser) parseExpression() value.Value {
 	term := p.parseTerm()
 	for p.Tokens[p.Pos].Type == "PUNCT" && (p.Tokens[p.Pos].Value == "+" || p.Tokens[p.Pos].Value == "-") {
 		op := p.Tokens[p.Pos].Value
@@ -44,20 +45,20 @@ func (p *Parser) parseExpression() constant.Constant {
 			if term.Type() == types.I64 && rightTerm.Type() == types.I64 {
 				term = constant.NewAdd(term.(*constant.Int), rightTerm.(*constant.Int))
 			} else {
-				term = constant.NewFAdd(term, rightTerm)
+				term = constant.NewFAdd(term.(constant.Constant), rightTerm.(constant.Constant))
 			}
 		} else {
 			if term.Type() == types.I64 && rightTerm.Type() == types.I64 {
 				term = constant.NewSub(term.(*constant.Int), rightTerm.(*constant.Int))
 			} else {
-				term = constant.NewFSub(term, rightTerm)
+				term = constant.NewFSub(term.(constant.Constant), rightTerm.(constant.Constant))
 			}
 		}
 	}
 	return term
 }
 
-func (p *Parser) parseTerm() constant.Constant {
+func (p *Parser) parseTerm() value.Value {
 	factor := p.parseFactor()
 	for p.Tokens[p.Pos].Type == "PUNCT" && (p.Tokens[p.Pos].Value == "*" || p.Tokens[p.Pos].Value == "/") {
 		op := p.Tokens[p.Pos].Value
@@ -80,7 +81,7 @@ func (p *Parser) parseTerm() constant.Constant {
 	return factor
 }
 
-func (p *Parser) parseFactor() constant.Constant {
+func (p *Parser) parseFactor() value.Value {
 	switch p.Tokens[p.Pos].Type {
 	case "NUMBER":
 		if p.Tokens[p.Pos+1].Type == "IDENT" && isDurationUnit(p.Tokens[p.Pos+1].Value) {
@@ -99,7 +100,7 @@ func (p *Parser) parseFactor() constant.Constant {
 	}
 }
 
-func (p *Parser) parseNumber() constant.Constant {
+func (p *Parser) parseNumber() value.Value {
 	value := p.Tokens[p.Pos].Value
 	p.Pos++ // value
 	if strings.Contains(value, ".") {
@@ -121,7 +122,7 @@ func (p *Parser) parseNumber() constant.Constant {
 	}
 }
 
-func (p *Parser) parseDuration() constant.Constant {
+func (p *Parser) parseDuration() value.Value {
 	value, _ := strconv.ParseInt(p.Tokens[p.Pos].Value, 10, 64)
 	p.Pos++ // value
 	unit := p.Tokens[p.Pos].Value
@@ -157,13 +158,13 @@ func isDurationUnit(s string) bool {
 	}
 }
 
-func (p *Parser) parseString() constant.Constant {
+func (p *Parser) parseString() value.Value {
 	value := p.Tokens[p.Pos].Value
 	p.Pos++ // value
 	return constant.NewCharArray([]byte(value))
 }
 
-func (p *Parser) parseIdentifier() constant.Constant {
+func (p *Parser) parseIdentifier() value.Value {
 	name := p.Tokens[p.Pos].Value
 	p.Pos++ // value
 	if val, ok := p.SymbolTable[name]; ok {

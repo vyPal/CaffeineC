@@ -197,7 +197,7 @@ func (p *Parser) parseFunctionCall() {
 	p.Pos++ // ";"
 }
 
-func (p *Parser) parseNonVoidFunctionCall() constant.Constant {
+func (p *Parser) parseNonVoidFunctionCall() value.Value {
 	// Parse the function name
 	name := p.Tokens[p.Pos].Value
 	p.Pos++
@@ -225,12 +225,7 @@ func (p *Parser) parseNonVoidFunctionCall() constant.Constant {
 	// Add the call instruction to the current block
 	call := p.CurrentBlock.NewCall(function, args...)
 
-	// Create a global variable to hold the result
-	tmp := ir.NewGlobal("", function.Sig.RetType)
+	ret := p.CurrentBlock.NewRet(call)
 
-	// Store the result of the function call in the global variable
-	p.CurrentBlock.NewStore(call, tmp)
-
-	// Return the global variable as the result of the function call expression
-	return tmp
+	return ret.X
 }

@@ -8,4 +8,4 @@ func c():int {
 }
 sleep 1s;
 print a+b;
-c();
+print c();

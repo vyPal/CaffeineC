@@ -5,6 +5,7 @@ import (
 
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
+	"github.com/llir/llvm/ir/value"
 )
 
 func (p *Parser) parseVarDecl() {
@@ -20,7 +21,7 @@ func (p *Parser) parseVarDecl() {
 		fmt.Printf("Declare variable %s of type %s with value %v\n", name, typeName, value)
 		switch typeName {
 		case "int", "string", "float64", "duration":
-			p.Module.NewGlobalDef(name, value)
+			p.Module.NewGlobalDef(name, value.(constant.Constant))
 		default:
 			panic(fmt.Sprintf("Unknown type %s", typeName))
 		}
@@ -38,6 +39,6 @@ func (p *Parser) parseVarDecl() {
 	p.Pos++ // ";"
 }
 
-func (p *Parser) defineVariable(name string, val constant.Constant) {
+func (p *Parser) defineVariable(name string, val value.Value) {
 	p.SymbolTable[name] = val
 }

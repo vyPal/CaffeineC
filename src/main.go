@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/llir/llvm/ir"
-	"github.com/llir/llvm/ir/constant"
+	"github.com/llir/llvm/ir/value"
 	"github.com/vyPal/CaffeineC/lexer"
 	"github.com/vyPal/CaffeineC/parser"
 )
@@ -60,7 +60,7 @@ func main() {
 
 	mod := ir.NewModule()
 
-	p := parser.Parser{Tokens: Tokens, Module: mod, SymbolTable: make(map[string]constant.Constant)}
+	p := parser.Parser{Tokens: Tokens, Module: mod, SymbolTable: make(map[string]value.Value)}
 	p.Parse()
 
 	err := os.WriteFile("output.ll", []byte(p.Module.String()), 0644)
