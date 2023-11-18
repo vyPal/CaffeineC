@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/llir/llvm/ir/constant"
+	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
@@ -160,8 +161,12 @@ func isDurationUnit(s string) bool {
 
 func (p *Parser) parseString() value.Value {
 	value := p.Tokens[p.Pos].Value
-	p.Pos++ // value
-	return constant.NewCharArray([]byte(value))
+	p.Pos++               // value
+	str := value + "\x00" // Add null terminator to the string
+	global := p.Module.NewGlobalDef("", constant.NewCharArrayFromString(str))
+	global.Linkage = enum.LinkagePrivate
+	global.UnnamedAddr = enum.UnnamedAddrNone
+	return global
 }
 
 func (p *Parser) parseIdentifier() value.Value {

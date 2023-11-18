@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
@@ -47,7 +48,23 @@ func (p *Parser) parseFunctionDeclaration() {
 		case "int":
 			returnType = types.I64
 		case "string":
-			returnType = nil
+			lastPos := p.Pos
+			for p.Tokens[p.Pos].Type != "PUNCT" || p.Tokens[p.Pos].Value != "}" {
+				token := p.Tokens[p.Pos]
+				switch token.Type {
+				case "IDENT":
+					if token.Value == "return" {
+						p.Pos++ // "return"
+						value := p.parseExpression()
+						returnType = value.Type()
+					} else {
+						p.Pos++
+					}
+				default:
+					p.Pos++
+				}
+			}
+			p.Pos = lastPos
 		case "float64":
 			returnType = types.Double
 		case "duration":
@@ -74,11 +91,8 @@ func (p *Parser) parseFunctionDeclaration() {
 			if token.Value == "return" {
 				p.Pos++ // "return"
 				value := p.parseExpression()
-				if returnType == nil {
-					returnType = value.Type()
-				}
-				if returnType != value.Type() {
-					panic(fmt.Sprintf("Function %s returns %s, but got %s", name, returnType, value.Type()))
+				if !returnType.Equal(value.Type()) {
+					panic(fmt.Sprintf("Function %s should return %s, but returned %s", name, returnType, value.Type()))
 				}
 				fmt.Println("Return", value)
 				p.CurrentBlock.NewRet(value)
@@ -122,22 +136,52 @@ func (p *Parser) registerInternalFunctions() {
 func (p *Parser) parsePrint() {
 	p.Pos++ // "print"
 	val := p.parseExpression()
+	fmt.Println("Call Print", val)
 
 	// Create a declaration for the printf function
 	printf := p.InternalFunctions["printf"]
 
-	// Create a call to printf
+	// Determine the format string based on the type of val
+	var formatStr string
+	switch t := val.Type().(type) {
+	case *types.IntType:
+		formatStr = "%d\n"
+	case *types.FloatType:
+		formatStr = "%f\n"
+	case *types.PointerType:
+		formatStr = "%s\n"
+	case *types.ArrayType:
+		if _, ok := t.ElemType.(*types.IntType); ok && t.ElemType.(*types.IntType).BitSize == 8 {
+			formatStr = "%s\n"
+		} else {
+			panic("Unsupported type in print: " + val.Type().String())
+		}
+	default:
+		panic("Unsupported type in print: " + val.Type().String())
+	}
+
+	// Create a unique name for the global definition
+	formatName := "format_" + strings.ReplaceAll(formatStr, "\n", "")
+	formatName = strings.ReplaceAll(formatName, "%", "")
+
+	// Check for the existence of the global definition
 	var format *ir.Global
 	for _, global := range p.Module.Globals {
-		if global.Name() == "format" {
+		if global.Name() == formatName {
 			format = global
 			break
 		}
 	}
-
 	if format == nil {
-		format = p.Module.NewGlobalDef("format", constant.NewCharArrayFromString("%d\n"))
+		// If the global definition does not exist, create a new one
+		format = p.Module.NewGlobalDef(formatName, constant.NewCharArrayFromString(formatStr))
 	}
+
+	if _, ok := val.Type().(*types.ArrayType); ok {
+		zero := constant.NewInt(types.I32, 0)
+		val = p.CurrentBlock.NewGetElementPtr(val.Type(), zero, zero)
+	}
+
 	args := []value.Value{
 		format,
 		val,

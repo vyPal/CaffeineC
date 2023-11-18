@@ -1,11 +1,5 @@
-var a:int = 5;
-var b:int = 10;
-print a;
-print b;
-func c():int {
-  print a;
-  return 1;
+print "hello";
+func c():string {
+  return "Hello, World"
 }
-sleep 1s;
-print a+b;
 print c();
