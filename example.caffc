@@ -1,5 +1,6 @@
-print "hello";
-func c():string {
-  return "Hello, World"
+func zero():string {
+  return "hi"
 }
-print c();
+
+var a:string = zero();
+print a;

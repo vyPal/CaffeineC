@@ -10,6 +10,7 @@ import (
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/value"
+	"github.com/vyPal/CaffeineC/compiler"
 	"github.com/vyPal/CaffeineC/lexer"
 	"github.com/vyPal/CaffeineC/parser"
 )
@@ -60,10 +61,13 @@ func main() {
 
 	mod := ir.NewModule()
 
-	p := parser.Parser{Tokens: Tokens, Module: mod, SymbolTable: make(map[string]value.Value)}
+	p := parser.Parser{Tokens: Tokens}
 	p.Parse()
 
-	err := os.WriteFile("output.ll", []byte(p.Module.String()), 0644)
+	c := compiler.Compiler{Module: mod, SymbolTable: make(map[string]value.Value), AST: p.AST}
+	c.Compile()
+
+	err := os.WriteFile("output.ll", []byte(c.Module.String()), 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -90,10 +94,11 @@ func main() {
 	}
 
 	// Remove the temporary files
-	fmt.Println(*no_cleanup)
 	if !*no_cleanup {
 		os.Remove("output.ll")
 		os.Remove("output.o")
 		os.Remove("sleep.o")
 	}
+
+	fmt.Println("Done!")
 }

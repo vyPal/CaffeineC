@@ -6,10 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/llir/llvm/ir/constant"
-	"github.com/llir/llvm/ir/enum"
-	"github.com/llir/llvm/ir/types"
-	"github.com/llir/llvm/ir/value"
+	"github.com/vyPal/CaffeineC/compiler"
 )
 
 func (p *Parser) parseStatement() {
@@ -19,13 +16,13 @@ func (p *Parser) parseStatement() {
 		if token.Value == "var" {
 			p.parseVarDecl()
 		} else if token.Value == "print" {
-			p.parsePrint()
+			p.AST = append(p.AST, p.parsePrint())
 		} else if token.Value == "sleep" {
-			p.parseSleep()
+			p.AST = append(p.AST, p.parseSleep())
 		} else if token.Value == "func" {
-			p.parseFunctionDeclaration()
-		} else if p.isFunctionName(p.Tokens[p.Pos].Value) {
-			p.parseFunctionCall()
+			p.AST = append(p.AST, p.parseFunctionDeclaration())
+		} else if p.Tokens[p.Pos+1].Type == "PUNCT" && p.Tokens[p.Pos+1].Value == "(" {
+			p.AST = append(p.AST, p.parseFunctionCall())
 		} else {
 			fmt.Println("[W]", token.Location, "Unexpected identifier:", token.Value)
 			p.Pos++
@@ -36,53 +33,37 @@ func (p *Parser) parseStatement() {
 	}
 }
 
-func (p *Parser) parseExpression() value.Value {
+func (p *Parser) parseExpression() compiler.Expr {
 	term := p.parseTerm()
 	for p.Tokens[p.Pos].Type == "PUNCT" && (p.Tokens[p.Pos].Value == "+" || p.Tokens[p.Pos].Value == "-") {
 		op := p.Tokens[p.Pos].Value
 		p.Pos++ // op
 		rightTerm := p.parseTerm()
 		if op == "+" {
-			if term.Type() == types.I64 && rightTerm.Type() == types.I64 {
-				term = constant.NewAdd(term.(*constant.Int), rightTerm.(*constant.Int))
-			} else {
-				term = constant.NewFAdd(term.(constant.Constant), rightTerm.(constant.Constant))
-			}
+			term = compiler.EAdd{Left: term, Right: rightTerm}
 		} else {
-			if term.Type() == types.I64 && rightTerm.Type() == types.I64 {
-				term = constant.NewSub(term.(*constant.Int), rightTerm.(*constant.Int))
-			} else {
-				term = constant.NewFSub(term.(constant.Constant), rightTerm.(constant.Constant))
-			}
+			term = compiler.ESub{Left: term, Right: rightTerm}
 		}
 	}
 	return term
 }
 
-func (p *Parser) parseTerm() value.Value {
+func (p *Parser) parseTerm() compiler.Expr {
 	factor := p.parseFactor()
 	for p.Tokens[p.Pos].Type == "PUNCT" && (p.Tokens[p.Pos].Value == "*" || p.Tokens[p.Pos].Value == "/") {
 		op := p.Tokens[p.Pos].Value
 		p.Pos++ // op
 		rightFactor := p.parseFactor()
 		if op == "*" {
-			if factor.Type() == types.I64 && rightFactor.Type() == types.I64 {
-				factor = constant.NewMul(factor.(*constant.Int), rightFactor.(*constant.Int))
-			} else {
-				factor = constant.NewFMul(factor.(*constant.Float), rightFactor.(*constant.Float))
-			}
+			factor = compiler.EMul{Left: factor, Right: rightFactor}
 		} else {
-			if factor.Type() == types.I64 && rightFactor.Type() == types.I64 {
-				factor = constant.NewSDiv(factor.(*constant.Int), rightFactor.(*constant.Int))
-			} else {
-				factor = constant.NewFDiv(factor.(*constant.Float), rightFactor.(*constant.Float))
-			}
+			factor = compiler.EDiv{Left: factor, Right: rightFactor}
 		}
 	}
 	return factor
 }
 
-func (p *Parser) parseFactor() value.Value {
+func (p *Parser) parseFactor() compiler.Expr {
 	switch p.Tokens[p.Pos].Type {
 	case "NUMBER":
 		if p.Tokens[p.Pos+1].Type == "IDENT" && isDurationUnit(p.Tokens[p.Pos+1].Value) {
@@ -92,7 +73,7 @@ func (p *Parser) parseFactor() value.Value {
 	case "STRING":
 		return p.parseString()
 	case "IDENT":
-		if p.isFunctionName(p.Tokens[p.Pos].Value) {
+		if p.Tokens[p.Pos+1].Type == "PUNCT" && p.Tokens[p.Pos+1].Value == "(" {
 			return p.parseNonVoidFunctionCall()
 		}
 		return p.parseIdentifier()
@@ -101,7 +82,7 @@ func (p *Parser) parseFactor() value.Value {
 	}
 }
 
-func (p *Parser) parseNumber() value.Value {
+func (p *Parser) parseNumber() compiler.Expr {
 	value := p.Tokens[p.Pos].Value
 	p.Pos++ // value
 	if strings.Contains(value, ".") {
@@ -109,45 +90,41 @@ func (p *Parser) parseNumber() value.Value {
 		if err != nil {
 			panic(err)
 		}
-		if strings.Contains(value, "e") {
-			return constant.NewFloat(types.Double, val)
-		} else {
-			return constant.NewFloat(types.Float, val)
-		}
+		return compiler.EFloat{Value: val}
 	} else {
 		val, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
 			panic(err)
 		}
-		return constant.NewInt(types.I64, val)
+		return compiler.EInt{Value: val}
 	}
 }
 
-func (p *Parser) parseDuration() value.Value {
+func (p *Parser) parseDuration() compiler.Expr {
 	value, _ := strconv.ParseInt(p.Tokens[p.Pos].Value, 10, 64)
 	p.Pos++ // value
 	unit := p.Tokens[p.Pos].Value
 	p.Pos++ // unit
 
-	// Convert the value to nanoseconds
+	var duration time.Duration
 	switch unit {
 	case "ns":
-		// value is already in nanoseconds
+		duration = time.Duration(value) * time.Nanosecond
 	case "us":
-		value *= int64(time.Microsecond)
+		duration = time.Duration(value) * time.Microsecond
 	case "ms":
-		value *= int64(time.Millisecond)
+		duration = time.Duration(value) * time.Millisecond
 	case "s":
-		value *= int64(time.Second)
+		duration = time.Duration(value) * time.Second
 	case "m":
-		value *= int64(time.Minute)
+		duration = time.Duration(value) * time.Minute
 	case "h":
-		value *= int64(time.Hour)
+		duration = time.Duration(value) * time.Hour
 	default:
-		panic("Unknown duration unit: " + unit)
+		panic("Unknown duration unit " + unit)
 	}
 
-	return constant.NewInt(types.I64, value)
+	return compiler.EDuration{Value: duration}
 }
 
 func isDurationUnit(s string) bool {
@@ -159,21 +136,16 @@ func isDurationUnit(s string) bool {
 	}
 }
 
-func (p *Parser) parseString() value.Value {
+func (p *Parser) parseString() compiler.Expr {
 	value := p.Tokens[p.Pos].Value
-	p.Pos++               // value
-	str := value + "\x00" // Add null terminator to the string
-	global := p.Module.NewGlobalDef("", constant.NewCharArrayFromString(str))
-	global.Linkage = enum.LinkagePrivate
-	global.UnnamedAddr = enum.UnnamedAddrNone
-	return global
+	p.Pos++ // value
+	value = strings.Trim(value, "\"") + "\000"
+	fmt.Println("Returning string: " + value)
+	return compiler.EString{Value: value}
 }
 
-func (p *Parser) parseIdentifier() value.Value {
+func (p *Parser) parseIdentifier() compiler.Expr {
 	name := p.Tokens[p.Pos].Value
 	p.Pos++ // value
-	if val, ok := p.SymbolTable[name]; ok {
-		return val
-	}
-	panic("Undefined identifier: " + name)
+	return compiler.EVar{Name: name}
 }

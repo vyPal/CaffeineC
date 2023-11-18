@@ -3,9 +3,8 @@ package parser
 import (
 	"fmt"
 
-	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
-	"github.com/llir/llvm/ir/value"
+	"github.com/vyPal/CaffeineC/compiler"
 )
 
 func (p *Parser) parseVarDecl() {
@@ -20,25 +19,31 @@ func (p *Parser) parseVarDecl() {
 		value := p.parseExpression()
 		fmt.Printf("Declare variable %s of type %s with value %v\n", name, typeName, value)
 		switch typeName {
-		case "int", "string", "float64", "duration":
-			p.Module.NewGlobalDef(name, value.(constant.Constant))
+		case "int":
+			p.AST = append(p.AST, &compiler.SDefine{Name: name, Typ: types.I64, Expr: value})
+		case "string":
+			p.AST = append(p.AST, &compiler.SDefine{Name: name, Typ: &types.PointerType{ElemType: types.I8}, Expr: value})
+		case "float64":
+			p.AST = append(p.AST, &compiler.SDefine{Name: name, Typ: types.Double, Expr: value})
+		case "duration":
+			p.AST = append(p.AST, &compiler.SDefine{Name: name, Typ: types.I64, Expr: value})
 		default:
 			panic(fmt.Sprintf("Unknown type %s", typeName))
 		}
-		p.defineVariable(name, value)
 	} else {
 		fmt.Printf("Declare variable %s of type %s\n", name, typeName)
 		switch typeName {
-		case "int", "string", "duration":
-			p.Module.NewGlobalDef(name, constant.NewZeroInitializer(types.I64))
+		case "int":
+			p.AST = append(p.AST, &compiler.SDefine{Name: name, Typ: types.I64, Expr: nil})
+		case "string":
+			p.AST = append(p.AST, &compiler.SDefine{Name: name, Typ: &types.PointerType{ElemType: types.I8}, Expr: nil})
+		case "float64":
+			p.AST = append(p.AST, &compiler.SDefine{Name: name, Typ: types.Double, Expr: nil})
+		case "duration":
+			p.AST = append(p.AST, &compiler.SDefine{Name: name, Typ: types.I64, Expr: nil})
 		default:
 			panic(fmt.Sprintf("Unknown type %s", typeName))
 		}
-		p.defineVariable(name, constant.NewZeroInitializer(types.I64))
 	}
 	p.Pos++ // ";"
-}
-
-func (p *Parser) defineVariable(name string, val value.Value) {
-	p.SymbolTable[name] = val
 }
