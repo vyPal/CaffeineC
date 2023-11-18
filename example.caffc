@@ -1,6 +1,9 @@
-func zero():string {
-  return "hi"
+var a: int = 5;
+var b: int = 10;
+
+func something(): int {
+  var c: int = a + b;
+  return c
 }
 
-var a:string = zero();
-print a;
+something()

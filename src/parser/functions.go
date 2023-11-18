@@ -68,7 +68,9 @@ func (p *Parser) parseFunctionDeclaration() compiler.Stmt {
 		token := p.Tokens[p.Pos]
 		switch token.Type {
 		case "IDENT":
-			if token.Value == "return" {
+			if token.Value == "var" {
+				body = append(body, p.parseVarDecl()...)
+			} else if token.Value == "return" {
 				p.Pos++ // "return"
 				value := p.parseExpression()
 				fmt.Println("Return", value)

@@ -3,35 +3,75 @@ package compiler
 import (
 	"fmt"
 
+	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
 
 func (c *Context) compileFunctionCall(s SFuncCall) value.Value {
-	f := c.lookupVariable(s.Name)
+	fn := c.lookupVariable(s.Name)
+	entryBlock := fn.(*ir.Func).Blocks[0]
+	declCtx := c.NewContext(entryBlock, c.Compiler)
+	f := declCtx.lookupVariable(s.Name)
 	args := make([]value.Value, len(s.Args))
 	for i, arg := range s.Args {
 		args[i] = c.compileExpr(arg)
+	}
+	for name := range declCtx.usedVars {
+		variable := declCtx.lookupVariable(name)
+		if _, ok := variable.(*ir.Func); !ok {
+			// If it's not a function, load the value of the variable
+			value := declCtx.Block.NewLoad(variable.Type(), variable)
+			args = append(args, value)
+		}
 	}
 	return c.NewCall(f, args...)
 }
 
 func (c *Context) compileFunctionCallExpr(e ECall) value.Value {
-	f := c.lookupVariable(e.Name)
+	fn := c.lookupVariable(e.Name)
+	entryBlock := fn.(*ir.Func).Blocks[0]
+	declCtx := c.NewContext(entryBlock, c.Compiler)
+	f := declCtx.lookupVariable(e.Name)
 	args := make([]value.Value, len(e.Args))
 	for i, arg := range e.Args {
 		args[i] = c.compileExpr(arg)
+	}
+	for name := range declCtx.usedVars {
+		variable := declCtx.lookupVariable(name)
+		if _, ok := variable.(*ir.Func); !ok {
+			// If it's not a function, load the value of the variable
+			value := declCtx.Block.NewLoad(variable.Type(), variable)
+			args = append(args, value)
+		}
 	}
 	return c.NewCall(f, args...)
 }
 
 func (c *Context) compileFunctionDecl(s SFuncDecl) {
+	// Create a temporary context and block for analysis
+	tmpBlock := c.Module.NewFunc("tmp", types.Void)
+	tmpCtx := c.NewContext(tmpBlock.NewBlock("entry"), c.Compiler)
+
+	for _, stmt := range s.Body {
+		tmpCtx.compileStmt(stmt)
+	}
+	for name := range tmpCtx.usedVars {
+		fmt.Println("Used var:", name)
+		c.usedVars[name] = true
+		value := tmpCtx.lookupVariable(name)
+		s.Args = append(s.Args, ir.NewParam("", value.Type()))
+	}
+
+	// Remove the temporary function from the module
+	c.Module.Funcs = c.Module.Funcs[:len(c.Module.Funcs)-1]
+
 	f := c.Module.NewFunc(s.Name, s.ReturnType, s.Args...)
-	f.Sig.Variadic = true
+	f.Sig.Variadic = false
 	f.Sig.RetType = s.ReturnType
 	block := f.NewBlock("entry")
-	ctx := NewContext(block, c.Compiler)
+	ctx := c.NewContext(block, c.Compiler)
 	for _, stmt := range s.Body {
 		ctx.compileStmt(stmt)
 	}
@@ -45,6 +85,7 @@ func (c *Context) compileFunctionDecl(s SFuncDecl) {
 
 	c.vars[s.Name] = f
 }
+
 func (c *Context) compilePrintCall(s SPrint) {
 	// Declare the printf function if it hasn't been declared yet
 	printf := c.Context.SymbolTable["printf"]

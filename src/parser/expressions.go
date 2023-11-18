@@ -14,7 +14,7 @@ func (p *Parser) parseStatement() {
 	switch token.Type {
 	case "IDENT":
 		if token.Value == "var" {
-			p.parseVarDecl()
+			p.AST = append(p.AST, p.parseVarDecl()...)
 		} else if token.Value == "print" {
 			p.AST = append(p.AST, p.parsePrint())
 		} else if token.Value == "sleep" {

@@ -80,6 +80,9 @@ func (ctx *Context) compileConst(e EConst) value.Value {
 func (ctx *Context) compileStmt(stmt Stmt) {
 	switch s := stmt.(type) {
 	case *SDefine:
+		if ctx.Block == nil {
+			panic("cannot declare variable outside of a function")
+		}
 		v := ctx.NewAlloca(s.Typ)
 		value := ctx.compileExpr(s.Expr)
 		if value.Type().Equal(types.NewPointer(s.Typ)) {

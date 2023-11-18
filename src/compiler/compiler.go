@@ -11,8 +11,9 @@ import (
 
 type Context struct {
 	*ir.Block
-	parent *Context
-	vars   map[string]value.Value
+	parent   *Context
+	vars     map[string]value.Value
+	usedVars map[string]bool
 	*Compiler
 }
 
@@ -22,6 +23,7 @@ func NewContext(b *ir.Block, comp *Compiler) *Context {
 		Compiler: comp,
 		parent:   nil,
 		vars:     make(map[string]value.Value),
+		usedVars: make(map[string]bool),
 	}
 }
 
@@ -35,7 +37,10 @@ func (c Context) lookupVariable(name string) value.Value {
 	if v, ok := c.vars[name]; ok {
 		return v
 	} else if c.parent != nil {
-		return c.parent.lookupVariable(name)
+		v := c.parent.lookupVariable(name)
+		// Mark the variable as used in the parent context
+		c.usedVars[name] = true
+		return v
 	} else {
 		fmt.Printf("variable: `%s`\n", name)
 		panic("no such variable")
