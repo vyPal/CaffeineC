@@ -51,6 +51,7 @@ func (c *Context) compileFunctionCallExpr(e ECall) value.Value {
 
 func (c *Context) compileFunctionDecl(s SFuncDecl) {
 	// Create a temporary context and block for analysis
+	tmpFunctions := c.Module.Funcs
 	tmpBlock := c.Module.NewFunc("tmp", types.Void)
 	tmpCtx := c.NewContext(tmpBlock.NewBlock("entry"), c.Compiler)
 
@@ -65,7 +66,7 @@ func (c *Context) compileFunctionDecl(s SFuncDecl) {
 	}
 
 	// Remove the temporary function from the module
-	c.Module.Funcs = c.Module.Funcs[:len(c.Module.Funcs)-1]
+	c.Module.Funcs = tmpFunctions
 
 	f := c.Module.NewFunc(s.Name, s.ReturnType, s.Args...)
 	f.Sig.Variadic = false
