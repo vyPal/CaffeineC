@@ -23,7 +23,7 @@ func (p *Parser) parseFunctionDeclaration() compiler.Stmt {
 		p.Pos++ // type
 		switch paramType {
 		case "int":
-			params = append(params, ir.NewParam(paramName, types.I64))
+			params = append(params, ir.NewParam(paramName, &types.PointerType{ElemType: types.I64}))
 		case "string":
 			params = append(params, ir.NewParam(paramName, &types.ArrayType{ElemType: types.I8}))
 		case "float64":
