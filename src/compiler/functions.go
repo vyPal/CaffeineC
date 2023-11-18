@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
@@ -41,10 +42,9 @@ func (c *Context) compileFunctionCallExpr(e ECall) value.Value {
 		variable := c.lookupVariable(name)
 		if _, ok := variable.(*ir.Func); !ok {
 			// If it's not a function, check if it's a pointer
-			if pt, ok := variable.Type().(*types.PointerType); ok {
+			if _, ok := variable.Type().(*types.PointerType); ok {
 				// If it's a pointer, load the value it points to
-				value := c.Block.NewLoad(pt.ElemType, variable)
-				args = append(args, value)
+				args = append(args, variable)
 			} else {
 				// If it's not a pointer, load the value of the variable
 				value := c.Block.NewLoad(variable.Type(), variable)
@@ -113,7 +113,6 @@ func (c *Context) compilePrintCall(s SPrint) {
 		formatString = "%f\n"
 	case *types.ArrayType: // Assuming strings are represented as an array of characters
 		if t.ElemType.Equal(types.I8) {
-			fmt.Printf("%T: %v\n", t, t)
 			// Create a global constant for the string
 			str := c.Module.NewGlobalDef(".str", value.(constant.Constant))
 			// Get a pointer to the first element of the string
@@ -134,9 +133,20 @@ func (c *Context) compilePrintCall(s SPrint) {
 		panic(fmt.Errorf("cannot print value of type `%s`", value.Type()))
 	}
 
-	// Create a global constant for the format string
-	format := c.Module.NewGlobalDef(".fmt", constant.NewCharArrayFromString(formatString))
+	//Check in c.Module.Globals for an existing format string for this type
+	shortFormatString := strings.ReplaceAll(formatString[:len(formatString)-1], "%", "")
+	var format *ir.Global
+	for _, global := range c.Module.Globals {
+		if global.Name() == ".fmt-"+shortFormatString {
+			format = global
+			break
+		}
+	}
+	if format == nil {
+		// Create a global constant for the format string
+		format = c.Module.NewGlobalDef(".fmt-"+shortFormatString, constant.NewCharArrayFromString(formatString))
+	}
 
-	// Create the call to printf
-	c.Block.NewCall(printf, format, value)
+	// Create the call to printf and ignore the return value
+	_ = c.Block.NewCall(printf, format, value)
 }

@@ -139,7 +139,7 @@ func isDurationUnit(s string) bool {
 func (p *Parser) parseString() compiler.Expr {
 	value := p.Tokens[p.Pos].Value
 	p.Pos++ // value
-	value = strings.Trim(value, "\"") + "\000"
+	value = strings.Trim(value, "\"")
 	fmt.Println("Returning string: " + value)
 	return compiler.EString{Value: value}
 }

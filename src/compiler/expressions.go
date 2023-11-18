@@ -67,8 +67,6 @@ func (ctx *Context) compileConst(e EConst) value.Value {
 		for i, char := range str {
 			ctx.Block.NewStore(constant.NewInt(types.I8, int64(char)), ctx.Block.NewGetElementPtr(types.I8, mem, constant.NewInt(types.I32, int64(i))))
 		}
-		// Store the null terminator
-		ctx.Block.NewStore(constant.NewInt(types.I8, 0), ctx.Block.NewGetElementPtr(types.I8, mem, constant.NewInt(types.I32, int64(strLen-1))))
 		return mem
 	case EDuration:
 		return constant.NewInt(types.I64, int64(e.Value))

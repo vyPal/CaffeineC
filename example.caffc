@@ -1,9 +1,12 @@
-var a: int = 5;
-var b: int = 10;
+var a:string = "Hello, World!";
 
-func something(): int {
-  var c: int = a + b;
-  return c
-}
+var b:int = 5;
+var c:int = 10;
 
-something()
+print a;
+
+var d:string = "The sum of 5 + 10 = ";
+print d;
+
+var e:int = b + c;
+print e;
