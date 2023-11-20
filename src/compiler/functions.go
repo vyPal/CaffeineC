@@ -132,6 +132,10 @@ func (c *Context) compilePrintCall(s SPrint) {
 			// Get a pointer to the first element of the string
 			value = c.Block.NewLoad(value.Type(), str)
 			formatString = "%s\n"
+		} else if t.ElemType.Equal(types.I64) {
+			// Get a pointer to the first element of the string
+			value = c.Block.NewLoad(value.Type(), value)
+			formatString = "%d\n"
 		} else {
 			panic(fmt.Errorf("cannot print value of type `%s`", value.Type()))
 		}

@@ -95,7 +95,7 @@ func (p *Parser) parseFactor() compiler.Expr {
 		if p.Tokens[p.Pos+1].Type == "IDENT" && isDurationUnit(p.Tokens[p.Pos+1].Value) {
 			return p.parseDuration()
 		}
-		return p.parseNumber()
+		return p.parseNumber(false)
 	case "STRING":
 		return p.parseString()
 	case "IDENT":
@@ -103,14 +103,24 @@ func (p *Parser) parseFactor() compiler.Expr {
 			return p.parseNonVoidFunctionCall()
 		}
 		return p.parseIdentifier()
+	case "PUNCT":
+		if p.Tokens[p.Pos+1].Type == "NUMBER" {
+			return p.parseNumber(true)
+		} else {
+			panic("Expected factor, found " + p.Tokens[p.Pos].Type)
+		}
 	default:
 		panic("Expected factor, found " + p.Tokens[p.Pos].Type)
 	}
 }
 
-func (p *Parser) parseNumber() compiler.Expr {
+func (p *Parser) parseNumber(symbol bool) compiler.Expr {
 	value := p.Tokens[p.Pos].Value
 	p.Pos++ // value
+	if symbol {
+		value += p.Tokens[p.Pos].Value
+		p.Pos++
+	}
 	if strings.Contains(value, ".") {
 		val, err := strconv.ParseFloat(value, 64)
 		if err != nil {
