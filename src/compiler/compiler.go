@@ -34,6 +34,11 @@ func (c *Context) NewContext(b *ir.Block) *Context {
 }
 
 func (c Context) lookupVariable(name string) value.Value {
+	for _, param := range c.Block.Parent.Params {
+		if param.Name() == name {
+			return param
+		}
+	}
 	if v, ok := c.vars[name]; ok {
 		return v
 	} else if c.parent != nil {

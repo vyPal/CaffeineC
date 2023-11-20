@@ -60,10 +60,21 @@ func (c *Context) compileFunctionDecl(s SFuncDecl) {
 	tmpBlock := c.Module.NewFunc("tmp", types.Void)
 	tmpCtx := c.NewContext(tmpBlock.NewBlock("entry"))
 
+	var argsUsed []string
+	for _, arg := range s.Args {
+		argsUsed = append(argsUsed, arg.Name())
+		tmpCtx.vars[arg.Name()] = constant.NewInt(types.I1, 0)
+		fmt.Println("Defined " + arg.Name())
+	}
 	for _, stmt := range s.Body {
 		tmpCtx.compileStmt(stmt)
 	}
 	for name := range tmpCtx.usedVars {
+		for _, arg := range argsUsed {
+			if arg == name {
+				continue
+			}
+		}
 		fmt.Println("Used var:", name)
 		c.usedVars[name] = true
 		value := tmpCtx.lookupVariable(name)

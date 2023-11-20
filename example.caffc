@@ -1,4 +1,5 @@
-var a:int = -1;
-var b:int = 1;
+func add(a: int, b:int):int {
+  return a + b
+}
 
-print a + b;
+print add(5, 10);
