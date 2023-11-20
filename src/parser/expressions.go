@@ -46,7 +46,7 @@ func (p *Parser) parseIf() *compiler.SIf {
 		body = append(body, p.parseStatement()...)
 	}
 	p.Pos++ // "}"
-	if p.Tokens[p.Pos].Type == "IDENT" && p.Tokens[p.Pos].Value == "else" {
+	if len(p.Tokens) != p.Pos && p.Tokens[p.Pos].Type == "IDENT" && p.Tokens[p.Pos].Value == "else" {
 		p.Pos++ // "else"
 		p.Pos++ // "{"
 		var elseBody []compiler.Stmt
