@@ -99,6 +99,13 @@ func (c *Context) compilePrintCall(s SPrint) {
 	// Compile the expression to print
 	value := c.compileExpr(s.Expr)
 
+	// If the value is a pointer, load the value it points to
+	if ptrType, ok := value.Type().(*types.PointerType); ok {
+		if ptrType.ElemType.Equal(types.I8Ptr) {
+			value = c.Block.NewLoad(ptrType.ElemType, value)
+		}
+	}
+
 	// Determine the format string based on the type of the expression
 	var formatString string
 	switch t := value.Type().(type) {
@@ -113,6 +120,8 @@ func (c *Context) compilePrintCall(s SPrint) {
 			// Get a pointer to the first element of the string
 			value = c.Block.NewGetElementPtr(str.Type(), str, constant.NewInt(types.I32, 0))
 			formatString = "%s\n"
+		} else {
+			panic(fmt.Errorf("cannot print value of type `%s`", value.Type()))
 		}
 	case *types.PointerType:
 		if t.ElemType.Equal(types.I8) {
@@ -123,6 +132,8 @@ func (c *Context) compilePrintCall(s SPrint) {
 			// Get a pointer to the first element of the string
 			value = c.Block.NewLoad(value.Type(), str)
 			formatString = "%s\n"
+		} else {
+			panic(fmt.Errorf("cannot print value of type `%s`", value.Type()))
 		}
 	default:
 		panic(fmt.Errorf("cannot print value of type `%s`", value.Type()))

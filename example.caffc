@@ -1,7 +1,3 @@
-print "a";
-if 0 {
-  print "a";
-} else {
-  print "a";
-}
+var a:string = "a";
+print a;
 print "a";
