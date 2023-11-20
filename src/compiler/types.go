@@ -70,6 +70,36 @@ type EDiv struct {
 	Left  Expr
 	Right Expr
 }
+type EGt struct {
+	EDiv
+	Left  Expr
+	Right Expr
+}
+type EEGt struct {
+	EDiv
+	Left  Expr
+	Right Expr
+}
+type EELt struct {
+	EDiv
+	Left  Expr
+	Right Expr
+}
+type ELt struct {
+	EDiv
+	Left  Expr
+	Right Expr
+}
+type EEq struct {
+	EDiv
+	Left  Expr
+	Right Expr
+}
+type ENEq struct {
+	EDiv
+	Left  Expr
+	Right Expr
+}
 
 type Stmt interface{ isStmt() Stmt }
 type SDefine struct {

@@ -14,7 +14,11 @@ func (ctx *Context) compileExpr(e Expr) value.Value {
 	case EConst:
 		return ctx.compileConst(e)
 	case EVar:
-		return ctx.lookupVariable(e.Name)
+		v := ctx.lookupVariable(e.Name)
+		if p, ok := v.Type().(*types.PointerType); ok {
+			v = ctx.Block.NewLoad(p.ElemType, v)
+		}
+		return v
 	case EAssign:
 		v := ctx.compileExpr(e.Value)
 		ctx.vars[e.Name] = v

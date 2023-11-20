@@ -59,12 +59,37 @@ func (p *Parser) parseIf() *compiler.SIf {
 	return &compiler.SIf{Cond: condition, Then: body}
 }
 
-func (p *Parser) parseExpression() compiler.Expr {
+func (p *Parser) parseComparison() compiler.Expr {
 	term := p.parseTerm()
-	for p.Tokens[p.Pos].Type == "PUNCT" && (p.Tokens[p.Pos].Value == "+" || p.Tokens[p.Pos].Value == "-") {
+	fmt.Println(p.Tokens[p.Pos].Type)
+	for p.Tokens[p.Pos].Type == "PUNCT" && (p.Tokens[p.Pos].Value == ">" || p.Tokens[p.Pos].Value == ">=" || p.Tokens[p.Pos].Value == "<" || p.Tokens[p.Pos].Value == "<=" || p.Tokens[p.Pos].Value == "==" || p.Tokens[p.Pos].Value == "!=") {
 		op := p.Tokens[p.Pos].Value
 		p.Pos++ // op
 		rightTerm := p.parseTerm()
+		switch op {
+		case ">":
+			term = compiler.EGt{Left: term, Right: rightTerm}
+		case ">=":
+			term = compiler.EEGt{Left: term, Right: rightTerm}
+		case "<":
+			term = compiler.ELt{Left: term, Right: rightTerm}
+		case "<=":
+			term = compiler.EELt{Left: term, Right: rightTerm}
+		case "==":
+			term = compiler.EEq{Left: term, Right: rightTerm}
+		case "!=":
+			term = compiler.ENEq{Left: term, Right: rightTerm}
+		}
+	}
+	return term
+}
+
+func (p *Parser) parseExpression() compiler.Expr {
+	term := p.parseComparison()
+	for p.Tokens[p.Pos].Type == "PUNCT" && (p.Tokens[p.Pos].Value == "+" || p.Tokens[p.Pos].Value == "-") {
+		op := p.Tokens[p.Pos].Value
+		p.Pos++ // op
+		rightTerm := p.parseComparison()
 		if op == "+" {
 			term = compiler.EAdd{Left: term, Right: rightTerm}
 		} else {

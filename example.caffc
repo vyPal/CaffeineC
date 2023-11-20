@@ -1,5 +1,8 @@
-func add(a: int, b:int):int {
-  return a + b
+var a:int = 5;
+var b:int = 10;
+
+func add(x: int, y:int):int {
+  return x + y
 }
 
-print add(5, 10);
+print add(a, b);
