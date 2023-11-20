@@ -1,4 +1,7 @@
-var 5:string = "cs";
-var 1:string = 5;
-
-print 1;
+print "a";
+if 0 {
+  print "a";
+} else {
+  print "a";
+}
+print "a";

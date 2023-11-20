@@ -166,7 +166,6 @@ func (p *Parser) parseString() compiler.Expr {
 	value := p.Tokens[p.Pos].Value
 	p.Pos++ // value
 	value = strings.Trim(value, "\"")
-	fmt.Println("Returning string: " + value)
 	return compiler.EString{Value: value}
 }
 

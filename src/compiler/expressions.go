@@ -57,6 +57,12 @@ func (ctx *Context) compileConst(e EConst) value.Value {
 		}
 		return constant.NewInt(types.I64, e.Value)
 	case EFloat:
+		if ctx.Compiler.VarsCanBeNumbers {
+			value := ctx.lookupVariable(fmt.Sprint(e.Value))
+			if value != nil {
+				return value
+			}
+		}
 		return constant.NewFloat(types.Double, e.Value)
 	case EString:
 		str := e.Value
@@ -100,7 +106,7 @@ func (ctx *Context) compileStmt(stmt Stmt) {
 	case *SPrint:
 		ctx.compilePrintCall(*s)
 	case *SSleep:
-		panic(fmt.Errorf("not implemented: %T", stmt))
+		ctx.compileSleepCall(*s)
 	case *SFuncDecl:
 		ctx.compileFunctionDecl(*s)
 	case *SFuncCall:

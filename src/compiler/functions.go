@@ -99,11 +99,6 @@ func (c *Context) compilePrintCall(s SPrint) {
 	// Compile the expression to print
 	value := c.compileExpr(s.Expr)
 
-	// If the value is a pointer, load the value it points to
-	if ptrType, ok := value.Type().(*types.PointerType); ok {
-		value = c.Block.NewLoad(ptrType.ElemType, value)
-	}
-
 	// Determine the format string based on the type of the expression
 	var formatString string
 	switch t := value.Type().(type) {
@@ -149,4 +144,15 @@ func (c *Context) compilePrintCall(s SPrint) {
 
 	// Create the call to printf and ignore the return value
 	_ = c.Block.NewCall(printf, format, value)
+}
+
+func (c *Context) compileSleepCall(s SSleep) {
+	// Declare the sleep function if it hasn't been declared yet
+	sleep := c.Context.SymbolTable["sleep_ns"]
+
+	// Compile the expression to print
+	value := c.compileExpr(s.Expr)
+
+	// Create the call to sleep and ignore the return value
+	_ = c.Block.NewCall(sleep, value)
 }
