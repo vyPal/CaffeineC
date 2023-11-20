@@ -61,10 +61,13 @@ func (p *Parser) parseIf() *compiler.SIf {
 
 func (p *Parser) parseComparison() compiler.Expr {
 	term := p.parseTerm()
-	fmt.Println(p.Tokens[p.Pos].Type)
-	for p.Tokens[p.Pos].Type == "PUNCT" && (p.Tokens[p.Pos].Value == ">" || p.Tokens[p.Pos].Value == ">=" || p.Tokens[p.Pos].Value == "<" || p.Tokens[p.Pos].Value == "<=" || p.Tokens[p.Pos].Value == "==" || p.Tokens[p.Pos].Value == "!=") {
+	for p.Tokens[p.Pos].Type == "PUNCT" && (p.Tokens[p.Pos].Value == ">" || p.Tokens[p.Pos].Value == "<" || p.Tokens[p.Pos].Value == "=" || p.Tokens[p.Pos].Value == "!") {
 		op := p.Tokens[p.Pos].Value
 		p.Pos++ // op
+		if p.Tokens[p.Pos].Value == "=" {
+			op += "="
+			p.Pos++ // "="
+		}
 		rightTerm := p.parseTerm()
 		switch op {
 		case ">":

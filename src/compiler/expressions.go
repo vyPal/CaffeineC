@@ -5,6 +5,7 @@ import (
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
+	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
@@ -43,6 +44,24 @@ func (ctx *Context) compileExpr(e Expr) value.Value {
 	case EDiv:
 		l, r := ctx.compileExpr(e.Left), ctx.compileExpr(e.Right)
 		return ctx.NewFDiv(l, r)
+	case EGt:
+		l, r := ctx.compileExpr(e.Left), ctx.compileExpr(e.Right)
+		return ctx.NewICmp(enum.IPredSGT, l, r)
+	case ELt:
+		l, r := ctx.compileExpr(e.Left), ctx.compileExpr(e.Right)
+		return ctx.NewICmp(enum.IPredSLT, l, r)
+	case EEq:
+		l, r := ctx.compileExpr(e.Left), ctx.compileExpr(e.Right)
+		return ctx.NewICmp(enum.IPredEQ, l, r)
+	case ENEq:
+		l, r := ctx.compileExpr(e.Left), ctx.compileExpr(e.Right)
+		return ctx.NewICmp(enum.IPredNE, l, r)
+	case EEGt:
+		l, r := ctx.compileExpr(e.Left), ctx.compileExpr(e.Right)
+		return ctx.NewICmp(enum.IPredSGE, l, r)
+	case EELt:
+		l, r := ctx.compileExpr(e.Left), ctx.compileExpr(e.Right)
+		return ctx.NewICmp(enum.IPredSLE, l, r)
 	default:
 		panic(fmt.Errorf("unknown expression type: %T", e))
 	}

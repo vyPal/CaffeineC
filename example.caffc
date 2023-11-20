@@ -1,8 +1,8 @@
-var a:int = 5;
-var b:int = 10;
+var a:int = 1;
+var b:int = 1;
 
-func add(x: int, y:int):int {
-  return x + y
+if a == b {
+  print "Yes";
+} else {
+  print "No";
 }
-
-print add(a, b);
