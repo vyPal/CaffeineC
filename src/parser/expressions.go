@@ -9,20 +9,23 @@ import (
 	"github.com/vyPal/CaffeineC/compiler"
 )
 
-func (p *Parser) parseStatement() {
+func (p *Parser) parseStatement() []compiler.Stmt {
 	token := p.Tokens[p.Pos]
+	var statements []compiler.Stmt
 	switch token.Type {
 	case "IDENT":
 		if token.Value == "var" {
-			p.AST = append(p.AST, p.parseVarDecl()...)
+			statements = append(statements, p.parseVarDecl()...)
+		} else if token.Value == "if" {
+			statements = append(statements, p.parseIf())
 		} else if token.Value == "print" {
-			p.AST = append(p.AST, p.parsePrint())
+			statements = append(statements, p.parsePrint())
 		} else if token.Value == "sleep" {
-			p.AST = append(p.AST, p.parseSleep())
+			statements = append(statements, p.parseSleep())
 		} else if token.Value == "func" {
-			p.AST = append(p.AST, p.parseFunctionDeclaration())
+			statements = append(statements, p.parseFunctionDeclaration())
 		} else if p.Tokens[p.Pos+1].Type == "PUNCT" && p.Tokens[p.Pos+1].Value == "(" {
-			p.AST = append(p.AST, p.parseFunctionCall())
+			statements = append(statements, p.parseFunctionCall())
 		} else {
 			fmt.Println("[W]", token.Location, "Unexpected identifier:", token.Value)
 			p.Pos++
@@ -31,6 +34,29 @@ func (p *Parser) parseStatement() {
 		fmt.Println("[W]", token.Location, "Unexpected token:", token.Value)
 		p.Pos++
 	}
+	return statements
+}
+
+func (p *Parser) parseIf() *compiler.SIf {
+	p.Pos++ // "if"
+	condition := p.parseExpression()
+	p.Pos++ // "{"
+	var body []compiler.Stmt
+	for p.Tokens[p.Pos].Type != "PUNCT" || p.Tokens[p.Pos].Value != "}" {
+		body = append(body, p.parseStatement()...)
+	}
+	p.Pos++ // "}"
+	if p.Tokens[p.Pos].Type == "IDENT" && p.Tokens[p.Pos].Value == "else" {
+		p.Pos++ // "else"
+		p.Pos++ // "{"
+		var elseBody []compiler.Stmt
+		for p.Tokens[p.Pos].Type != "PUNCT" || p.Tokens[p.Pos].Value != "}" {
+			elseBody = append(elseBody, p.parseStatement()...)
+		}
+		p.Pos++ // "}"
+		return &compiler.SIf{Cond: condition, Then: body, Else: elseBody}
+	}
+	return &compiler.SIf{Cond: condition, Then: body}
 }
 
 func (p *Parser) parseExpression() compiler.Expr {

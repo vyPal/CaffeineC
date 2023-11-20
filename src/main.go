@@ -24,10 +24,12 @@ func main() {
 	var src []byte
 	var filename string
 	var no_cleanup *bool
+	var numbers_are_variables *bool
 	switch os.Args[1] {
 	case "build":
 		buildCmd := flag.NewFlagSet("build", flag.ExitOnError)
-		no_cleanup = buildCmd.Bool("n", false, "Don't remove temporary files")
+		no_cleanup = buildCmd.Bool("nc", false, "Don't remove temporary files")
+		numbers_are_variables = buildCmd.Bool("nv", false, "Allow variable names to be numbers")
 
 		// Parse the flags for the build command
 		buildCmd.Parse(os.Args[2:])
@@ -64,7 +66,7 @@ func main() {
 	p := parser.Parser{Tokens: Tokens}
 	p.Parse()
 
-	c := compiler.Compiler{Module: mod, SymbolTable: make(map[string]value.Value), AST: p.AST}
+	c := compiler.Compiler{Module: mod, SymbolTable: make(map[string]value.Value), AST: p.AST, VarsCanBeNumbers: *numbers_are_variables}
 	c.Compile()
 
 	err := os.WriteFile("output.ll", []byte(c.Module.String()), 0644)

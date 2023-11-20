@@ -58,7 +58,7 @@ func (c *Context) compileFunctionCallExpr(e ECall) value.Value {
 func (c *Context) compileFunctionDecl(s SFuncDecl) {
 	// Create a temporary context and block for analysis
 	tmpBlock := c.Module.NewFunc("tmp", types.Void)
-	tmpCtx := c.NewContext(tmpBlock.NewBlock("entry"), c.Compiler)
+	tmpCtx := c.NewContext(tmpBlock.NewBlock("entry"))
 
 	for _, stmt := range s.Body {
 		tmpCtx.compileStmt(stmt)
@@ -77,7 +77,7 @@ func (c *Context) compileFunctionDecl(s SFuncDecl) {
 	f.Sig.Variadic = false
 	f.Sig.RetType = s.ReturnType
 	block := f.NewBlock("entry")
-	ctx := c.NewContext(block, c.Compiler)
+	ctx := c.NewContext(block)
 	for _, stmt := range s.Body {
 		ctx.compileStmt(stmt)
 	}

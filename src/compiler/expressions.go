@@ -49,6 +49,12 @@ func (ctx *Context) compileConst(e EConst) value.Value {
 	case EVoid:
 		return nil
 	case EInt:
+		if ctx.Compiler.VarsCanBeNumbers {
+			value := ctx.lookupVariable(fmt.Sprint(e.Value))
+			if value != nil {
+				return value
+			}
+		}
 		return constant.NewInt(types.I64, e.Value)
 	case EFloat:
 		return constant.NewFloat(types.Double, e.Value)
@@ -101,6 +107,34 @@ func (ctx *Context) compileStmt(stmt Stmt) {
 		ctx.compileFunctionCall(*s)
 	case *SRet:
 		ctx.NewRet(ctx.compileExpr(s.Val))
+	case *SIf:
+		thenCtx := ctx.NewContext(ctx.Block.Parent.NewBlock("if.then"))
+		for _, stmt := range s.Then {
+			thenCtx.compileStmt(stmt)
+		}
+		elseB := ctx.Block.Parent.NewBlock("if.else")
+		elseCtx := ctx.NewContext(elseB)
+		for _, stmt := range s.Else {
+			elseCtx.compileStmt(stmt)
+		}
+		leaveB := ctx.Block.Parent.NewBlock("leave.if")
+		if thenCtx.Block.Term == nil {
+			thenCtx.NewBr(leaveB)
+		}
+		if elseCtx.Block.Term == nil {
+			elseCtx.NewBr(leaveB)
+		}
+		cond := ctx.compileExpr(s.Cond)
+		c, ok := cond.Type().(*types.IntType)
+		if !ok {
+			panic(fmt.Errorf("expected int type for condition, got %s", cond.Type()))
+		} else {
+			if c.BitSize != 1 {
+				cond = ctx.Block.NewTrunc(cond, types.I1)
+			}
+		}
+		ctx.NewCondBr(cond, thenCtx.Block, elseB)
+		ctx.Compiler.Context.Block = leaveB
 	default:
 		panic(fmt.Errorf("unknown statement type: %T", stmt))
 	}

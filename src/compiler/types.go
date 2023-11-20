@@ -107,3 +107,10 @@ type SRet struct {
 	Stmt
 	Val Expr
 }
+
+type SIf struct {
+	Stmt
+	Cond Expr
+	Then []Stmt
+	Else []Stmt
+}

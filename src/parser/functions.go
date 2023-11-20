@@ -44,7 +44,7 @@ func (p *Parser) parseFunctionDeclaration() compiler.Stmt {
 		p.Pos++ // ":"
 		switch p.Tokens[p.Pos].Value {
 		case "int":
-			returnType = &types.PointerType{ElemType: types.I64}
+			returnType = types.I64
 		case "string":
 			returnType = &types.PointerType{ElemType: types.I8}
 		case "float64":

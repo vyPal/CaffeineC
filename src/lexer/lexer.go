@@ -1,7 +1,6 @@
 package lexer
 
 import (
-	"fmt"
 	"text/scanner"
 )
 
@@ -29,6 +28,5 @@ func (l *Lexer) Lex() []Token {
 			Tokens = append(Tokens, Token{"PUNCT", l.S.TokenText(), l.S.Pos()})
 		}
 	}
-	fmt.Println(Tokens)
 	return Tokens
 }

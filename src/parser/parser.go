@@ -13,6 +13,6 @@ type Parser struct {
 
 func (p *Parser) Parse() {
 	for p.Pos < len(p.Tokens) {
-		p.parseStatement()
+		p.AST = append(p.AST, p.parseStatement()...)
 	}
 }

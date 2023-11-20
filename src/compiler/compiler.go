@@ -27,8 +27,8 @@ func NewContext(b *ir.Block, comp *Compiler) *Context {
 	}
 }
 
-func (c *Context) NewContext(b *ir.Block, comp *Compiler) *Context {
-	ctx := NewContext(b, comp)
+func (c *Context) NewContext(b *ir.Block) *Context {
+	ctx := NewContext(b, c.Compiler)
 	ctx.parent = c
 	return ctx
 }
@@ -42,16 +42,20 @@ func (c Context) lookupVariable(name string) value.Value {
 		c.usedVars[name] = true
 		return v
 	} else {
+		if c.Compiler.VarsCanBeNumbers {
+			return nil
+		}
 		fmt.Printf("variable: `%s`\n", name)
 		panic("no such variable")
 	}
 }
 
 type Compiler struct {
-	Module      *ir.Module
-	SymbolTable map[string]value.Value
-	Context     *Context
-	AST         []Stmt
+	Module           *ir.Module
+	SymbolTable      map[string]value.Value
+	Context          *Context
+	AST              []Stmt
+	VarsCanBeNumbers bool
 }
 
 func (c *Compiler) Compile() {

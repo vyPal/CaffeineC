@@ -1,12 +1,4 @@
-var a:string = "Hello, World!";
+var 5:string = "cs";
+var 1:string = 5;
 
-var b:int = 5;
-var c:int = 10;
-
-print a;
-
-var d:string = "The sum of 5 + 10 = ";
-print d;
-
-var e:int = b + c;
-print e;
+print 1;
