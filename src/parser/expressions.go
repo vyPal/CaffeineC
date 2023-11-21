@@ -22,6 +22,8 @@ func (p *Parser) parseStatement() []compiler.Stmt {
 			statements = append(statements, p.parsePrint())
 		} else if token.Value == "sleep" {
 			statements = append(statements, p.parseSleep())
+		} else if token.Value == "while" {
+			statements = append(statements, p.parseWhile())
 		} else if token.Value == "func" {
 			statements = append(statements, p.parseFunctionDeclaration())
 		} else if p.Tokens[p.Pos+1].Type == "PUNCT" && p.Tokens[p.Pos+1].Value == "(" {
@@ -57,6 +59,18 @@ func (p *Parser) parseIf() *compiler.SIf {
 		return &compiler.SIf{Cond: condition, Then: body, Else: elseBody}
 	}
 	return &compiler.SIf{Cond: condition, Then: body}
+}
+
+func (p *Parser) parseWhile() *compiler.SWhile {
+	p.Pos++ // "if"
+	condition := p.parseExpression()
+	p.Pos++ // "{"
+	var body []compiler.Stmt
+	for p.Tokens[p.Pos].Type != "PUNCT" || p.Tokens[p.Pos].Value != "}" {
+		body = append(body, p.parseStatement()...)
+	}
+	p.Pos++ // "}"
+	return &compiler.SWhile{Cond: condition, Block: body}
 }
 
 func (p *Parser) parseComparison() compiler.Expr {

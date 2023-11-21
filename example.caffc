@@ -1,5 +1,0 @@
-var a:bool = true;
-
-if a {
-  print "Yes";
-}

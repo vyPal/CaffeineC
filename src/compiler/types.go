@@ -141,10 +141,19 @@ type SRet struct {
 	Stmt
 	Val Expr
 }
+type SBreak struct {
+	Stmt
+}
 
 type SIf struct {
 	Stmt
 	Cond Expr
 	Then []Stmt
 	Else []Stmt
+}
+
+type SWhile struct {
+	Stmt
+	Cond  Expr
+	Block []Stmt
 }

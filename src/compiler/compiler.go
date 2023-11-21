@@ -15,6 +15,7 @@ type Context struct {
 	vars     map[string]value.Value
 	usedVars map[string]bool
 	*Compiler
+	leaveBlock *ir.Block
 }
 
 func NewContext(b *ir.Block, comp *Compiler) *Context {

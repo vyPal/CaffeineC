@@ -176,6 +176,21 @@ func (ctx *Context) compileStmt(stmt Stmt) {
 		}
 		ctx.NewCondBr(cond, thenCtx.Block, elseB)
 		ctx.Compiler.Context.Block = leaveB
+	case *SWhile:
+		condCtx := ctx.NewContext(ctx.Block.Parent.NewBlock("while.loop.cond"))
+		ctx.NewBr(condCtx.Block)
+		loopCtx := ctx.NewContext(ctx.Block.Parent.NewBlock("while.loop.body"))
+		leaveB := ctx.Block.Parent.NewBlock("leave.do.while")
+		condCtx.NewCondBr(condCtx.compileExpr(s.Cond), loopCtx.Block, leaveB)
+		condCtx.leaveBlock = leaveB
+		loopCtx.leaveBlock = leaveB
+		for _, stmt := range s.Block {
+			loopCtx.compileStmt(stmt)
+		}
+		loopCtx.NewBr(condCtx.Block)
+		ctx.Compiler.Context.Block = leaveB
+	case *SBreak:
+		ctx.NewBr(ctx.leaveBlock)
 	default:
 		panic(fmt.Errorf("unknown statement type: %T", stmt))
 	}
