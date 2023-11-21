@@ -1,0 +1,50 @@
+name: Build Go Binary
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  check_changes:
+    outputs:
+      run_build: ${{ steps.verify-changed-files.outputs.any_changed }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Verify Changed files
+        uses: tj-actions/changed-files@v37
+        id: verify-changed-files
+        with:
+          files: |
+              src
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    needs: check_changes
+    if: needs.check_changes.outputs.run_build == 'true'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        go: [1.21.1]
+
+    steps:
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go }}
+
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Get dependencies
+      run: go get -v -t -d ./...
+
+    - name: Build
+      run: go build -v ./src
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: go-binary-${{ matrix.os }}
+        path: ${{ runner.os == 'Windows' && 'CaffeineC.exe' || 'CaffeineC' }}
