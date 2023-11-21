@@ -23,6 +23,7 @@ jobs:
       run: |
         pip install cmake
         choco install visualstudio2019community
+        choco install visualstudio2019-workload-nativedesktop
         choco install llvm --version=17.0.1
 
     - name: Build
