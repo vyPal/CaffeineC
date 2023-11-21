@@ -31,12 +31,12 @@ jobs:
 
     steps:
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v3
       with:
         go-version: ${{ matrix.go }}
 
     - name: Check out code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Get dependencies
       run: cd ./src && go get -v -t -d ./...
@@ -45,7 +45,7 @@ jobs:
       run: go build -v ./src
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: go-binary-${{ matrix.os }}
         path: ${{ runner.os == 'Windows' && 'CaffeineC.exe' || 'CaffeineC' }}
