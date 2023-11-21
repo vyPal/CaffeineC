@@ -26,6 +26,8 @@ func (p *Parser) parseVarDecl() []compiler.Stmt {
 			statements = append(statements, &compiler.SDefine{Name: name, Typ: &types.PointerType{ElemType: types.I8}, Expr: value})
 		case "float64":
 			statements = append(statements, &compiler.SDefine{Name: name, Typ: types.Double, Expr: value})
+		case "bool":
+			statements = append(statements, &compiler.SDefine{Name: name, Typ: types.I1, Expr: value})
 		case "duration":
 			statements = append(statements, &compiler.SDefine{Name: name, Typ: types.I64, Expr: value})
 		default:
@@ -40,6 +42,8 @@ func (p *Parser) parseVarDecl() []compiler.Stmt {
 			statements = append(statements, &compiler.SDefine{Name: name, Typ: &types.PointerType{ElemType: types.I8}, Expr: nil})
 		case "float64":
 			statements = append(statements, &compiler.SDefine{Name: name, Typ: types.Double, Expr: nil})
+		case "bool":
+			statements = append(statements, &compiler.SDefine{Name: name, Typ: types.I1, Expr: nil})
 		case "duration":
 			statements = append(statements, &compiler.SDefine{Name: name, Typ: types.I64, Expr: nil})
 		default:

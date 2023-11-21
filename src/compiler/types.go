@@ -26,6 +26,10 @@ type EFloat struct {
 	EConst
 	Value float64
 }
+type EBool struct {
+	EConst
+	Value bool
+}
 type EString struct {
 	EConst
 	Value string

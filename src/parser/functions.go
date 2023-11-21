@@ -28,6 +28,8 @@ func (p *Parser) parseFunctionDeclaration() compiler.Stmt {
 			params = append(params, ir.NewParam(paramName, &types.ArrayType{ElemType: types.I8}))
 		case "float64":
 			params = append(params, ir.NewParam(paramName, types.Double))
+		case "bool":
+			params = append(params, ir.NewParam(paramName, types.I1))
 		case "duration":
 			params = append(params, ir.NewParam(paramName, types.I64))
 		default:
@@ -49,6 +51,8 @@ func (p *Parser) parseFunctionDeclaration() compiler.Stmt {
 			returnType = &types.PointerType{ElemType: types.I8}
 		case "float64":
 			returnType = types.Double
+		case "bool":
+			returnType = types.I1
 		case "duration":
 			returnType = types.I64
 		default:

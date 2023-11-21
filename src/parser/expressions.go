@@ -127,7 +127,10 @@ func (p *Parser) parseFactor() compiler.Expr {
 	case "STRING":
 		return p.parseString()
 	case "IDENT":
-		if p.Tokens[p.Pos+1].Type == "PUNCT" && p.Tokens[p.Pos+1].Value == "(" {
+		val := p.Tokens[p.Pos].Value
+		if val == "true" || val == "false" || val == "True" || val == "False" {
+			return p.parseBool()
+		} else if p.Tokens[p.Pos+1].Type == "PUNCT" && p.Tokens[p.Pos+1].Value == "(" {
 			return p.parseNonVoidFunctionCall()
 		}
 		return p.parseIdentifier()
@@ -139,6 +142,16 @@ func (p *Parser) parseFactor() compiler.Expr {
 		}
 	default:
 		panic("Expected factor, found " + p.Tokens[p.Pos].Type)
+	}
+}
+
+func (p *Parser) parseBool() compiler.Expr {
+	value := p.Tokens[p.Pos].Value
+	p.Pos++ // value
+	if value == "true" || value == "True" {
+		return compiler.EBool{Value: true}
+	} else {
+		return compiler.EBool{Value: false}
 	}
 }
 

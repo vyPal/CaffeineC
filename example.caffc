@@ -1,6 +1,5 @@
-var a:int = 1;
-var b:int = 1;
+var a:bool = true;
 
-if a == b {
+if a {
   print "Yes";
 }

@@ -87,6 +87,18 @@ func (ctx *Context) compileConst(e EConst) value.Value {
 			}
 		}
 		return constant.NewFloat(types.Double, e.Value)
+	case EBool:
+		if ctx.Compiler.VarsCanBeNumbers {
+			value := ctx.lookupVariable(fmt.Sprint(e.Value))
+			if value != nil {
+				return value
+			}
+		}
+		var value int64 = 0
+		if e.Value == true {
+			value = 1
+		}
+		return constant.NewInt(types.I1, value)
 	case EString:
 		str := e.Value
 		strLen := len(str) + 1 // +1 for the null terminator
