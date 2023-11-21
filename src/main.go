@@ -58,7 +58,7 @@ func main() {
 
 	default:
 		fmt.Println("Unknown command:", os.Args[1])
-		fmt.Println("Usage: ./main <command> [<args>]")
+		fmt.Println("Usage: ./CaffeineC <command> [<args>]")
 		os.Exit(1)
 	}
 

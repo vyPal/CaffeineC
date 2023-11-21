@@ -1,0 +1,39 @@
+name: Build LLC for windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        repository: 'llvm/llvm-project'
+        ref: 'llvmorg-17.0.1'
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: |
+        pip install cmake
+        choco install visualstudio2019community
+        choco install llvm --version=17.0.1
+
+    - name: Build
+      run: |
+        mkdir build
+        cd build
+        cmake -G "Visual Studio 16 2019" -A x64 ../llvm
+        cmake --build . --config Release
+    
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: build
+        path: build/Release

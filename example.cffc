@@ -1,5 +1,6 @@
 var a:bool = true;
 var b:bool = true;
+
 if a && b {
-  print "Yes!";
+  print "Yes";
 }
