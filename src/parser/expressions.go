@@ -29,8 +29,7 @@ func (p *Parser) parseStatement() []compiler.Stmt {
 		} else if p.Tokens[p.Pos+1].Type == "PUNCT" && p.Tokens[p.Pos+1].Value == "(" {
 			statements = append(statements, p.parseFunctionCall())
 		} else {
-			fmt.Println("[W]", token.Location, "Unexpected identifier:", token.Value)
-			p.Pos++
+			statements = append(statements, p.parseAssignment())
 		}
 	default:
 		fmt.Println("[W]", token.Location, "Unexpected token:", token.Value)
@@ -234,7 +233,15 @@ func (p *Parser) parseString() compiler.Expr {
 	return compiler.EString{Value: value}
 }
 
-func (p *Parser) parseIdentifier() compiler.Expr {
+func (p *Parser) parseAssignment() *compiler.SAssign {
+	identifier := p.parseIdentifier()
+	p.Pos++ // "="
+	expr := p.parseExpression()
+	p.Pos++ // ";"
+	return &compiler.SAssign{Name: identifier.Name, Expr: expr}
+}
+
+func (p *Parser) parseIdentifier() compiler.EVar {
 	name := p.Tokens[p.Pos].Value
 	p.Pos++ // value
 	return compiler.EVar{Name: name}
