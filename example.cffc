@@ -1,7 +1,5 @@
-var a:int = 5;
-var msg:string = "a is";
-while a > 0 {
-  print msg;
-  print a;
-  a = a - 1;
+var a:bool = true;
+var b:bool = true;
+if a && b {
+  print "Yes!";
 }

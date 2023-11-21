@@ -121,16 +121,16 @@ func (c *Context) compilePrintCall(s SPrint) {
 	var formatString string
 	switch t := value.Type().(type) {
 	case *types.IntType:
-		formatString = "%d"
+		formatString = "%d\n"
 	case *types.FloatType:
-		formatString = "%f"
+		formatString = "%f\n"
 	case *types.ArrayType: // Assuming strings are represented as an array of characters
 		if t.ElemType.Equal(types.I8) {
 			// Create a global constant for the string
 			str := c.Module.NewGlobalDef(".str", value.(constant.Constant))
 			// Get a pointer to the first element of the string
 			value = c.Block.NewGetElementPtr(str.Type(), str, constant.NewInt(types.I32, 0))
-			formatString = "%s"
+			formatString = "%s\n"
 		} else {
 			panic(fmt.Errorf("cannot print value of type `%s`", value.Type()))
 		}
@@ -142,11 +142,11 @@ func (c *Context) compilePrintCall(s SPrint) {
 			c.Block.NewStore(value, str)
 			// Get a pointer to the first element of the string
 			value = c.Block.NewLoad(value.Type(), str)
-			formatString = "%s"
+			formatString = "%s\n"
 		} else if t.ElemType.Equal(types.I64) {
 			// Get a pointer to the first element of the string
 			value = c.Block.NewLoad(value.Type(), value)
-			formatString = "%d"
+			formatString = "%d\n"
 		} else {
 			panic(fmt.Errorf("cannot print value of type `%s`", value.Type()))
 		}

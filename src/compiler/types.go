@@ -75,34 +75,48 @@ type EDiv struct {
 	Right Expr
 }
 type EGt struct {
-	EDiv
+	Expr
 	Left  Expr
 	Right Expr
 }
 type EEGt struct {
-	EDiv
+	Expr
 	Left  Expr
 	Right Expr
 }
 type EELt struct {
-	EDiv
+	Expr
 	Left  Expr
 	Right Expr
 }
 type ELt struct {
-	EDiv
+	Expr
 	Left  Expr
 	Right Expr
 }
 type EEq struct {
-	EDiv
+	Expr
 	Left  Expr
 	Right Expr
 }
 type ENEq struct {
-	EDiv
+	Expr
 	Left  Expr
 	Right Expr
+}
+type EAnd struct {
+	Expr
+	Left  Expr
+	Right Expr
+}
+type EOr struct {
+	Expr
+	Left  Expr
+	Right Expr
+}
+type ENot struct {
+	Expr
+	Value Expr
 }
 
 type Stmt interface{ isStmt() Stmt }

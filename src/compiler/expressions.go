@@ -62,6 +62,14 @@ func (ctx *Context) compileExpr(e Expr) value.Value {
 	case EELt:
 		l, r := ctx.compileExpr(e.Left), ctx.compileExpr(e.Right)
 		return ctx.NewICmp(enum.IPredSLE, l, r)
+	case EAnd:
+		l, r := ctx.compileExpr(e.Left), ctx.compileExpr(e.Right)
+		return ctx.NewAnd(l, r)
+	case EOr:
+		l, r := ctx.compileExpr(e.Left), ctx.compileExpr(e.Right)
+		return ctx.NewOr(l, r)
+	case ENot:
+		return ctx.NewFNeg(ctx.compileExpr(e.Expr))
 	default:
 		panic(fmt.Errorf("unknown expression type: %T", e))
 	}

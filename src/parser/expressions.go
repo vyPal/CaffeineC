@@ -74,11 +74,11 @@ func (p *Parser) parseWhile() *compiler.SWhile {
 
 func (p *Parser) parseComparison() compiler.Expr {
 	term := p.parseTerm()
-	for p.Tokens[p.Pos].Type == "PUNCT" && (p.Tokens[p.Pos].Value == ">" || p.Tokens[p.Pos].Value == "<" || p.Tokens[p.Pos].Value == "=" || p.Tokens[p.Pos].Value == "!") {
+	for p.Tokens[p.Pos].Type == "PUNCT" && (p.Tokens[p.Pos].Value == ">" || p.Tokens[p.Pos].Value == "<" || p.Tokens[p.Pos].Value == "=" || p.Tokens[p.Pos].Value == "!" || p.Tokens[p.Pos].Value == "|" || p.Tokens[p.Pos].Value == "&") {
 		op := p.Tokens[p.Pos].Value
 		p.Pos++ // op
-		if p.Tokens[p.Pos].Value == "=" {
-			op += "="
+		if p.Tokens[p.Pos].Value == "=" || p.Tokens[p.Pos].Value == "|" || p.Tokens[p.Pos].Value == "&" {
+			op += p.Tokens[p.Pos].Value
 			p.Pos++ // "="
 		}
 		rightTerm := p.parseTerm()
@@ -95,6 +95,18 @@ func (p *Parser) parseComparison() compiler.Expr {
 			term = compiler.EEq{Left: term, Right: rightTerm}
 		case "!=":
 			term = compiler.ENEq{Left: term, Right: rightTerm}
+		case "&&":
+			term = compiler.EAnd{Left: term, Right: rightTerm}
+		case "||":
+			term = compiler.EOr{Left: term, Right: rightTerm}
+		case "!":
+			term = compiler.ENot{Expr: term}
+		case "(":
+			term = p.parseExpression()
+			if p.Tokens[p.Pos].Value != ")" {
+				panic("Expected )")
+			}
+			p.Pos++ // ")"
 		}
 	}
 	return term
