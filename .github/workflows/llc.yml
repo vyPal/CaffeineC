@@ -1,4 +1,4 @@
-name: Build LLC for windows
+name: Build LLVM for windows
 
 on:
   workflow_dispatch:
@@ -36,5 +36,5 @@ jobs:
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v2
       with:
-        name: build
-        path: build/Release
+        name: binaries
+        path: build/Release/bin
