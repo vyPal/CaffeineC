@@ -197,6 +197,21 @@ func (ctx *Context) compileStmt(stmt Stmt) {
 		}
 		loopCtx.NewBr(condCtx.Block)
 		ctx.Compiler.Context.Block = leaveB
+	case *SFor:
+		loopCtx := ctx.NewContext(ctx.Block.Parent.NewBlock("for.loop.body"))
+		ctx.NewBr(loopCtx.Block)
+		firstAppear := loopCtx.NewPhi(ir.NewIncoming(loopCtx.compileExpr(s.InitExpr), ctx.Block))
+		loopCtx.vars[s.InitName] = firstAppear
+		step := loopCtx.compileExpr(s.Step)
+		firstAppear.Incs = append(firstAppear.Incs, ir.NewIncoming(step, loopCtx.Block))
+		loopCtx.vars[s.InitName] = step
+		leaveB := ctx.Block.Parent.NewBlock("leave.for.loop")
+		loopCtx.leaveBlock = leaveB
+		for _, stmt := range s.Block {
+			loopCtx.compileStmt(stmt)
+		}
+		loopCtx.NewCondBr(loopCtx.compileExpr(s.Cond), loopCtx.Block, leaveB)
+		ctx.Compiler.Context.Block = leaveB
 	case *SBreak:
 		ctx.NewBr(ctx.leaveBlock)
 	default:

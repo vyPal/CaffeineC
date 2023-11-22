@@ -24,6 +24,8 @@ func (p *Parser) parseStatement() []compiler.Stmt {
 			statements = append(statements, p.parseSleep())
 		} else if token.Value == "while" {
 			statements = append(statements, p.parseWhile())
+		} else if token.Value == "for" {
+			statements = append(statements, p.parseFor())
 		} else if token.Value == "func" {
 			statements = append(statements, p.parseFunctionDeclaration())
 		} else if p.Tokens[p.Pos+1].Type == "PUNCT" && p.Tokens[p.Pos+1].Value == "(" {
@@ -70,6 +72,31 @@ func (p *Parser) parseWhile() *compiler.SWhile {
 	}
 	p.Pos++ // "}"
 	return &compiler.SWhile{Cond: condition, Block: body}
+}
+
+func (p *Parser) parseFor() *compiler.SFor {
+	p.Pos++ // "for"
+	needsEndParen := false
+	if p.Tokens[p.Pos].Type == "PUNCT" && p.Tokens[p.Pos].Value == "(" {
+		p.Pos++ // "("
+		needsEndParen = true
+	}
+	initializer := p.parseStatement()
+	condition := p.parseExpression()
+	p.Pos++ // ";"
+	step := p.parseStatement()
+	if needsEndParen {
+		p.Pos++ // ")"
+	}
+	var body []compiler.Stmt
+	for p.Tokens[p.Pos].Type != "PUNCT" || p.Tokens[p.Pos].Value != "}" {
+		body = append(body, p.parseStatement()...)
+	}
+	p.Pos++ // "}"
+	fmt.Println("Initializer: ", initializer[0])
+	fmt.Println("Condition: ", condition)
+	fmt.Println("Step: ", step[0])
+	return &compiler.SFor{InitName: initializer[0].(*compiler.SDefine).Name, InitExpr: initializer[0].(*compiler.SDefine).Expr, Cond: condition, Step: step[0].(*compiler.SAssign).Expr, Block: body}
 }
 
 func (p *Parser) parseComparison() compiler.Expr {

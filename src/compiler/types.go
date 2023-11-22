@@ -171,3 +171,12 @@ type SWhile struct {
 	Cond  Expr
 	Block []Stmt
 }
+
+type SFor struct {
+	Stmt
+	InitName string
+	InitExpr Expr
+	Step     Expr
+	Cond     Expr
+	Block    []Stmt
+}
