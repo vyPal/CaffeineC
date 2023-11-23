@@ -28,8 +28,16 @@ func (p *Parser) parseStatement() []compiler.Stmt {
 			statements = append(statements, p.parseFor())
 		} else if token.Value == "func" {
 			statements = append(statements, p.parseFunctionDeclaration())
+		} else if token.Value == "class" {
+			statements = append(statements, p.parseClassDefinition())
 		} else if p.Tokens[p.Pos+1].Type == "PUNCT" && p.Tokens[p.Pos+1].Value == "(" {
 			statements = append(statements, p.parseFunctionCall())
+		} else if p.Tokens[p.Pos+1].Type == "PUNCT" && p.Tokens[p.Pos+1].Value == "." {
+			if p.Tokens[p.Pos+3].Type == "PUNCT" && p.Tokens[p.Pos+3].Value == "(" {
+				statements = append(statements, p.parseMethodCall())
+			} else {
+				statements = append(statements, p.parseAssignment())
+			}
 		} else {
 			statements = append(statements, p.parseAssignment())
 		}
@@ -184,10 +192,12 @@ func (p *Parser) parseFactor() compiler.Expr {
 			return p.parseBool()
 		} else if p.Tokens[p.Pos+1].Type == "PUNCT" && p.Tokens[p.Pos+1].Value == "(" {
 			return p.parseNonVoidFunctionCall()
+		} else if p.Tokens[p.Pos].Value == "new" {
+			return p.parseNew()
 		}
 		return p.parseIdentifier()
 	case "PUNCT":
-		if p.Tokens[p.Pos+1].Type == "NUMBER" {
+		if p.Tokens[p.Pos-5].Type == "NUMBER" {
 			return p.parseNumber(true)
 		} else {
 			panic("Expected factor, found " + p.Tokens[p.Pos].Type)
@@ -195,6 +205,48 @@ func (p *Parser) parseFactor() compiler.Expr {
 	default:
 		panic("Expected factor, found " + p.Tokens[p.Pos].Type)
 	}
+}
+
+func (p *Parser) parseMethodCall() *compiler.SClassMethod {
+	// Parse the function name
+	cname := p.Tokens[p.Pos].Value
+	p.Pos++ // "."
+	p.Pos++ // name
+	name := p.Tokens[p.Pos].Value
+	p.Pos++
+
+	// Parse the argument list
+	var args []compiler.Expr
+	p.Pos++ // "("
+	for p.Tokens[p.Pos].Type != "PUNCT" || p.Tokens[p.Pos].Value != ")" {
+		args = append(args, p.parseExpression())
+		if p.Tokens[p.Pos].Type == "PUNCT" && p.Tokens[p.Pos].Value == "," {
+			p.Pos++ // ","
+		}
+	}
+	p.Pos++ // ")"
+	p.Pos++ // ";"
+	fmt.Println("Call", name, "from", cname, args)
+
+	return &compiler.SClassMethod{InstanceName: cname, MethodName: name, Args: args}
+}
+
+func (p *Parser) parseNew() compiler.Expr {
+	p.Pos++ // "new"
+	name := p.Tokens[p.Pos].Value
+	p.Pos++ // name
+	p.Pos++ // "("
+	fmt.Println(p.Tokens[p.Pos])
+	var args []compiler.Expr
+	for p.Tokens[p.Pos].Type != "PUNCT" || p.Tokens[p.Pos].Value != ")" {
+		fmt.Println("called")
+		args = append(args, p.parseExpression())
+		if p.Tokens[p.Pos].Type == "PUNCT" && p.Tokens[p.Pos].Value == "," {
+			p.Pos++ // ","
+		}
+	}
+	p.Pos++ // ")"
+	return compiler.EClassConstructor{Name: name, Args: args}
 }
 
 func (p *Parser) parseBool() compiler.Expr {
@@ -274,14 +326,27 @@ func (p *Parser) parseString() compiler.Expr {
 
 func (p *Parser) parseAssignment() *compiler.SAssign {
 	identifier := p.parseIdentifier()
+	switch identifier.(type) {
+	case compiler.EVar:
+		break
+	case compiler.EField:
+		break
+	default:
+		panic("Expected identifier, found " + p.Tokens[p.Pos].Type)
+	}
 	p.Pos++ // "="
 	expr := p.parseExpression()
 	p.Pos++ // ";"
-	return &compiler.SAssign{Name: identifier.Name, Expr: expr}
+	return &compiler.SAssign{Name: identifier, Expr: expr}
 }
 
-func (p *Parser) parseIdentifier() compiler.EVar {
+func (p *Parser) parseIdentifier() compiler.Expr {
 	name := p.Tokens[p.Pos].Value
 	p.Pos++ // value
+	if p.Tokens[p.Pos].Value == "." {
+		p.Pos++ // "."
+		field := p.parseIdentifier()
+		return compiler.EField{Struct: compiler.EVar{Name: name}, Name: field}
+	}
 	return compiler.EVar{Name: name}
 }

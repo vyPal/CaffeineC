@@ -72,7 +72,7 @@ func main() {
 	p := parser.Parser{Tokens: Tokens}
 	p.Parse()
 
-	c := compiler.Compiler{Module: mod, SymbolTable: make(map[string]value.Value), AST: p.AST, VarsCanBeNumbers: *numbers_are_variables}
+	c := compiler.Compiler{Module: mod, SymbolTable: make(map[string]value.Value), AST: p.AST, VarsCanBeNumbers: *numbers_are_variables, StructFields: make(map[string][]compiler.Field)}
 	c.Compile()
 
 	tmpDir := "tmp_compile"

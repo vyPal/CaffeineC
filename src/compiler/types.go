@@ -44,9 +44,30 @@ type EVar struct {
 	Expr
 	Name string
 }
+type EClassConstructor struct {
+	Expr
+	Name string
+	Args []Expr
+}
+type SClassMethod struct {
+	Stmt
+	InstanceName string
+	MethodName   string
+	Args         []Expr
+}
+type EClassField struct {
+	Expr
+	ClassName string
+	FieldName string
+}
+type EField struct {
+	Expr
+	Struct Expr
+	Name   Expr
+}
 type EAssign struct {
 	Expr
-	Name  string
+	Name  Expr
 	Value Expr
 }
 type ECall struct {
@@ -122,13 +143,14 @@ type ENot struct {
 type Stmt interface{ isStmt() Stmt }
 type SDefine struct {
 	Stmt
-	Name string
-	Typ  types.Type
-	Expr Expr
+	Name           string
+	Typ            types.Type
+	CustomTypeName string
+	Expr           Expr
 }
 type SAssign struct {
 	Stmt
-	Name string
+	Name Expr
 	Expr Expr
 }
 type SPrint struct {

@@ -61,6 +61,7 @@ type Compiler struct {
 	SymbolTable      map[string]value.Value
 	Context          *Context
 	AST              []Stmt
+	StructFields     map[string][]Field
 	VarsCanBeNumbers bool
 }
 

@@ -16,14 +16,83 @@ func (ctx *Context) compileExpr(e Expr) value.Value {
 		return ctx.compileConst(e)
 	case EVar:
 		v := ctx.lookupVariable(e.Name)
-		if p, ok := v.Type().(*types.PointerType); ok {
-			v = ctx.Block.NewLoad(p.ElemType, v)
+		return v
+	case EField:
+		structVal := ctx.compileExpr(e.Struct)
+		//fieldName := ctx.compileExpr(e.Name)
+		var field Field
+		elemtypename := structVal.Type().(*types.PointerType).ElemType.Name()
+		for f := range ctx.Compiler.StructFields[elemtypename] {
+			if ctx.Compiler.StructFields[elemtypename][f].Name == e.Name.(EVar).Name {
+				field = ctx.Compiler.StructFields[elemtypename][f]
+				break
+			}
 		}
-		return v
+		fieldPtr := ctx.Block.NewGetElementPtr(field.Type, structVal, constant.NewInt(types.I32, int64(field.Index)))
+		return ctx.Block.NewLoad(field.Type, fieldPtr)
 	case EAssign:
-		v := ctx.compileExpr(e.Value)
-		ctx.vars[e.Name] = v
-		return v
+		switch name := e.Name.(type) {
+		case EVar:
+			v := ctx.compileExpr(e.Value)
+			if p, ok := v.Type().(*types.PointerType); ok {
+				v = ctx.Block.NewLoad(p.ElemType, v)
+			}
+			ctx.vars[name.Name] = v
+			return v
+		case EField:
+			structVal := ctx.compileExpr(name.Struct)
+			//fieldName := ctx.compileExpr(e.Name)
+
+			var field Field
+			elemtypename := structVal.Type().(*types.PointerType).ElemType.Name()
+			for f := range ctx.Compiler.StructFields[elemtypename] {
+				if ctx.Compiler.StructFields[elemtypename][f].Name == name.Name.(EVar).Name {
+					field = ctx.Compiler.StructFields[elemtypename][f]
+					break
+				}
+			}
+
+			// Ensure structVal is a pointer
+			if _, ok := structVal.Type().(*types.PointerType); !ok {
+				structVal = ctx.Block.NewLoad(types.NewPointer(structVal.Type()), structVal)
+			}
+
+			fieldPtr := ctx.Block.NewGetElementPtr(structVal.Type().(*types.PointerType).ElemType, structVal, constant.NewInt(types.I32, int64(field.Index)))
+
+			// Ensure value is of correct type
+			if fieldPtr.Type().(*types.PointerType).ElemType != field.Type {
+				panic(fmt.Errorf("field type mismatch: expected %s, got %s", field.Type, fieldPtr.Type().(*types.PointerType).ElemType))
+			}
+
+			return ctx.Block.NewLoad(fieldPtr.Type().(*types.PointerType).ElemType, fieldPtr)
+		default:
+			panic(fmt.Errorf("unknown assignment type: %T", name))
+		}
+	case EClassConstructor:
+		// Allocate memory for the struct
+		var structType types.Type
+		for _, t := range ctx.Module.TypeDefs {
+			if t.Name() == e.Name {
+				structType = t
+				break
+			}
+		}
+		if structType == nil {
+			panic(fmt.Sprintf("type `%s` not found", structType))
+		}
+		fmt.Printf("Type: %T\n", structType)
+		structVal := ctx.Block.NewAlloca(structType)
+		// Call the constructor
+		constructor := ctx.Compiler.SymbolTable[e.Name]
+		if constructor == nil {
+			panic(fmt.Sprintf("constructor for type `%s` not found", e.Name))
+		}
+		args := []value.Value{structVal}
+		for _, arg := range e.Args {
+			args = append(args, ctx.compileExpr(arg))
+		}
+		ctx.Block.NewCall(constructor, args...)
+		return structVal
 	case ECall:
 		return ctx.compileFunctionCallExpr(e)
 	case EAdd:
@@ -136,16 +205,56 @@ func (ctx *Context) compileStmt(stmt Stmt) {
 		if ctx.Block == nil {
 			panic("cannot declare variable outside of a function")
 		}
-		v := ctx.NewAlloca(s.Typ)
-		value := ctx.compileExpr(s.Expr)
-		if value.Type().Equal(types.NewPointer(s.Typ)) {
-			value = ctx.NewLoad(s.Typ, value)
+		if s.Typ == nil && s.CustomTypeName != "" {
+			for _, t := range ctx.Module.TypeDefs {
+				if t.Name() == s.CustomTypeName {
+					s.Typ = types.NewPointer(t)
+					break
+				}
+			}
+			if s.Typ == nil {
+				panic(fmt.Sprintf("type `%s` not found", s.CustomTypeName))
+			}
 		}
-		ctx.NewStore(value, v)
-		ctx.vars[s.Name] = v
+		value := ctx.compileExpr(s.Expr)
+		ctx.vars[s.Name] = value
 	case *SAssign:
-		v := ctx.lookupVariable(s.Name)
-		ctx.NewStore(ctx.compileExpr(s.Expr), v)
+		switch name := s.Name.(type) {
+		case EVar:
+			v := ctx.compileExpr(s.Expr)
+			if p, ok := v.Type().(*types.PointerType); ok {
+				v = ctx.Block.NewLoad(p.ElemType, v)
+			}
+			ctx.vars[name.Name] = v
+		case EField:
+			structVal := ctx.compileExpr(name.Struct)
+			value := ctx.compileExpr(s.Expr)
+			fmt.Println(structVal, value)
+
+			var field Field
+			fmt.Println(structVal.Type().(*types.PointerType).ElemType.Name())
+			elemtypename := structVal.Type().(*types.PointerType).ElemType.Name()
+			for f := range ctx.Compiler.StructFields[elemtypename] {
+				if ctx.Compiler.StructFields[elemtypename][f].Name == name.Name.(EVar).Name {
+					field = ctx.Compiler.StructFields[elemtypename][f]
+					break
+				}
+			}
+			fmt.Println(field)
+			fieldPtr := ctx.Block.NewGetElementPtr(field.Type, structVal, constant.NewInt(types.I32, int64(field.Index)))
+
+			// Ensure value is of correct type
+			if ctx != nil && ctx.Block != nil && value != nil && field.Type != nil {
+				value = ctx.Block.NewBitCast(value, field.Type)
+			} else {
+				fmt.Println("One of the variables is not initialized")
+			}
+			fmt.Println(fieldPtr)
+
+			ctx.Block.NewStore(value, fieldPtr)
+		default:
+			panic(fmt.Errorf("unknown assignment type: %T", name))
+		}
 	case *SPrint:
 		ctx.compilePrintCall(*s)
 	case *SSleep:
@@ -154,6 +263,8 @@ func (ctx *Context) compileStmt(stmt Stmt) {
 		ctx.compileFunctionDecl(*s)
 	case *SFuncCall:
 		ctx.compileFunctionCall(*s)
+	case *SClassMethod:
+		ctx.compileClassMethod(*s)
 	case *SRet:
 		ctx.NewRet(ctx.compileExpr(s.Val))
 	case *SIf:
@@ -212,6 +323,8 @@ func (ctx *Context) compileStmt(stmt Stmt) {
 		}
 		loopCtx.NewCondBr(loopCtx.compileExpr(s.Cond), loopCtx.Block, leaveB)
 		ctx.Compiler.Context.Block = leaveB
+	case *Class:
+		ctx.compileClassDeclaration(s)
 	case *SBreak:
 		ctx.NewBr(ctx.leaveBlock)
 	default:
