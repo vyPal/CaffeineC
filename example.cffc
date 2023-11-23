@@ -12,5 +12,6 @@ class Bek {
 }
 
 var lol: Bek = new Bek();
-lol.sob();
-lol.sob();
+for var i:int = 0; i < 10000; i = i + 1 {
+  lol.sob();
+}

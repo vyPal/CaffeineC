@@ -74,6 +74,11 @@ func (p *Parser) parseFunctionDeclaration() compiler.Stmt {
 		case "IDENT":
 			if token.Value == "var" {
 				body = append(body, p.parseVarDecl()...)
+			} else if token.Value == "return" {
+				p.Pos++ // "return"
+				value := p.parseExpression()
+				fmt.Println("Return", value)
+				body = append(body, &compiler.SRet{Val: value})
 			} else if token.Value == "if" {
 				body = append(body, p.parseIf())
 			} else if token.Value == "print" {
