@@ -9,9 +9,25 @@ class Bek {
     print this.a;
     this.a = this.a + 1;
   }
+
+  func ok():int {
+    return this.a
+  }
 }
 
 var lol: Bek = new Bek();
-for var i:int = 0; i < 10000; i = i + 1 {
+
+print "Running lol.sob() 10 times";
+
+for (var i:int = 0; i < 10; i = i + 1) {
   lol.sob();
+}
+
+print "Final result of a field:";
+print lol.ok();
+
+if lol.ok() == 11 {
+  print "Yes, it worked!";
+} else {
+  print "Something went wrong D:";
 }

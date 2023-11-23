@@ -93,6 +93,32 @@ func (ctx *Context) compileExpr(e Expr) value.Value {
 		}
 		ctx.Block.NewCall(constructor, args...)
 		return structVal
+	case EClassMethod:
+		// Get the class instance
+		instance := ctx.lookupVariable(e.InstanceName)
+
+		var classType types.Type
+		for _, t := range ctx.Module.TypeDefs {
+			if t.Equal(instance.Type().(*types.PointerType).ElemType) {
+				classType = t
+				break
+			}
+		}
+		if classType == nil {
+			panic(fmt.Errorf("type `%s` not found", instance.Type().String()))
+		}
+		// Get the method
+		method := ctx.Compiler.SymbolTable[instance.Type().(*types.PointerType).ElemType.Name()+"."+e.MethodName].(*ir.Func)
+		if method == nil {
+			panic(fmt.Errorf("method '%s.%s' not found", instance.Type().(*types.PointerType).ElemType.Name(), e.MethodName))
+		}
+		// Get the function arguments
+		var args []value.Value
+		for _, arg := range e.Args {
+			args = append(args, ctx.compileExpr(arg))
+		}
+		// Call the function
+		return ctx.NewCall(method, append([]value.Value{instance}, args...)...)
 	case ECall:
 		return ctx.compileFunctionCallExpr(e)
 	case EAdd:
@@ -183,7 +209,7 @@ func (ctx *Context) compileConst(e EConst) value.Value {
 		malloc, ok := ctx.Compiler.SymbolTable["malloc"]
 		if !ok {
 			malloc = ctx.Module.NewFunc("malloc", types.NewPointer(types.I8), ir.NewParam("size", types.I64))
-			ctx.Context.SymbolTable["malloc"] = malloc
+			ctx.Compiler.SymbolTable["malloc"] = malloc
 		}
 		// Allocate memory for the string
 		mem := ctx.Block.NewCall(malloc, constant.NewInt(types.I64, int64(strLen)))
@@ -191,6 +217,8 @@ func (ctx *Context) compileConst(e EConst) value.Value {
 		for i, char := range str {
 			ctx.Block.NewStore(constant.NewInt(types.I8, int64(char)), ctx.Block.NewGetElementPtr(types.I8, mem, constant.NewInt(types.I32, int64(i))))
 		}
+		// Add null character at the end
+		ctx.Block.NewStore(constant.NewInt(types.I8, 0), ctx.Block.NewGetElementPtr(types.I8, mem, constant.NewInt(types.I32, int64(len(str)))))
 		return mem
 	case EDuration:
 		return constant.NewInt(types.I64, int64(e.Value))

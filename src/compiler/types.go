@@ -55,6 +55,12 @@ type SClassMethod struct {
 	MethodName   string
 	Args         []Expr
 }
+type EClassMethod struct {
+	Expr
+	InstanceName string
+	MethodName   string
+	Args         []Expr
+}
 type EClassField struct {
 	Expr
 	ClassName string

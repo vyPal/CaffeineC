@@ -346,6 +346,19 @@ func (p *Parser) parseIdentifier() compiler.Expr {
 	if p.Tokens[p.Pos].Value == "." {
 		p.Pos++ // "."
 		field := p.parseIdentifier()
+		if p.Tokens[p.Pos].Value == "(" {
+			p.Pos++ // "("
+			var args []compiler.Expr
+			for p.Tokens[p.Pos].Type != "PUNCT" || p.Tokens[p.Pos].Value != ")" {
+				args = append(args, p.parseExpression())
+				if p.Tokens[p.Pos].Type == "PUNCT" && p.Tokens[p.Pos].Value == "," {
+					p.Pos++ // ","
+				}
+			}
+			p.Pos++ // ")"
+			fmt.Println("Call", field, "from", name, args)
+			return compiler.EClassMethod{InstanceName: name, MethodName: field.(compiler.EVar).Name, Args: args}
+		}
 		return compiler.EField{Struct: compiler.EVar{Name: name}, Name: field}
 	}
 	return compiler.EVar{Name: name}
