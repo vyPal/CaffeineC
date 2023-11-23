@@ -7,8 +7,10 @@ class Bek {
 
   func sob() {
     print this.a;
+    this.a = this.a + 1;
   }
 }
 
 var lol: Bek = new Bek();
+lol.sob();
 lol.sob();

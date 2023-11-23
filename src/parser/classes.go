@@ -78,17 +78,28 @@ func (p *Parser) parseClassConstructor() compiler.Method {
 		case "IDENT":
 			if token.Value == "var" {
 				body = append(body, p.parseVarDecl()...)
-			} else if token.Value == "return" {
-				p.Pos++ // "return"
-				value := p.parseExpression()
-				fmt.Println("Return", value)
-				body = append(body, &compiler.SRet{Val: value})
+			} else if token.Value == "if" {
+				body = append(body, p.parseIf())
 			} else if token.Value == "print" {
 				body = append(body, p.parsePrint())
 			} else if token.Value == "sleep" {
 				body = append(body, p.parseSleep())
+			} else if token.Value == "while" {
+				body = append(body, p.parseWhile())
+			} else if token.Value == "for" {
+				body = append(body, p.parseFor())
 			} else if token.Value == "func" {
 				body = append(body, p.parseFunctionDeclaration())
+			} else if token.Value == "class" {
+				body = append(body, p.parseClassDefinition())
+			} else if p.Tokens[p.Pos+1].Type == "PUNCT" && p.Tokens[p.Pos+1].Value == "(" {
+				body = append(body, p.parseFunctionCall())
+			} else if p.Tokens[p.Pos+1].Type == "PUNCT" && p.Tokens[p.Pos+1].Value == "." {
+				if p.Tokens[p.Pos+3].Type == "PUNCT" && p.Tokens[p.Pos+3].Value == "(" {
+					body = append(body, p.parseMethodCall())
+				} else {
+					body = append(body, p.parseAssignment())
+				}
 			} else {
 				body = append(body, p.parseAssignment())
 			}
