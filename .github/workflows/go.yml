@@ -35,6 +35,7 @@ jobs:
         id: create_release
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: latest
           prerelease: false
 
   build:
