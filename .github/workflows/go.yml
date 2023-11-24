@@ -19,6 +19,7 @@ jobs:
         with:
           files: |
               CHANGELOG.md
+              .github/workflows/go.yml
   
   create_release:
     name: Create Release
@@ -33,7 +34,7 @@ jobs:
         id: create_release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
@@ -85,7 +86,7 @@ jobs:
     - name: upload linux artifact
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ needs.create_release.outputs.upload_url }}
         asset_path: ${{ runner.os == 'Windows' && './CaffeineC.exe' || './CaffeineC' }}
