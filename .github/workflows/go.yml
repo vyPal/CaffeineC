@@ -31,16 +31,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Create Release
+        uses: "marvinpinto/action-automatic-releases@latest"
         id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: latest
-          release_name: CaffeineC latest
-          draft: false
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
-          body_path: CHANGELOG.md
 
   build:
     name: Build
