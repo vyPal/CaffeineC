@@ -34,7 +34,15 @@ jobs:
         cmake --build . --config Release
     
     - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
-        name: binaries
+        name: AllBinaries
         path: build/Release/bin
+
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: RequiredBinaries
+        path: |
+          build/Release/bin/llc.exe
+          build/Release/bin/opt.exe

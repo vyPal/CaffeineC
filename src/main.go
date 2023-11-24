@@ -19,6 +19,9 @@ import (
 //go:embed c_files/sleep.c
 var cSource string
 
+var llcExe []byte
+var optExe []byte
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: ./main <command> [<args>]")
