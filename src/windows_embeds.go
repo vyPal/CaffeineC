@@ -2,6 +2,8 @@
 
 package main
 
+import _ "embed"
+
 //go:embed windows/llc.exe
 var llcExe []byte
 
