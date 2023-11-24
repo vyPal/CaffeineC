@@ -18,8 +18,7 @@ jobs:
         id: verify-changed-files
         with:
           files: |
-              CHANGELOG.md
-              .github/workflows/go.yml
+              src/**
   
   create_release:
     name: Create Release
