@@ -19,12 +19,9 @@ import (
 //go:embed c_files/sleep.c
 var cSource string
 
-var llcExe []byte
-var optExe []byte
-
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: ./main <command> [<args>]")
+		fmt.Println("Usage: ./CaffeineC <command> [<args>]")
 		os.Exit(1)
 	}
 
@@ -44,7 +41,7 @@ func main() {
 		buildCmd.Parse(os.Args[2:])
 
 		if buildCmd.NArg() < 1 {
-			fmt.Println("Usage: ./main build [-n] <filename>")
+			fmt.Println("Usage: ./CaffeineC build [-nc | -nv] <filename>")
 			os.Exit(1)
 		}
 
