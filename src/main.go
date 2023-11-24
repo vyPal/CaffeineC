@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/llir/llvm/ir"
@@ -99,11 +100,43 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Build the Go code
-	cmd = exec.Command("llc", "-filetype=obj", tmpDir+"/output.ll")
-	err = cmd.Run()
-	if err != nil {
-		log.Fatal(err)
+	if runtime.GOOS == "windows" {
+		// Save the embedded llc executable to a temporary file
+		llcExePath := tmpDir + "/llc.exe"
+		err := os.WriteFile(llcExePath, llcExe, 0755)
+		if err != nil {
+			panic(err)
+		}
+		optExePath := tmpDir + "/opt.exe"
+		err = os.WriteFile(optExePath, optExe, 0755)
+		if err != nil {
+			panic(err)
+		}
+
+		// Use the embedded llc executable
+		cmd := exec.Command(optExePath, tmpDir+"/output.ll", "-o", tmpDir+"/output.bc")
+		err = cmd.Run()
+		if err != nil {
+			panic(err)
+		}
+
+		cmd = exec.Command(llcExePath, tmpDir+"/output.bc", "-filetype=obj", "-o", tmpDir+"/output.o")
+		err = cmd.Run()
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		cmd := exec.Command("opt", tmpDir+"/output.ll", "-o", tmpDir+"/output.bc")
+		err = cmd.Run()
+		if err != nil {
+			panic(err)
+		}
+
+		cmd = exec.Command("llc", tmpDir+"/output.bc", "-filetype=obj", "-o", tmpDir+"/output.o")
+		err = cmd.Run()
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	// Link everything together
@@ -120,7 +153,12 @@ func main() {
 
 	// Remove the temporary files
 	if !*no_cleanup {
+		if runtime.GOOS == "windows" {
+			os.Remove(tmpDir + "/llc.exe")
+			os.Remove(tmpDir + "/opt.exe")
+		}
 		os.Remove(tmpDir + "/output.ll")
+		os.Remove(tmpDir + "/output.bc")
 		os.Remove(tmpDir + "/output.o")
 		os.Remove(tmpDir + "/sleep.o")
 		os.Remove(tmpDir + "/sleep.c")
