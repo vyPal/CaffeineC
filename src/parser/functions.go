@@ -65,7 +65,6 @@ func (p *Parser) parseFunctionDeclaration() compiler.Stmt {
 	fmt.Printf("Declare function %s with return type %s\n", name, returnType)
 	if returnType.Typ != types.Void {
 		p.Pos++ // "{"
-		fmt.Println("------------------")
 	}
 	fmt.Println("At cpost:", p.Tokens[p.Pos])
 	fmt.Println("Start of function", name)
