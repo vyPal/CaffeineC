@@ -19,6 +19,8 @@ jobs:
         with:
           files: |
               src/**
+              .github/workflows/llc.yml
+              .github/workflows/go.yml
   
   create_release:
     name: Create Release
@@ -31,19 +33,30 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Get Next Version
+      - uses: paulhatch/semantic-version@v5.0.2
         id: semver
-        uses: ietf-tools/semver-action@v1
         with:
-          token: ${{ github.token }}
-          branch: master
+          # The prefix to use to identify tags
+          tag_prefix: "v"
+          # A string which, if present in a git commit, indicates that a change represents a
+          # major (breaking) change, supports regular expressions wrapped with '/'
+          major_pattern: "(MAJOR)"
+          # A string which indicates the flags used by the `major_pattern` regular expression. Supported flags: idgs
+          major_regexp_flags: ""
+          # Same as above except indicating a minor change, supports regular expressions wrapped with '/'
+          minor_pattern: "(MINOR)"
+          # A string which indicates the flags used by the `minor_pattern` regular expression. Supported flags: idgs
+          minor_regexp_flags: ""
+          # A string to determine the format of the version output
+          version_format: "${major}.${minor}.${patch}+${increment}"
+          bump_each_commit: false
       - name: Create Release
         uses: "marvinpinto/action-automatic-releases@latest"
         id: create_release
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          title: "Release ${{ steps.semver.outputs.next }}"
-          automatic_release_tag: latest
+          title: "Release ${{ steps.semver.outputs.version_tag  }}"
+          automatic_release_tag: "${{ steps.semver.outputs.version_tag  }}"
           prerelease: false
 
   build:
