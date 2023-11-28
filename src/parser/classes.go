@@ -3,7 +3,6 @@ package parser
 import (
 	"fmt"
 
-	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/types"
 	"github.com/vyPal/CaffeineC/compiler"
 )
@@ -43,7 +42,7 @@ func (p *Parser) parseClassConstructor() compiler.Method {
 	p.Pos++ // name
 	p.Pos++ // "("
 	// Parse the parameters
-	var params []*ir.Param
+	var params []*compiler.CParam
 	for p.Tokens[p.Pos].Type != "PUNCT" || p.Tokens[p.Pos].Value != ")" {
 		paramName := p.Tokens[p.Pos].Value
 		p.Pos++ // name
@@ -52,17 +51,17 @@ func (p *Parser) parseClassConstructor() compiler.Method {
 		p.Pos++ // type
 		switch paramType {
 		case "int":
-			params = append(params, ir.NewParam(paramName, types.I64))
+			params = append(params, &compiler.CParam{Name: paramName, Typ: compiler.CType{Typ: types.I64}})
 		case "string":
-			params = append(params, ir.NewParam(paramName, &types.ArrayType{ElemType: types.I8}))
+			params = append(params, &compiler.CParam{Name: paramName, Typ: compiler.CType{Typ: &types.PointerType{ElemType: types.I8}}})
 		case "float64":
-			params = append(params, ir.NewParam(paramName, types.Double))
+			params = append(params, &compiler.CParam{Name: paramName, Typ: compiler.CType{Typ: types.Double}})
 		case "bool":
-			params = append(params, ir.NewParam(paramName, types.I1))
+			params = append(params, &compiler.CParam{Name: paramName, Typ: compiler.CType{Typ: types.I1}})
 		case "duration":
-			params = append(params, ir.NewParam(paramName, types.I64))
+			params = append(params, &compiler.CParam{Name: paramName, Typ: compiler.CType{Typ: types.I64}})
 		default:
-			panic(fmt.Sprintf("Unknown type %s", paramType))
+			params = append(params, &compiler.CParam{Name: paramName, Typ: compiler.CType{CustomType: paramType}})
 		}
 		if p.Tokens[p.Pos].Type == "PUNCT" && p.Tokens[p.Pos].Value == "," {
 			p.Pos++ // ","
@@ -110,7 +109,7 @@ func (p *Parser) parseClassConstructor() compiler.Method {
 	}
 	fmt.Println("End of function", name)
 	p.Pos++ // "}"
-	return compiler.Method{Name: name, Params: params, ReturnType: types.Void, Body: body, Private: false}
+	return compiler.Method{Name: name, Params: params, ReturnType: &compiler.CType{Typ: types.Void}, Body: body, Private: false}
 }
 
 func (p *Parser) parseMethod() compiler.Method {

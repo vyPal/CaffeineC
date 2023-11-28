@@ -23,7 +23,7 @@ func (p *Parser) parseVarDecl() []compiler.Stmt {
 			statements = append(statements, p.createBuiltinTypeStmt(name, typeName, value))
 		} else {
 			// Assume typeName is a class name
-			statements = append(statements, &compiler.SDefine{Name: name, Typ: nil, CustomTypeName: typeName, Expr: value})
+			statements = append(statements, &compiler.SDefine{Name: name, Typ: &compiler.CType{CustomType: typeName}, Expr: value})
 		}
 	} else {
 		fmt.Printf("Declare variable %s of type %s\n", name, typeName)
@@ -31,7 +31,7 @@ func (p *Parser) parseVarDecl() []compiler.Stmt {
 			statements = append(statements, p.createBuiltinTypeStmt(name, typeName, nil))
 		} else {
 			// Assume typeName is a class name
-			statements = append(statements, &compiler.SDefine{Name: name, Typ: nil, CustomTypeName: typeName, Expr: nil})
+			statements = append(statements, &compiler.SDefine{Name: name, Typ: &compiler.CType{CustomType: typeName}, Expr: nil})
 		}
 	}
 	p.Pos++ // ";"
@@ -50,15 +50,15 @@ func (p *Parser) isBuiltinType(typeName string) bool {
 func (p *Parser) createBuiltinTypeStmt(name string, typeName string, value compiler.Expr) compiler.Stmt {
 	switch typeName {
 	case "int":
-		return &compiler.SDefine{Name: name, Typ: types.I64, Expr: value}
+		return &compiler.SDefine{Name: name, Typ: &compiler.CType{Typ: types.I8}, Expr: value}
 	case "string":
-		return &compiler.SDefine{Name: name, Typ: &types.PointerType{ElemType: types.I8}, Expr: value}
+		return &compiler.SDefine{Name: name, Typ: &compiler.CType{Typ: &types.PointerType{ElemType: types.I8}}, Expr: value}
 	case "float64":
-		return &compiler.SDefine{Name: name, Typ: types.Double, Expr: value}
+		return &compiler.SDefine{Name: name, Typ: &compiler.CType{Typ: types.Double}, Expr: value}
 	case "bool":
-		return &compiler.SDefine{Name: name, Typ: types.I1, Expr: value}
+		return &compiler.SDefine{Name: name, Typ: &compiler.CType{Typ: types.I1}, Expr: value}
 	case "duration":
-		return &compiler.SDefine{Name: name, Typ: types.I64, Expr: value}
+		return &compiler.SDefine{Name: name, Typ: &compiler.CType{Typ: types.I64}, Expr: value}
 	default:
 		panic(fmt.Sprintf("Unknown type %s", typeName))
 	}

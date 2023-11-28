@@ -1,33 +1,17 @@
-class Bek {
-  a:int;
-
-  Bek() {
-    this.a = 1;
+class So {
+  dejv:int;
+  So() {
+    this.dejv = 1;
   }
-
-  func sob() {
-    print this.a;
-    this.a = this.a + 1;
+  func bek() {
+    this.dejv = this.dejv + 1;
   }
-
-  func ok():int {
-    return this.a
+  func david(): int {
+    return this.dejv
   }
 }
 
-var lol: Bek = new Bek();
+var so:So = new So();
 
-print "Running lol.sob() 10 times";
-
-for (var i:int = 0; i < 10; i = i + 1) {
-  lol.sob();
-}
-
-print "Final result of a field:";
-print lol.ok();
-
-if lol.ok() == 11 {
-  print "Yes, it worked!";
-} else {
-  print "Something went wrong D:";
-}
+so.bek();
+print so.david();

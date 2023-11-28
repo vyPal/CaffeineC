@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/llir/llvm/ir"
@@ -149,10 +150,9 @@ type ENot struct {
 type Stmt interface{ isStmt() Stmt }
 type SDefine struct {
 	Stmt
-	Name           string
-	Typ            types.Type
-	CustomTypeName string
-	Expr           Expr
+	Name string
+	Typ  *CType
+	Expr Expr
 }
 type SAssign struct {
 	Stmt
@@ -172,11 +172,50 @@ type SFuncCall struct {
 	Name string
 	Args []Expr
 }
+type CParam struct {
+	Name string
+	Typ  CType
+}
+
+func (ctx *Context) toParam(p *CParam) *ir.Param {
+	ctx.toType(&p.Typ)
+	return ir.NewParam(p.Name, p.Typ.Typ)
+}
+func (ctx *Context) toParams(ps []*CParam) []*ir.Param {
+	var params []*ir.Param
+	for _, p := range ps {
+		params = append(params, ctx.toParam(p))
+	}
+	return params
+}
+
+type CType struct {
+	Typ        types.Type
+	CustomType string
+}
+
+func (ctx *Context) toType(t *CType) types.Type {
+	if t.CustomType != "" {
+		for _, ty := range ctx.Module.TypeDefs {
+			if ty.Name() == t.CustomType {
+				t.Typ = types.NewPointer(ty)
+				break
+			}
+		}
+		if t.Typ == nil {
+			panic(fmt.Sprintf("type `%s` not found", t.CustomType))
+		}
+		return t.Typ
+	} else {
+		return t.Typ
+	}
+}
+
 type SFuncDecl struct {
 	Stmt
 	Name       string
-	Args       []*ir.Param
-	ReturnType types.Type
+	Args       []*CParam
+	ReturnType *CType
 	Body       []Stmt
 }
 type SRet struct {

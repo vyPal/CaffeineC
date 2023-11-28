@@ -1,0 +1,151 @@
+[
+  {
+    "Stmt": null,
+    "Name": "So",
+    "Constructor": {
+      "Name": "So",
+      "Params": null,
+      "ReturnType": {
+        "Typ": {
+          "TypeName": ""
+        },
+        "CustomType": ""
+      },
+      "Body": [
+        {
+          "Stmt": null,
+          "Name": {
+            "Expr": null,
+            "Struct": {
+              "Expr": null,
+              "Name": "this"
+            },
+            "Name": {
+              "Expr": null,
+              "Name": "dejv"
+            }
+          },
+          "Expr": {
+            "EConst": null,
+            "Value": 1
+          }
+        }
+      ],
+      "Private": false
+    },
+    "Fields": [
+      {
+        "Name": "dejv",
+        "Type": {
+          "TypeName": "",
+          "BitSize": 64
+        },
+        "Private": false,
+        "Index": 0
+      }
+    ],
+    "Methods": [
+      {
+        "Name": "bek",
+        "Params": null,
+        "ReturnType": {
+          "Typ": {
+            "TypeName": ""
+          },
+          "CustomType": ""
+        },
+        "Body": [
+          {
+            "Stmt": null,
+            "Name": {
+              "Expr": null,
+              "Struct": {
+                "Expr": null,
+                "Name": "this"
+              },
+              "Name": {
+                "Expr": null,
+                "Name": "dejv"
+              }
+            },
+            "Expr": {
+              "Expr": null,
+              "Left": {
+                "Expr": null,
+                "Struct": {
+                  "Expr": null,
+                  "Name": "this"
+                },
+                "Name": {
+                  "Expr": null,
+                  "Name": "dejv"
+                }
+              },
+              "Right": {
+                "EConst": null,
+                "Value": 1
+              }
+            }
+          }
+        ],
+        "Private": false
+      },
+      {
+        "Name": "david",
+        "Params": null,
+        "ReturnType": {
+          "Typ": {
+            "TypeName": "",
+            "BitSize": 64
+          },
+          "CustomType": ""
+        },
+        "Body": [
+          {
+            "Stmt": null,
+            "Val": {
+              "Expr": null,
+              "Struct": {
+                "Expr": null,
+                "Name": "this"
+              },
+              "Name": {
+                "Expr": null,
+                "Name": "dejv"
+              }
+            }
+          }
+        ],
+        "Private": false
+      }
+    ]
+  },
+  {
+    "Stmt": null,
+    "Name": "so",
+    "Typ": {
+      "Typ": null,
+      "CustomType": "So"
+    },
+    "Expr": {
+      "Expr": null,
+      "Name": "So",
+      "Args": null
+    }
+  },
+  {
+    "Stmt": null,
+    "InstanceName": "so",
+    "MethodName": "bek",
+    "Args": null
+  },
+  {
+    "Stmt": null,
+    "Expr": {
+      "Expr": null,
+      "InstanceName": "so",
+      "MethodName": "david",
+      "Args": null
+    }
+  }
+]

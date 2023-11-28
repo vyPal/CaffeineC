@@ -29,11 +29,18 @@ jobs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       - uses: actions/checkout@v3
+      - name: Get Next Version
+        id: semver
+        uses: ietf-tools/semver-action@v1
+        with:
+          token: ${{ github.token }}
+          branch: master
       - name: Create Release
         uses: "marvinpinto/action-automatic-releases@latest"
         id: create_release
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          title: "Release ${{ steps.semver.outputs.next }}"
           automatic_release_tag: latest
           prerelease: false
 

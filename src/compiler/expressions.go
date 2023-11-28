@@ -233,17 +233,6 @@ func (ctx *Context) compileStmt(stmt Stmt) {
 		if ctx.Block == nil {
 			panic("cannot declare variable outside of a function")
 		}
-		if s.Typ == nil && s.CustomTypeName != "" {
-			for _, t := range ctx.Module.TypeDefs {
-				if t.Name() == s.CustomTypeName {
-					s.Typ = types.NewPointer(t)
-					break
-				}
-			}
-			if s.Typ == nil {
-				panic(fmt.Sprintf("type `%s` not found", s.CustomTypeName))
-			}
-		}
 		value := ctx.compileExpr(s.Expr)
 		ctx.vars[s.Name] = value
 	case *SAssign:

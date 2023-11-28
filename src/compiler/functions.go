@@ -62,9 +62,9 @@ func (c *Context) compileFunctionDecl(s SFuncDecl) {
 
 	var argsUsed []string
 	for _, arg := range s.Args {
-		argsUsed = append(argsUsed, arg.Name())
-		tmpCtx.vars[arg.Name()] = constant.NewInt(types.I1, 0)
-		fmt.Println("Defined " + arg.Name())
+		argsUsed = append(argsUsed, arg.Name)
+		tmpCtx.vars[arg.Name] = constant.NewInt(types.I1, 0)
+		fmt.Println("Defined " + arg.Name)
 	}
 	for _, stmt := range s.Body {
 		tmpCtx.compileStmt(stmt)
@@ -78,22 +78,22 @@ func (c *Context) compileFunctionDecl(s SFuncDecl) {
 		fmt.Println("Used var:", name)
 		c.usedVars[name] = true
 		value := tmpCtx.lookupVariable(name)
-		s.Args = append(s.Args, ir.NewParam("", value.Type()))
+		s.Args = append(s.Args, &CParam{Typ: CType{Typ: value.Type()}})
 	}
 
 	// Remove the temporary function from the module
 	c.Module.Funcs = c.Module.Funcs[:len(c.Module.Funcs)-1]
 
-	f := c.Module.NewFunc(s.Name, s.ReturnType, s.Args...)
+	f := c.Module.NewFunc(s.Name, c.toType(s.ReturnType), c.toParams(s.Args)...)
 	f.Sig.Variadic = false
-	f.Sig.RetType = s.ReturnType
+	f.Sig.RetType = c.toType(s.ReturnType)
 	block := f.NewBlock("entry")
 	ctx := c.NewContext(block)
 	for _, stmt := range s.Body {
 		ctx.compileStmt(stmt)
 	}
 	if ctx.Term == nil {
-		if s.ReturnType.Equal(types.Void) {
+		if c.toType(s.ReturnType).Equal(types.Void) {
 			ctx.NewRet(nil)
 		} else {
 			panic(fmt.Errorf("function `%s` does not return a value", s.Name))

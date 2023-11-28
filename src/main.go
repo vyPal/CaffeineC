@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "embed"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -31,12 +32,21 @@ func main() {
 	var no_cleanup *bool
 	var numbers_are_variables *bool
 	var output_file *string
+	var dump_ast *bool
+
+	isWindows := runtime.GOOS == "windows"
+
 	switch os.Args[1] {
 	case "build":
 		buildCmd := flag.NewFlagSet("build", flag.ExitOnError)
 		no_cleanup = buildCmd.Bool("nc", false, "Don't remove temporary files")
 		numbers_are_variables = buildCmd.Bool("nv", false, "Allow variable names to be numbers")
-		output_file = buildCmd.String("o", "output", "The name for the built binary")
+		dump_ast = buildCmd.Bool("da", false, "Dump the AST to a file")
+		if isWindows {
+			output_file = buildCmd.String("o", "output.exe", "The name for the built binary")
+		} else {
+			output_file = buildCmd.String("o", "output", "The name for the built binary")
+		}
 
 		// Parse the flags for the build command
 		buildCmd.Parse(os.Args[2:])
@@ -73,6 +83,22 @@ func main() {
 	p := parser.Parser{Tokens: Tokens}
 	p.Parse()
 
+	if *dump_ast {
+		astFile, err := os.Create("ast_dump.json")
+		if err != nil {
+			fmt.Println("Error creating AST dump file:", err)
+			os.Exit(1)
+		}
+		defer astFile.Close()
+
+		encoder := json.NewEncoder(astFile)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(p.AST); err != nil {
+			fmt.Println("Error encoding AST:", err)
+			os.Exit(1)
+		}
+	}
+
 	c := compiler.Compiler{Module: mod, SymbolTable: make(map[string]value.Value), AST: p.AST, VarsCanBeNumbers: *numbers_are_variables, StructFields: make(map[string][]compiler.Field)}
 	c.Compile()
 
@@ -100,7 +126,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if runtime.GOOS == "windows" {
+	if isWindows {
 		// Save the embedded llc executable to a temporary file
 		llcExePath := tmpDir + "/llc.exe"
 		err := os.WriteFile(llcExePath, llcExe, 0755)
@@ -125,6 +151,17 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+
+		cmd = exec.Command("gcc", tmpDir+"/output.o", tmpDir+"/sleep.o", "-o", tmpDir+"/output.exe")
+		err = cmd.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		err = os.Rename(tmpDir+"/output.exe", *output_file)
+		if err != nil {
+			log.Fatal(err)
+		}
 	} else {
 		cmd := exec.Command("opt", tmpDir+"/output.ll", "-o", tmpDir+"/output.bc")
 		err = cmd.Run()
@@ -137,18 +174,17 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-	}
 
-	// Link everything together
-	cmd = exec.Command("gcc", tmpDir+"/output.o", tmpDir+"/sleep.o", "-o", tmpDir+"/output")
-	err = cmd.Run()
-	if err != nil {
-		log.Fatal(err)
-	}
+		cmd = exec.Command("gcc", tmpDir+"/output.o", tmpDir+"/sleep.o", "-o", tmpDir+"/output")
+		err = cmd.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	err = os.Rename(tmpDir+"/output", *output_file)
-	if err != nil {
-		log.Fatal(err)
+		err = os.Rename(tmpDir+"/output", *output_file)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	// Remove the temporary files
