@@ -29,6 +29,8 @@ jobs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: Get Next Version
         id: semver
         uses: ietf-tools/semver-action@v1

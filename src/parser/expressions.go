@@ -139,7 +139,7 @@ func (p *Parser) parseComparison() compiler.Expr {
 		case "(":
 			term = p.parseExpression()
 			if p.Tokens[p.Pos].Value != ")" {
-				panic("Expected )")
+				panic(fmt.Errorf("Expected )"))
 			}
 			p.Pos++ // ")"
 		}
