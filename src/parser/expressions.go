@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/vyPal/CaffeineC/compiler"
 )
 
@@ -42,7 +43,7 @@ func (p *Parser) parseStatement() []compiler.Stmt {
 			statements = append(statements, p.parseAssignment())
 		}
 	default:
-		fmt.Println("[W]", token.Location, "Unexpected token:", token.Value)
+		color.Yellow(token.Location.String(), "Unexpected token:", token.Value)
 		p.Pos++
 	}
 	return statements
@@ -101,9 +102,6 @@ func (p *Parser) parseFor() *compiler.SFor {
 		body = append(body, p.parseStatement()...)
 	}
 	p.Pos++ // "}"
-	fmt.Println("Initializer: ", initializer[0])
-	fmt.Println("Condition: ", condition)
-	fmt.Println("Step: ", step[0])
 	return &compiler.SFor{InitName: initializer[0].(*compiler.SDefine).Name, InitExpr: initializer[0].(*compiler.SDefine).Expr, Cond: condition, Step: step[0].(*compiler.SAssign).Expr, Block: body}
 }
 

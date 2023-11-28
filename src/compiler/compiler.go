@@ -1,8 +1,6 @@
 package compiler
 
 import (
-	"fmt"
-
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
@@ -51,7 +49,6 @@ func (c Context) lookupVariable(name string) value.Value {
 		if c.Compiler.VarsCanBeNumbers {
 			return nil
 		}
-		fmt.Printf("variable: `%s`\n", name)
 		panic("no such variable")
 	}
 }
@@ -73,20 +70,10 @@ func (c *Compiler) Compile() {
 	block := funcMain.NewBlock("entry")
 	c.Context = NewContext(block, c)
 	for _, stmt := range c.AST {
-		fmt.Printf("%T: %v\n", stmt, stmt)
 		c.Context.compileStmt(stmt)
 	}
 	if c.Context.Block.Term == nil {
 		c.Context.Block.NewRet(constant.NewInt(types.I32, 0))
-	}
-	fmt.Println("Symbol table:")
-	for k, v := range c.SymbolTable {
-		fmt.Printf("%s: %v\n", k, v)
-	}
-
-	fmt.Println("Vars:")
-	for k, v := range c.Context.vars {
-		fmt.Printf("%s: %v\n", k, v)
 	}
 }
 

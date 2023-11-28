@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 
+	"github.com/fatih/color"
 	"github.com/llir/llvm/ir/types"
 	"github.com/vyPal/CaffeineC/compiler"
 )
@@ -18,7 +19,6 @@ func (p *Parser) parseVarDecl() []compiler.Stmt {
 	if p.Tokens[p.Pos].Type == "PUNCT" && p.Tokens[p.Pos].Value == "=" {
 		p.Pos++ // "="
 		value := p.parseExpression()
-		fmt.Printf("Declare variable %s of type %s with value %v\n", name, typeName, value)
 		if p.isBuiltinType(typeName) {
 			statements = append(statements, p.createBuiltinTypeStmt(name, typeName, value))
 		} else {
@@ -26,7 +26,6 @@ func (p *Parser) parseVarDecl() []compiler.Stmt {
 			statements = append(statements, &compiler.SDefine{Name: name, Typ: &compiler.CType{CustomType: typeName}, Expr: value})
 		}
 	} else {
-		fmt.Printf("Declare variable %s of type %s\n", name, typeName)
 		if p.isBuiltinType(typeName) {
 			statements = append(statements, p.createBuiltinTypeStmt(name, typeName, nil))
 		} else {
@@ -60,6 +59,7 @@ func (p *Parser) createBuiltinTypeStmt(name string, typeName string, value compi
 	case "duration":
 		return &compiler.SDefine{Name: name, Typ: &compiler.CType{Typ: types.I64}, Expr: value}
 	default:
+		color.Red("Unknown type %s", typeName)
 		panic(fmt.Sprintf("Unknown type %s", typeName))
 	}
 }

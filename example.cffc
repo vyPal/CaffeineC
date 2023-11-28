@@ -1,17 +1,4 @@
-class So {
-  dejv:int;
-  So() {
-    this.dejv = 1;
-  }
-  func bek() {
-    this.dejv = this.dejv + 1;
-  }
-  func david(): int {
-    return this.dejv
-  }
+func a() {
+  print "bek";
 }
-
-var so:So = new So();
-
-so.bek();
-print so.david();
+a();

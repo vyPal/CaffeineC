@@ -40,13 +40,11 @@ func (ctx *Context) compileClassDeclaration(c *Class) {
 	fmt.Println(c.Constructor.Body[0])
 	ctx.Module.NewTypeDef(c.Name, classType)
 	if c.Constructor.Name != "" {
-		fmt.Println("Declaring constructor " + c.Constructor.Name)
 		constructor := ctx.compileMethodDeclaration(c.Constructor, c)
 		// Add constructor to the symbol table
 		ctx.Compiler.SymbolTable[c.Name] = constructor
 	}
 	for _, m := range c.Methods {
-		fmt.Println("Declaring method " + m.Name)
 		ctx.Compiler.SymbolTable[c.Name+"."+m.Name] = ctx.compileMethodDeclaration(m, c)
 	}
 }
@@ -86,7 +84,6 @@ func (ctx *Context) compileMethodDeclaration(m Method, c *Class) *ir.Func {
 func (ctx *Context) compileClassMethod(c SClassMethod) {
 	// Get the class instance
 	instance := ctx.lookupVariable(c.InstanceName)
-	fmt.Println("Instance:", instance)
 
 	var classType types.Type
 	for _, t := range ctx.Module.TypeDefs {

@@ -200,6 +200,4 @@ func main() {
 		os.Remove(tmpDir + "/sleep.c")
 		os.Remove(tmpDir)
 	}
-
-	fmt.Println("Done!")
 }

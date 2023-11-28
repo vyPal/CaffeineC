@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 
+	"github.com/fatih/color"
 	"github.com/llir/llvm/ir/types"
 	"github.com/vyPal/CaffeineC/compiler"
 )
@@ -69,7 +70,6 @@ func (p *Parser) parseClassConstructor() compiler.Method {
 	}
 	p.Pos++ // ")"
 	p.Pos++
-	fmt.Println("Start of function", name)
 	var body []compiler.Stmt
 	for p.Tokens[p.Pos].Type != "PUNCT" || p.Tokens[p.Pos].Value != "}" {
 		token := p.Tokens[p.Pos]
@@ -103,11 +103,10 @@ func (p *Parser) parseClassConstructor() compiler.Method {
 				body = append(body, p.parseAssignment())
 			}
 		default:
-			fmt.Println("[W]", token.Location, "Unexpected token:", token.Value)
+			color.Yellow(token.Location.String(), "Unexpected token:", token.Value)
 			p.Pos++
 		}
 	}
-	fmt.Println("End of function", name)
 	p.Pos++ // "}"
 	return compiler.Method{Name: name, Params: params, ReturnType: &compiler.CType{Typ: types.Void}, Body: body, Private: false}
 }

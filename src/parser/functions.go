@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 
+	"github.com/fatih/color"
 	"github.com/llir/llvm/ir/types"
 	"github.com/vyPal/CaffeineC/compiler"
 )
@@ -10,7 +11,6 @@ import (
 func (p *Parser) parseFunctionDeclaration() compiler.Stmt {
 	p.Pos++ // "func"
 	name := p.Tokens[p.Pos].Value
-	fmt.Println("Func name:", name)
 	p.Pos++ // name
 	p.Pos++ // "("
 	// Parse the parameters
@@ -62,12 +62,9 @@ func (p *Parser) parseFunctionDeclaration() compiler.Stmt {
 		returnType = &compiler.CType{Typ: types.Void}
 	}
 	p.Pos++ // type
-	fmt.Printf("Declare function %s with return type %s\n", name, returnType)
 	if returnType.Typ != types.Void {
 		p.Pos++ // "{"
 	}
-	fmt.Println("At cpost:", p.Tokens[p.Pos])
-	fmt.Println("Start of function", name)
 	var body []compiler.Stmt
 	for p.Tokens[p.Pos].Type != "PUNCT" || p.Tokens[p.Pos].Value != "}" {
 		token := p.Tokens[p.Pos]
@@ -106,11 +103,10 @@ func (p *Parser) parseFunctionDeclaration() compiler.Stmt {
 				body = append(body, p.parseAssignment())
 			}
 		default:
-			fmt.Println("[W]", token.Location, "Unexpected token:", token.Value)
+			color.Yellow(token.Location.String(), "Unexpected token:", token.Value)
 			p.Pos++
 		}
 	}
-	fmt.Println("End of function", name)
 	p.Pos++ // "}"
 	return &compiler.SFuncDecl{Name: name, Args: params, ReturnType: returnType, Body: body}
 }
@@ -118,7 +114,6 @@ func (p *Parser) parseFunctionDeclaration() compiler.Stmt {
 func (p *Parser) parsePrint() compiler.Stmt {
 	p.Pos++ // "print"
 	val := p.parseExpression()
-	fmt.Println("Print", val)
 
 	p.Pos++ // ";"
 	return &compiler.SPrint{Expr: val}
@@ -127,7 +122,6 @@ func (p *Parser) parsePrint() compiler.Stmt {
 func (p *Parser) parseSleep() compiler.Stmt {
 	p.Pos++ // "sleep"
 	value := p.parseExpression()
-	fmt.Println("Sleep", value)
 
 	p.Pos++ // ";"
 	return &compiler.SSleep{Expr: value}
@@ -148,7 +142,6 @@ func (p *Parser) parseFunctionCall() compiler.Stmt {
 		}
 	}
 	p.Pos++ // ")"
-	fmt.Println("Call", name, args)
 
 	p.Pos++ // ";"
 	return &compiler.SFuncCall{Name: name, Args: args}
@@ -169,7 +162,6 @@ func (p *Parser) parseNonVoidFunctionCall() compiler.Expr {
 		}
 	}
 	p.Pos++ // ")"
-	fmt.Println("Call", name, args)
 
 	return compiler.ECall{Name: name, Args: args}
 }
