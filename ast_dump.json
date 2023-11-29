@@ -1,27 +1,230 @@
-[
-  {
-    "Stmt": null,
-    "Name": "a",
-    "Args": null,
-    "ReturnType": {
-      "Typ": {
-        "TypeName": ""
+{
+  "Statements": [
+    {
+      "VariableDefinition": null,
+      "Assignment": null,
+      "FunctionDefinition": null,
+      "ClassDefinition": {
+        "Name": "Bek",
+        "Body": [
+          {
+            "VariableDefinition": {
+              "Name": "so",
+              "Type": "int",
+              "Assignment": null
+            },
+            "Assignment": null,
+            "FunctionDefinition": null,
+            "ClassDefinition": null,
+            "If": null,
+            "For": null,
+            "While": null,
+            "Return": null,
+            "Expression": null
+          },
+          {
+            "VariableDefinition": null,
+            "Assignment": null,
+            "FunctionDefinition": {
+              "Private": false,
+              "Static": false,
+              "Name": "Bek",
+              "Parameters": [
+                {
+                  "Name": "bek",
+                  "Type": "int"
+                }
+              ],
+              "ReturnType": "",
+              "Body": [
+                {
+                  "VariableDefinition": null,
+                  "Assignment": {
+                    "Left": {
+                      "Name": "so",
+                      "Sub": null
+                    },
+                    "Right": {
+                      "Left": {
+                        "Left": {
+                          "Left": {
+                            "Value": {
+                              "Float": null,
+                              "Int": 1,
+                              "Bool": null,
+                              "String": null,
+                              "Duration": null
+                            },
+                            "ClassInitializer": null,
+                            "SubExpression": null,
+                            "FunctionCall": null,
+                            "ClassMethod": null,
+                            "Identifier": null
+                          },
+                          "Right": null
+                        },
+                        "Right": null
+                      },
+                      "Right": null
+                    }
+                  },
+                  "FunctionDefinition": null,
+                  "ClassDefinition": null,
+                  "If": null,
+                  "For": null,
+                  "While": null,
+                  "Return": null,
+                  "Expression": null
+                }
+              ]
+            },
+            "ClassDefinition": null,
+            "If": null,
+            "For": null,
+            "While": null,
+            "Return": null,
+            "Expression": null
+          },
+          {
+            "VariableDefinition": null,
+            "Assignment": null,
+            "FunctionDefinition": {
+              "Private": false,
+              "Static": false,
+              "Name": "sobrrrk",
+              "Parameters": null,
+              "ReturnType": "",
+              "Body": [
+                {
+                  "VariableDefinition": null,
+                  "Assignment": {
+                    "Left": {
+                      "Name": "so",
+                      "Sub": null
+                    },
+                    "Right": {
+                      "Left": {
+                        "Left": {
+                          "Left": {
+                            "Value": null,
+                            "ClassInitializer": null,
+                            "SubExpression": null,
+                            "FunctionCall": null,
+                            "ClassMethod": null,
+                            "Identifier": {
+                              "Name": "so",
+                              "Sub": null
+                            }
+                          },
+                          "Right": null
+                        },
+                        "Right": null
+                      },
+                      "Right": [
+                        {
+                          "Op": "+",
+                          "Expression": {
+                            "Left": {
+                              "Left": {
+                                "Left": {
+                                  "Value": {
+                                    "Float": null,
+                                    "Int": 1,
+                                    "Bool": null,
+                                    "String": null,
+                                    "Duration": null
+                                  },
+                                  "ClassInitializer": null,
+                                  "SubExpression": null,
+                                  "FunctionCall": null,
+                                  "ClassMethod": null,
+                                  "Identifier": null
+                                },
+                                "Right": null
+                              },
+                              "Right": null
+                            },
+                            "Right": null
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "FunctionDefinition": null,
+                  "ClassDefinition": null,
+                  "If": null,
+                  "For": null,
+                  "While": null,
+                  "Return": null,
+                  "Expression": null
+                }
+              ]
+            },
+            "ClassDefinition": null,
+            "If": null,
+            "For": null,
+            "While": null,
+            "Return": null,
+            "Expression": null
+          },
+          {
+            "VariableDefinition": null,
+            "Assignment": null,
+            "FunctionDefinition": {
+              "Private": false,
+              "Static": false,
+              "Name": "sobrero",
+              "Parameters": null,
+              "ReturnType": "int",
+              "Body": [
+                {
+                  "VariableDefinition": null,
+                  "Assignment": null,
+                  "FunctionDefinition": null,
+                  "ClassDefinition": null,
+                  "If": null,
+                  "For": null,
+                  "While": null,
+                  "Return": {
+                    "Expression": {
+                      "Left": {
+                        "Left": {
+                          "Left": {
+                            "Value": null,
+                            "ClassInitializer": null,
+                            "SubExpression": null,
+                            "FunctionCall": null,
+                            "ClassMethod": null,
+                            "Identifier": {
+                              "Name": "so",
+                              "Sub": null
+                            }
+                          },
+                          "Right": null
+                        },
+                        "Right": null
+                      },
+                      "Right": null
+                    }
+                  },
+                  "Expression": null
+                }
+              ]
+            },
+            "ClassDefinition": null,
+            "If": null,
+            "For": null,
+            "While": null,
+            "Return": null,
+            "Expression": null
+          }
+        ]
       },
-      "CustomType": ""
-    },
-    "Body": [
-      {
-        "Stmt": null,
-        "Expr": {
-          "EConst": null,
-          "Value": "bek"
-        }
-      }
-    ]
-  },
-  {
-    "Stmt": null,
-    "Name": "a",
-    "Args": null
-  }
-]
+      "If": null,
+      "For": null,
+      "While": null,
+      "Return": null,
+      "Expression": null
+    }
+  ]
+}

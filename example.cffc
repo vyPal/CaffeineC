@@ -1,4 +1,15 @@
-func a() {
-  print "bek";
+class Bek {
+  var so: int;
+
+  func Bek(bek: int) {
+    so = 1;
+  }
+
+  func sobrrrk() {
+    so = so + 1;
+  }
+
+  func sobrero(): int {
+    return so;
+  }
 }
-a();
