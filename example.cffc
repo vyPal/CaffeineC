@@ -1,15 +1,3 @@
-class Bek {
-  var so: int;
-
-  func Bek(bek: int) {
-    so = 1;
-  }
-
-  func sobrrrk() {
-    so = so + 1;
-  }
-
-  func sobrero(): int {
-    return so;
-  }
+for (var a:int = 0; a < 5; a = a + 5) {
+  print("bek");
 }

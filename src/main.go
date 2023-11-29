@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
+	"os/exec"
 	"runtime"
 
+	"github.com/vyPal/CaffeineC/lib/compiler"
 	"github.com/vyPal/CaffeineC/lib/parser"
 )
 
@@ -22,7 +25,6 @@ func main() {
 
 	var filename string
 	var no_cleanup *bool
-	var numbers_are_variables *bool
 	var output_file *string
 	var dump_ast *bool
 
@@ -32,7 +34,6 @@ func main() {
 	case "build":
 		buildCmd := flag.NewFlagSet("build", flag.ExitOnError)
 		no_cleanup = buildCmd.Bool("nc", false, "Don't remove temporary files")
-		numbers_are_variables = buildCmd.Bool("nv", false, "Allow variable names to be numbers")
 		dump_ast = buildCmd.Bool("da", false, "Dump the AST to a file")
 		if isWindows {
 			output_file = buildCmd.String("o", "output.exe", "The name for the built binary")
@@ -74,113 +75,111 @@ func main() {
 		}
 	}
 
-	fmt.Println(no_cleanup, numbers_are_variables, output_file)
-	/*
-	   mod := ir.NewModule()
+	c := compiler.NewCompiler()
+	c.Compile(ast)
 
-	   tmpDir := "tmp_compile"
-	   err := os.Mkdir(tmpDir, 0755)
+	tmpDir := "tmp_compile"
+	err := os.Mkdir(tmpDir, 0755)
 
-	   	if err != nil && !os.IsExist(err) {
-	   		panic(err)
-	   	}
+	if err != nil && !os.IsExist(err) {
+		panic(err)
+	}
 
-	   cFilePath := tmpDir + "/sleep.c"
-	   err = os.WriteFile(cFilePath, []byte(cSource), 0644)
+	cFilePath := tmpDir + "/sleep.c"
+	err = os.WriteFile(cFilePath, []byte(cSource), 0644)
 
-	   	if err != nil {
-	   		panic(err)
-	   	}
+	if err != nil {
+		panic(err)
+	}
 
-	   err = os.WriteFile("tmp_compile/output.ll", []byte(c.Module.String()), 0644)
+	err = os.WriteFile("tmp_compile/output.ll", []byte(c.Module.String()), 0644)
 
-	   	if err != nil {
-	   		log.Fatal(err)
-	   	}
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	   // Compile the C code into an object file
-	   cmd := exec.Command("gcc", "-c", cFilePath, "-o", tmpDir+"/sleep.o")
-	   err = cmd.Run()
+	// Compile the C code into an object file
+	cmd := exec.Command("gcc", "-c", cFilePath, "-o", tmpDir+"/sleep.o")
+	err = cmd.Run()
 
-	   	if err != nil {
-	   		log.Fatal(err)
-	   	}
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	   	if isWindows {
-	   		// Save the embedded llc executable to a temporary file
-	   		llcExePath := tmpDir + "/llc.exe"
-	   		err := os.WriteFile(llcExePath, llcExe, 0755)
-	   		if err != nil {
-	   			panic(err)
-	   		}
-	   		optExePath := tmpDir + "/opt.exe"
-	   		err = os.WriteFile(optExePath, optExe, 0755)
-	   		if err != nil {
-	   			panic(err)
-	   		}
+	if isWindows {
+		// Save the embedded llc executable to a temporary file
+		llcExePath := tmpDir + "/llc.exe"
+		err := os.WriteFile(llcExePath, llcExe, 0755)
+		if err != nil {
+			panic(err)
+		}
+		optExePath := tmpDir + "/opt.exe"
+		err = os.WriteFile(optExePath, optExe, 0755)
+		if err != nil {
+			panic(err)
+		}
 
-	   		// Use the embedded llc executable
-	   		cmd := exec.Command(optExePath, tmpDir+"/output.ll", "-o", tmpDir+"/output.bc")
-	   		err = cmd.Run()
-	   		if err != nil {
-	   			panic(err)
-	   		}
+		// Use the embedded llc executable
+		cmd := exec.Command(optExePath, tmpDir+"/output.ll", "-o", tmpDir+"/output.bc")
+		err = cmd.Run()
+		if err != nil {
+			panic(err)
+		}
 
-	   		cmd = exec.Command(llcExePath, tmpDir+"/output.bc", "-filetype=obj", "-o", tmpDir+"/output.o")
-	   		err = cmd.Run()
-	   		if err != nil {
-	   			panic(err)
-	   		}
+		cmd = exec.Command(llcExePath, tmpDir+"/output.bc", "-filetype=obj", "-o", tmpDir+"/output.o")
+		err = cmd.Run()
+		if err != nil {
+			panic(err)
+		}
 
-	   		cmd = exec.Command("gcc", tmpDir+"/output.o", tmpDir+"/sleep.o", "-o", tmpDir+"/output.exe")
-	   		err = cmd.Run()
-	   		if err != nil {
-	   			log.Fatal(err)
-	   		}
+		cmd = exec.Command("gcc", tmpDir+"/output.o", tmpDir+"/sleep.o", "-o", tmpDir+"/output.exe")
+		err = cmd.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	   		err = os.Rename(tmpDir+"/output.exe", *output_file)
-	   		if err != nil {
-	   			log.Fatal(err)
-	   		}
-	   	} else {
+		err = os.Rename(tmpDir+"/output.exe", *output_file)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
 
-	   		cmd := exec.Command("opt", tmpDir+"/output.ll", "-o", tmpDir+"/output.bc")
-	   		err = cmd.Run()
-	   		if err != nil {
-	   			panic(err)
-	   		}
+		cmd := exec.Command("opt", tmpDir+"/output.ll", "-o", tmpDir+"/output.bc")
+		err = cmd.Run()
+		if err != nil {
+			panic(err)
+		}
 
-	   		cmd = exec.Command("llc", tmpDir+"/output.bc", "-filetype=obj", "-o", tmpDir+"/output.o")
-	   		err = cmd.Run()
-	   		if err != nil {
-	   			panic(err)
-	   		}
+		cmd = exec.Command("llc", tmpDir+"/output.bc", "-filetype=obj", "-o", tmpDir+"/output.o")
+		err = cmd.Run()
+		if err != nil {
+			panic(err)
+		}
 
-	   		cmd = exec.Command("gcc", tmpDir+"/output.o", tmpDir+"/sleep.o", "-o", tmpDir+"/output")
-	   		err = cmd.Run()
-	   		if err != nil {
-	   			log.Fatal(err)
-	   		}
+		cmd = exec.Command("gcc", tmpDir+"/output.o", tmpDir+"/sleep.o", "-o", tmpDir+"/output")
+		err = cmd.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	   		err = os.Rename(tmpDir+"/output", *output_file)
-	   		if err != nil {
-	   			log.Fatal(err)
-	   		}
-	   	}
+		err = os.Rename(tmpDir+"/output", *output_file)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 
-	   // Remove the temporary files
+	// Remove the temporary files
 
-	   	if !*no_cleanup {
-	   		if runtime.GOOS == "windows" {
-	   			os.Remove(tmpDir + "/llc.exe")
-	   			os.Remove(tmpDir + "/opt.exe")
-	   		}
-	   		os.Remove(tmpDir + "/output.ll")
-	   		os.Remove(tmpDir + "/output.bc")
-	   		os.Remove(tmpDir + "/output.o")
-	   		os.Remove(tmpDir + "/sleep.o")
-	   		os.Remove(tmpDir + "/sleep.c")
-	   		os.Remove(tmpDir)
-	   	}
-	*/
+	if !*no_cleanup {
+		if runtime.GOOS == "windows" {
+			os.Remove(tmpDir + "/llc.exe")
+			os.Remove(tmpDir + "/opt.exe")
+		}
+		os.Remove(tmpDir + "/output.ll")
+		os.Remove(tmpDir + "/output.bc")
+		os.Remove(tmpDir + "/output.o")
+		os.Remove(tmpDir + "/sleep.o")
+		os.Remove(tmpDir + "/sleep.c")
+		os.Remove(tmpDir)
+	}
 }

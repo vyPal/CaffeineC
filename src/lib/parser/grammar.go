@@ -92,13 +92,19 @@ type OpExpression struct {
 
 type Assignment struct {
 	Left  *Identifier `parser:"@@"`
-	Right *Expression `parser:"'=' @@ ';'"`
+	Right *Expression `parser:"'=' @@"`
 }
 
 type VariableDefinition struct {
 	Name       string      `parser:"'var' @Ident"`
 	Type       string      `parser:"':' @Ident"`
-	Assignment *Expression `parser:"( '=' @@ )? ';'"`
+	Assignment *Expression `parser:"( '=' @@ )?"`
+}
+
+type FieldDefinition struct {
+	Private bool   `parser:"@'private'?"`
+	Name    string `parser:"@Ident"`
+	Type    string `parser:"':' @Ident ';'"`
 }
 
 type ArgumentDefinition struct {
@@ -131,10 +137,10 @@ type If struct {
 }
 
 type For struct {
-	Initializer *Assignment  `parser:"'for' '(' @@ ';'"`
-	Condition   *Expression  `parser:"@@ ';'"`
-	Increment   *Assignment  `parser:"@@ ')'"`
-	Body        []*Statement `parser:"'{' @@* '}'"`
+	Initializer *VariableDefinition `parser:"'for' '(' @@ ';'"`
+	Condition   *Expression         `parser:"@@ ';'"`
+	Increment   *Assignment         `parser:"@@ ')'"`
+	Body        []*Statement        `parser:"'{' @@* '}'"`
 }
 
 type While struct {
@@ -147,14 +153,17 @@ type Return struct {
 }
 
 type Statement struct {
-	VariableDefinition *VariableDefinition `parser:"(?= 'var' Ident) @@?"`
-	Assignment         *Assignment         `parser:"| (?= Ident '=') @@?"`
+	VariableDefinition *VariableDefinition `parser:"(?= 'var' Ident) @@? ';'"`
+	Assignment         *Assignment         `parser:"| (?= Ident '=') @@? ';'"`
 	FunctionDefinition *FunctionDefinition `parser:"| (?= 'private'? 'static'? 'func') @@?"`
 	ClassDefinition    *ClassDefinition    `parser:"| (?= 'class') @@?"`
 	If                 *If                 `parser:"| (?= 'if') @@?"`
 	For                *For                `parser:"| (?= 'for') @@?"`
 	While              *While              `parser:"| (?= 'while') @@?"`
-	Return             *Return             `parser:"| (?= 'return') @@"`
+	Return             *Return             `parser:"| (?= 'return') @@?"`
+	FieldDefinition    *FieldDefinition    `parser:"| (?= 'private'? Ident ':' Ident) @@?"`
+	Break              *string             `parser:"| 'break' ';'"`
+	Continue           *string             `parser:"| 'continue' ';'"`
 	Expression         *Expression         `parser:"| @@"`
 }
 
