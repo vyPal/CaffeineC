@@ -1,3 +1,15 @@
-for (var a:int = 0; a < 5; a = a + 5) {
-  print("bek");
+extern func malloc(size: i64): *i8;
+extern func printf(fmt: string): void;
+
+var a:int = 0;
+a = a + 1;
+
+for (var i:int = 0; i < 5; i = i + 1) {
+  printf("Bek\n");
 }
+
+if ( a == 1 ) {
+  printf("Zobrrrk\n");
+}
+
+printf("Value of a is: %d\n", a);

@@ -3,13 +3,14 @@ package main
 import (
 	_ "embed"
 	"encoding/json"
-	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"runtime"
 
+	"github.com/fatih/color"
+	"github.com/urfave/cli/v2"
+	"github.com/vyPal/CaffeineC/lib/analyzer"
 	"github.com/vyPal/CaffeineC/lib/compiler"
 	"github.com/vyPal/CaffeineC/lib/parser"
 )
@@ -18,89 +19,122 @@ import (
 var cSource string
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: ./CaffeineC <command> [<args>]")
-		os.Exit(1)
+	app := &cli.App{
+		Name:                   "CaffeineC",
+		Usage:                  "A C-like language that compiles to LLVM IR",
+		EnableBashCompletion:   true,
+		UseShortOptionHandling: true,
+		Commands: []*cli.Command{
+			{
+				Name:  "build",
+				Usage: "Build a CaffeineC file",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "no-cleanup",
+						Aliases: []string{"c"},
+						Usage:   "Don't remove temporary files",
+					},
+					&cli.BoolFlag{
+						Name:    "dump-ast",
+						Aliases: []string{"d"},
+						Usage:   "Dump the AST to a file",
+					},
+					&cli.BoolFlag{
+						Name:    "no-optimization",
+						Aliases: []string{"n"},
+						Usage:   "Don't run the 'opt' command",
+					},
+					&cli.StringFlag{
+						Name:    "output",
+						Aliases: []string{"o"},
+						Usage:   "The name for the built binary",
+					},
+					&cli.StringSliceFlag{
+						Name:    "include",
+						Aliases: []string{"i"},
+						Usage:   "Add a directory or file to the include path",
+					},
+				},
+				Action: build,
+			},
+			{
+				Name:  "run",
+				Usage: "Run a CaffeineC file",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "no-cleanup",
+						Aliases: []string{"c"},
+						Usage:   "Don't remove temporary files",
+					},
+					&cli.BoolFlag{
+						Name:    "dump-ast",
+						Aliases: []string{"d"},
+						Usage:   "Dump the AST to a file",
+					},
+					&cli.BoolFlag{
+						Name:    "no-optimization",
+						Aliases: []string{"n"},
+						Usage:   "Don't run the 'opt' command",
+					},
+					&cli.StringFlag{
+						Name:    "output",
+						Aliases: []string{"o"},
+						Usage:   "The name for the built binary",
+					},
+					&cli.StringSliceFlag{
+						Name:    "include",
+						Aliases: []string{"i"},
+						Usage:   "Add a directory or file to the include path",
+					},
+				},
+				Action: run,
+			},
+		},
 	}
 
-	var filename string
-	var no_cleanup *bool
-	var output_file *string
-	var dump_ast *bool
+	err := app.Run(os.Args)
+	if err != nil {
+		panic(err)
+	}
+}
 
+func build(c *cli.Context) error {
 	isWindows := runtime.GOOS == "windows"
 
-	switch os.Args[1] {
-	case "build":
-		buildCmd := flag.NewFlagSet("build", flag.ExitOnError)
-		no_cleanup = buildCmd.Bool("nc", false, "Don't remove temporary files")
-		dump_ast = buildCmd.Bool("da", false, "Dump the AST to a file")
-		if isWindows {
-			output_file = buildCmd.String("o", "output.exe", "The name for the built binary")
-		} else {
-			output_file = buildCmd.String("o", "output", "The name for the built binary")
-		}
-
-		// Parse the flags for the build command
-		buildCmd.Parse(os.Args[2:])
-
-		if buildCmd.NArg() < 1 {
-			fmt.Println("Usage: ./CaffeineC build [-nc | -nv] <filename>")
-			os.Exit(1)
-		}
-
-		filename = buildCmd.Arg(0)
-
-	default:
-		fmt.Println("Unknown command:", os.Args[1])
-		fmt.Println("Usage: ./CaffeineC <command> [<args>]")
-		os.Exit(1)
+	filename := c.Args().First()
+	if filename == "" {
+		return cli.Exit(color.RedString("Error: No file specified"), 1)
 	}
 
 	ast := parser.ParseFile(filename)
 
-	if *dump_ast {
+	if c.Bool("dump-ast") {
 		astFile, err := os.Create("ast_dump.json")
 		if err != nil {
-			fmt.Println("Error creating AST dump file:", err)
-			os.Exit(1)
+			return cli.Exit(color.RedString("Error creating AST dump file: %s", err), 1)
 		}
 		defer astFile.Close()
 
 		encoder := json.NewEncoder(astFile)
 		encoder.SetIndent("", "  ")
 		if err := encoder.Encode(ast); err != nil {
-			fmt.Println("Error encoding AST:", err)
-			os.Exit(1)
+			return cli.Exit(color.RedString("Error encoding AST: %s", err), 1)
 		}
 	}
 
-	c := compiler.NewCompiler()
-	c.Compile(ast)
+	analyzer.Analyze(ast)
+
+	comp := compiler.NewCompiler()
+	comp.Compile(ast)
 
 	tmpDir := "tmp_compile"
 	err := os.Mkdir(tmpDir, 0755)
 
 	if err != nil && !os.IsExist(err) {
-		panic(err)
+		return cli.Exit(color.RedString("Error creating temporary directory: %s", err), 1)
 	}
 
-	cFilePath := tmpDir + "/sleep.c"
-	err = os.WriteFile(cFilePath, []byte(cSource), 0644)
-
-	if err != nil {
-		panic(err)
-	}
-
-	err = os.WriteFile("tmp_compile/output.ll", []byte(c.Module.String()), 0644)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Compile the C code into an object file
-	cmd := exec.Command("gcc", "-c", cFilePath, "-o", tmpDir+"/sleep.o")
-	err = cmd.Run()
+	err = os.WriteFile("tmp_compile/output.ll", []byte(comp.Module.String()), 0644)
 
 	if err != nil {
 		log.Fatal(err)
@@ -120,49 +154,81 @@ func main() {
 		}
 
 		// Use the embedded llc executable
-		cmd := exec.Command(optExePath, tmpDir+"/output.ll", "-o", tmpDir+"/output.bc")
-		err = cmd.Run()
-		if err != nil {
-			panic(err)
+		if !c.Bool("no-optimization") {
+			cmd := exec.Command(optExePath, tmpDir+"/output.ll", "-o", tmpDir+"/output.bc")
+			err = cmd.Run()
+			if err != nil {
+				panic(err)
+			}
+
+			cmd = exec.Command(llcExePath, tmpDir+"/output.bc", "-filetype=obj", "-o", tmpDir+"/output.o")
+			err = cmd.Run()
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			cmd := exec.Command(llcExePath, tmpDir+"/output.ll", "-filetype=obj", "-o", tmpDir+"/output.o")
+			err = cmd.Run()
+			if err != nil {
+				panic(err)
+			}
 		}
 
-		cmd = exec.Command(llcExePath, tmpDir+"/output.bc", "-filetype=obj", "-o", tmpDir+"/output.o")
-		err = cmd.Run()
-		if err != nil {
-			panic(err)
-		}
+		includes := c.StringSlice("include")
 
-		cmd = exec.Command("gcc", tmpDir+"/output.o", tmpDir+"/sleep.o", "-o", tmpDir+"/output.exe")
+		args := append([]string{"gcc", tmpDir + "/output.o", "-o", tmpDir + "/output.exe"}, includes...)
+		cmd := exec.Command(args[0], args[1:]...)
+
 		err = cmd.Run()
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = os.Rename(tmpDir+"/output.exe", *output_file)
+		out := c.String("output")
+		if out == "" {
+			out = "output.exe"
+		}
+		err = os.Rename(tmpDir+"/output.exe", out)
 		if err != nil {
 			log.Fatal(err)
 		}
 	} else {
 
-		cmd := exec.Command("opt", tmpDir+"/output.ll", "-o", tmpDir+"/output.bc")
-		err = cmd.Run()
-		if err != nil {
-			panic(err)
+		if !c.Bool("no-optimization") {
+			cmd := exec.Command("opt", tmpDir+"/output.ll", "-o", tmpDir+"/output.bc")
+			err = cmd.Run()
+			if err != nil {
+				panic(err)
+			}
+
+			cmd = exec.Command("llc", tmpDir+"/output.bc", "-filetype=obj", "-o", tmpDir+"/output.o")
+			err = cmd.Run()
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			cmd := exec.Command("llc", tmpDir+"/output.ll", "-filetype=obj", "-o", tmpDir+"/output.o")
+			err = cmd.Run()
+			if err != nil {
+				panic(err)
+			}
 		}
 
-		cmd = exec.Command("llc", tmpDir+"/output.bc", "-filetype=obj", "-o", tmpDir+"/output.o")
-		err = cmd.Run()
-		if err != nil {
-			panic(err)
-		}
+		includes := c.StringSlice("include")
 
-		cmd = exec.Command("gcc", tmpDir+"/output.o", tmpDir+"/sleep.o", "-o", tmpDir+"/output")
+		args := append([]string{"gcc", tmpDir + "/output.o", "-o", tmpDir + "/output"}, includes...)
+		cmd := exec.Command(args[0], args[1:]...)
+
 		err = cmd.Run()
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = os.Rename(tmpDir+"/output", *output_file)
+		out := c.String("output")
+		if out == "" {
+			out = "output"
+		}
+		err = os.Rename(tmpDir+"/output", out)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -170,7 +236,7 @@ func main() {
 
 	// Remove the temporary files
 
-	if !*no_cleanup {
+	if !c.Bool("no-cleanup") {
 		if runtime.GOOS == "windows" {
 			os.Remove(tmpDir + "/llc.exe")
 			os.Remove(tmpDir + "/opt.exe")
@@ -182,4 +248,27 @@ func main() {
 		os.Remove(tmpDir + "/sleep.c")
 		os.Remove(tmpDir)
 	}
+
+	return nil
+}
+
+func run(c *cli.Context) error {
+	err := build(c)
+	if err != nil {
+		return err
+	}
+
+	out := c.String("output")
+	if out == "" {
+		out = "output"
+	}
+	cmd := exec.Command("./" + out)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	if err != nil {
+		return cli.Exit(color.RedString("Error running binary: %s", err), 1)
+	}
+
+	return nil
 }

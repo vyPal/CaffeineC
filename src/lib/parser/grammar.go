@@ -38,7 +38,7 @@ type Identifier struct {
 }
 
 type ArgumentList struct {
-	Arguments []Value `parser:"( @@ ( ',' @@ )* )?"`
+	Arguments []*Expression `parser:"( @@ ( ',' @@ )* )?"`
 }
 
 type ClassInitializer struct {
@@ -66,8 +66,8 @@ type Term struct {
 }
 
 type OpTerm struct {
-	Op   string `parser:"@( '*' | '/' | '%' )"`
-	Term *Term  `parser:"@@"`
+	Op   string  `parser:"@( '*' | '/' | '%' )"`
+	Term *Factor `parser:"@@"`
 }
 
 type Comparison struct {
@@ -76,8 +76,8 @@ type Comparison struct {
 }
 
 type OpComparison struct {
-	Op         string      `parser:"@( '<' | '<=' | '>' | '>=' | '==' | '!=' )"`
-	Comparison *Comparison `parser:"@@"`
+	Op         string `parser:"@( ('=' '=') | ( '<' '=' ) | '<'  | ( '>' '=' ) |'>' | ('!' '=') )"`
+	Comparison *Term  `parser:"@@"`
 }
 
 type Expression struct {
@@ -87,7 +87,7 @@ type Expression struct {
 
 type OpExpression struct {
 	Op         string      `parser:"@( '+' | '-' )"`
-	Expression *Expression `parser:"@@"`
+	Expression *Comparison `parser:"@@"`
 }
 
 type Assignment struct {
@@ -127,12 +127,19 @@ type ClassDefinition struct {
 }
 
 type ClassMethod struct {
-	Identifier *Identifier `parser:"@@"`
-	Args       []*Factor   `parser:"'(' ( @@ ( ',' @@ )* )? ')' ';'"`
+	Identifier *Identifier   `parser:"@@"`
+	Args       *ArgumentList `parser:"'(' @@ ')' ';'"`
 }
 
 type If struct {
 	Condition *Expression  `parser:"'if' '(' @@ ')'"`
+	Body      []*Statement `parser:"'{' @@* '}'"`
+	ElseIf    []*ElseIf    `parser:"( 'else' 'if' @@ )*"`
+	Else      []*Statement `parser:"( 'else' '{' @@* '}' )?"`
+}
+
+type ElseIf struct {
+	Condition *Expression  `parser:"'else' 'if' '(' @@ ')'"`
 	Body      []*Statement `parser:"'{' @@* '}'"`
 }
 
@@ -152,19 +159,26 @@ type Return struct {
 	Expression *Expression `parser:"'return' @@ ';'"`
 }
 
+type ExternalFunctionDefinition struct {
+	Name       string                `parser:"'extern' 'func' @Ident"`
+	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )? ')'"`
+	ReturnType string                `parser:"( ':' @('*'? Ident) )?"`
+}
+
 type Statement struct {
-	VariableDefinition *VariableDefinition `parser:"(?= 'var' Ident) @@? ';'"`
-	Assignment         *Assignment         `parser:"| (?= Ident '=') @@? ';'"`
-	FunctionDefinition *FunctionDefinition `parser:"| (?= 'private'? 'static'? 'func') @@?"`
-	ClassDefinition    *ClassDefinition    `parser:"| (?= 'class') @@?"`
-	If                 *If                 `parser:"| (?= 'if') @@?"`
-	For                *For                `parser:"| (?= 'for') @@?"`
-	While              *While              `parser:"| (?= 'while') @@?"`
-	Return             *Return             `parser:"| (?= 'return') @@?"`
-	FieldDefinition    *FieldDefinition    `parser:"| (?= 'private'? Ident ':' Ident) @@?"`
-	Break              *string             `parser:"| 'break' ';'"`
-	Continue           *string             `parser:"| 'continue' ';'"`
-	Expression         *Expression         `parser:"| @@"`
+	VariableDefinition *VariableDefinition         `parser:"(?= 'var' Ident) @@? ';'"`
+	Assignment         *Assignment                 `parser:"| (?= Ident '=') @@? ';'"`
+	ExternalFunction   *ExternalFunctionDefinition `parser:"| (?= 'extern' 'func') @@? ';'"`
+	FunctionDefinition *FunctionDefinition         `parser:"| (?= 'private'? 'static'? 'func') @@?"`
+	ClassDefinition    *ClassDefinition            `parser:"| (?= 'class') @@?"`
+	If                 *If                         `parser:"| (?= 'if') @@?"`
+	For                *For                        `parser:"| (?= 'for') @@?"`
+	While              *While                      `parser:"| (?= 'while') @@?"`
+	Return             *Return                     `parser:"| (?= 'return') @@?"`
+	FieldDefinition    *FieldDefinition            `parser:"| (?= 'private'? Ident ':' Ident) @@?"`
+	Break              *string                     `parser:"| 'break' ';'"`
+	Continue           *string                     `parser:"| 'continue' ';'"`
+	Expression         *Expression                 `parser:"| @@"`
 }
 
 type Program struct {

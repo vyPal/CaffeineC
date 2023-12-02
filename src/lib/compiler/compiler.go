@@ -6,16 +6,22 @@ import (
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
+	"github.com/urfave/cli/v2"
 	"github.com/vyPal/CaffeineC/lib/parser"
 )
 
 type Context struct {
 	*ir.Block
 	*Compiler
-	parent     *Context
-	vars       map[string]value.Value
-	usedVars   map[string]bool
-	leaveBlock *ir.Block
+	parent   *Context
+	vars     map[string]value.Value
+	usedVars map[string]bool
+	fc       *FlowControl
+}
+
+type FlowControl struct {
+	Leave    *ir.Block
+	Continue *ir.Block
 }
 
 func NewContext(b *ir.Block, comp *Compiler) *Context {
@@ -25,6 +31,7 @@ func NewContext(b *ir.Block, comp *Compiler) *Context {
 		parent:   nil,
 		vars:     make(map[string]value.Value),
 		usedVars: make(map[string]bool),
+		fc:       &FlowControl{},
 	}
 }
 
@@ -48,9 +55,28 @@ func (c Context) lookupVariable(name string) value.Value {
 		c.usedVars[name] = true
 		return v
 	} else {
-		color.Red("Error: Unable to find a variable named: %s", name)
-		panic("Variable not found")
+		cli.Exit(color.RedString("Error: Unable to find a variable named: %s", name), 1)
+		return nil
 	}
+}
+
+func (c *Context) lookupFunction(name string) (*ir.Func, bool) {
+	for _, f := range c.Module.Funcs {
+		if f.Name() == name {
+			return f, true
+		}
+	}
+
+	return nil, false
+}
+
+func (c Context) lookupClass(name string) (types.Type, bool) {
+	for _, s := range c.Module.TypeDefs {
+		if s.Name() == name {
+			return s, true
+		}
+	}
+	return nil, false
 }
 
 type Compiler struct {
