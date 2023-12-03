@@ -1,62 +1,62 @@
 {
+  "Pos": {
+    "Filename": "example.cffc",
+    "Offset": 0,
+    "Line": 1,
+    "Column": 1
+  },
   "Statements": [
     {
-      "VariableDefinition": null,
-      "Assignment": null,
-      "ExternalFunction": {
-        "Name": "malloc",
-        "Parameters": [
-          {
-            "Name": "size",
-            "Type": "i64"
-          }
-        ],
-        "ReturnType": "*i8"
+      "Pos": {
+        "Filename": "example.cffc",
+        "Offset": 0,
+        "Line": 1,
+        "Column": 1
       },
-      "FunctionDefinition": null,
-      "ClassDefinition": null,
-      "If": null,
-      "For": null,
-      "While": null,
-      "Return": null,
-      "FieldDefinition": null,
-      "Break": null,
-      "Continue": null,
-      "Expression": null
-    },
-    {
-      "VariableDefinition": null,
-      "Assignment": null,
-      "ExternalFunction": {
-        "Name": "printf",
-        "Parameters": [
-          {
-            "Name": "fmt",
-            "Type": "string"
-          }
-        ],
-        "ReturnType": "void"
-      },
-      "FunctionDefinition": null,
-      "ClassDefinition": null,
-      "If": null,
-      "For": null,
-      "While": null,
-      "Return": null,
-      "FieldDefinition": null,
-      "Break": null,
-      "Continue": null,
-      "Expression": null
-    },
-    {
       "VariableDefinition": {
+        "Pos": {
+          "Filename": "example.cffc",
+          "Offset": 0,
+          "Line": 1,
+          "Column": 1
+        },
         "Name": "a",
         "Type": "int",
         "Assignment": {
+          "Pos": {
+            "Filename": "example.cffc",
+            "Offset": 12,
+            "Line": 1,
+            "Column": 13
+          },
           "Left": {
+            "Pos": {
+              "Filename": "example.cffc",
+              "Offset": 12,
+              "Line": 1,
+              "Column": 13
+            },
             "Left": {
+              "Pos": {
+                "Filename": "example.cffc",
+                "Offset": 12,
+                "Line": 1,
+                "Column": 13
+              },
               "Left": {
+                "Pos": {
+                  "Filename": "example.cffc",
+                  "Offset": 12,
+                  "Line": 1,
+                  "Column": 13
+                },
                 "Value": {
+                  "Pos": {
+                    "Filename": "example.cffc",
+                    "Offset": 12,
+                    "Line": 1,
+                    "Column": 13
+                  },
                   "Float": null,
                   "Int": 0,
                   "Bool": null,
@@ -88,467 +88,6 @@
       "Break": null,
       "Continue": null,
       "Expression": null
-    },
-    {
-      "VariableDefinition": null,
-      "Assignment": {
-        "Left": {
-          "Name": "a",
-          "Sub": null
-        },
-        "Right": {
-          "Left": {
-            "Left": {
-              "Left": {
-                "Value": null,
-                "ClassInitializer": null,
-                "SubExpression": null,
-                "FunctionCall": null,
-                "ClassMethod": null,
-                "Identifier": {
-                  "Name": "a",
-                  "Sub": null
-                }
-              },
-              "Right": null
-            },
-            "Right": null
-          },
-          "Right": [
-            {
-              "Op": "+",
-              "Expression": {
-                "Left": {
-                  "Left": {
-                    "Value": {
-                      "Float": null,
-                      "Int": 1,
-                      "Bool": null,
-                      "String": null,
-                      "Duration": null
-                    },
-                    "ClassInitializer": null,
-                    "SubExpression": null,
-                    "FunctionCall": null,
-                    "ClassMethod": null,
-                    "Identifier": null
-                  },
-                  "Right": null
-                },
-                "Right": null
-              }
-            }
-          ]
-        }
-      },
-      "ExternalFunction": null,
-      "FunctionDefinition": null,
-      "ClassDefinition": null,
-      "If": null,
-      "For": null,
-      "While": null,
-      "Return": null,
-      "FieldDefinition": null,
-      "Break": null,
-      "Continue": null,
-      "Expression": null
-    },
-    {
-      "VariableDefinition": null,
-      "Assignment": null,
-      "ExternalFunction": null,
-      "FunctionDefinition": null,
-      "ClassDefinition": null,
-      "If": null,
-      "For": {
-        "Initializer": {
-          "Name": "i",
-          "Type": "int",
-          "Assignment": {
-            "Left": {
-              "Left": {
-                "Left": {
-                  "Value": {
-                    "Float": null,
-                    "Int": 0,
-                    "Bool": null,
-                    "String": null,
-                    "Duration": null
-                  },
-                  "ClassInitializer": null,
-                  "SubExpression": null,
-                  "FunctionCall": null,
-                  "ClassMethod": null,
-                  "Identifier": null
-                },
-                "Right": null
-              },
-              "Right": null
-            },
-            "Right": null
-          }
-        },
-        "Condition": {
-          "Left": {
-            "Left": {
-              "Left": {
-                "Value": null,
-                "ClassInitializer": null,
-                "SubExpression": null,
-                "FunctionCall": null,
-                "ClassMethod": null,
-                "Identifier": {
-                  "Name": "i",
-                  "Sub": null
-                }
-              },
-              "Right": null
-            },
-            "Right": [
-              {
-                "Op": "\u003c",
-                "Comparison": {
-                  "Left": {
-                    "Value": {
-                      "Float": null,
-                      "Int": 5,
-                      "Bool": null,
-                      "String": null,
-                      "Duration": null
-                    },
-                    "ClassInitializer": null,
-                    "SubExpression": null,
-                    "FunctionCall": null,
-                    "ClassMethod": null,
-                    "Identifier": null
-                  },
-                  "Right": null
-                }
-              }
-            ]
-          },
-          "Right": null
-        },
-        "Increment": {
-          "Left": {
-            "Name": "i",
-            "Sub": null
-          },
-          "Right": {
-            "Left": {
-              "Left": {
-                "Left": {
-                  "Value": null,
-                  "ClassInitializer": null,
-                  "SubExpression": null,
-                  "FunctionCall": null,
-                  "ClassMethod": null,
-                  "Identifier": {
-                    "Name": "i",
-                    "Sub": null
-                  }
-                },
-                "Right": null
-              },
-              "Right": null
-            },
-            "Right": [
-              {
-                "Op": "+",
-                "Expression": {
-                  "Left": {
-                    "Left": {
-                      "Value": {
-                        "Float": null,
-                        "Int": 1,
-                        "Bool": null,
-                        "String": null,
-                        "Duration": null
-                      },
-                      "ClassInitializer": null,
-                      "SubExpression": null,
-                      "FunctionCall": null,
-                      "ClassMethod": null,
-                      "Identifier": null
-                    },
-                    "Right": null
-                  },
-                  "Right": null
-                }
-              }
-            ]
-          }
-        },
-        "Body": [
-          {
-            "VariableDefinition": null,
-            "Assignment": null,
-            "ExternalFunction": null,
-            "FunctionDefinition": null,
-            "ClassDefinition": null,
-            "If": null,
-            "For": null,
-            "While": null,
-            "Return": null,
-            "FieldDefinition": null,
-            "Break": null,
-            "Continue": null,
-            "Expression": {
-              "Left": {
-                "Left": {
-                  "Left": {
-                    "Value": null,
-                    "ClassInitializer": null,
-                    "SubExpression": null,
-                    "FunctionCall": {
-                      "FunctionName": "printf",
-                      "Args": {
-                        "Arguments": [
-                          {
-                            "Left": {
-                              "Left": {
-                                "Left": {
-                                  "Value": {
-                                    "Float": null,
-                                    "Int": null,
-                                    "Bool": null,
-                                    "String": "\"Bek\\n\"",
-                                    "Duration": null
-                                  },
-                                  "ClassInitializer": null,
-                                  "SubExpression": null,
-                                  "FunctionCall": null,
-                                  "ClassMethod": null,
-                                  "Identifier": null
-                                },
-                                "Right": null
-                              },
-                              "Right": null
-                            },
-                            "Right": null
-                          }
-                        ]
-                      }
-                    },
-                    "ClassMethod": null,
-                    "Identifier": null
-                  },
-                  "Right": null
-                },
-                "Right": null
-              },
-              "Right": null
-            }
-          }
-        ]
-      },
-      "While": null,
-      "Return": null,
-      "FieldDefinition": null,
-      "Break": null,
-      "Continue": null,
-      "Expression": null
-    },
-    {
-      "VariableDefinition": null,
-      "Assignment": null,
-      "ExternalFunction": null,
-      "FunctionDefinition": null,
-      "ClassDefinition": null,
-      "If": {
-        "Condition": {
-          "Left": {
-            "Left": {
-              "Left": {
-                "Value": null,
-                "ClassInitializer": null,
-                "SubExpression": null,
-                "FunctionCall": null,
-                "ClassMethod": null,
-                "Identifier": {
-                  "Name": "a",
-                  "Sub": null
-                }
-              },
-              "Right": null
-            },
-            "Right": [
-              {
-                "Op": "==",
-                "Comparison": {
-                  "Left": {
-                    "Value": {
-                      "Float": null,
-                      "Int": 1,
-                      "Bool": null,
-                      "String": null,
-                      "Duration": null
-                    },
-                    "ClassInitializer": null,
-                    "SubExpression": null,
-                    "FunctionCall": null,
-                    "ClassMethod": null,
-                    "Identifier": null
-                  },
-                  "Right": null
-                }
-              }
-            ]
-          },
-          "Right": null
-        },
-        "Body": [
-          {
-            "VariableDefinition": null,
-            "Assignment": null,
-            "ExternalFunction": null,
-            "FunctionDefinition": null,
-            "ClassDefinition": null,
-            "If": null,
-            "For": null,
-            "While": null,
-            "Return": null,
-            "FieldDefinition": null,
-            "Break": null,
-            "Continue": null,
-            "Expression": {
-              "Left": {
-                "Left": {
-                  "Left": {
-                    "Value": null,
-                    "ClassInitializer": null,
-                    "SubExpression": null,
-                    "FunctionCall": {
-                      "FunctionName": "printf",
-                      "Args": {
-                        "Arguments": [
-                          {
-                            "Left": {
-                              "Left": {
-                                "Left": {
-                                  "Value": {
-                                    "Float": null,
-                                    "Int": null,
-                                    "Bool": null,
-                                    "String": "\"Zobrrrk\\n\"",
-                                    "Duration": null
-                                  },
-                                  "ClassInitializer": null,
-                                  "SubExpression": null,
-                                  "FunctionCall": null,
-                                  "ClassMethod": null,
-                                  "Identifier": null
-                                },
-                                "Right": null
-                              },
-                              "Right": null
-                            },
-                            "Right": null
-                          }
-                        ]
-                      }
-                    },
-                    "ClassMethod": null,
-                    "Identifier": null
-                  },
-                  "Right": null
-                },
-                "Right": null
-              },
-              "Right": null
-            }
-          }
-        ],
-        "ElseIf": null,
-        "Else": null
-      },
-      "For": null,
-      "While": null,
-      "Return": null,
-      "FieldDefinition": null,
-      "Break": null,
-      "Continue": null,
-      "Expression": null
-    },
-    {
-      "VariableDefinition": null,
-      "Assignment": null,
-      "ExternalFunction": null,
-      "FunctionDefinition": null,
-      "ClassDefinition": null,
-      "If": null,
-      "For": null,
-      "While": null,
-      "Return": null,
-      "FieldDefinition": null,
-      "Break": null,
-      "Continue": null,
-      "Expression": {
-        "Left": {
-          "Left": {
-            "Left": {
-              "Value": null,
-              "ClassInitializer": null,
-              "SubExpression": null,
-              "FunctionCall": {
-                "FunctionName": "printf",
-                "Args": {
-                  "Arguments": [
-                    {
-                      "Left": {
-                        "Left": {
-                          "Left": {
-                            "Value": {
-                              "Float": null,
-                              "Int": null,
-                              "Bool": null,
-                              "String": "\"Value of a is: %d\\n\"",
-                              "Duration": null
-                            },
-                            "ClassInitializer": null,
-                            "SubExpression": null,
-                            "FunctionCall": null,
-                            "ClassMethod": null,
-                            "Identifier": null
-                          },
-                          "Right": null
-                        },
-                        "Right": null
-                      },
-                      "Right": null
-                    },
-                    {
-                      "Left": {
-                        "Left": {
-                          "Left": {
-                            "Value": null,
-                            "ClassInitializer": null,
-                            "SubExpression": null,
-                            "FunctionCall": null,
-                            "ClassMethod": null,
-                            "Identifier": {
-                              "Name": "a",
-                              "Sub": null
-                            }
-                          },
-                          "Right": null
-                        },
-                        "Right": null
-                      },
-                      "Right": null
-                    }
-                  ]
-                }
-              },
-              "ClassMethod": null,
-              "Identifier": null
-            },
-            "Right": null
-          },
-          "Right": null
-        },
-        "Right": null
-      }
     }
   ]
 }

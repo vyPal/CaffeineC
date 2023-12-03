@@ -9,12 +9,12 @@ import (
 func ParseFile(filename string) *Program {
 	parser := participle.MustBuild[Program]()
 
-	file, err := os.ReadFile("example.cffc")
+	file, err := os.ReadFile(filename)
 	if err != nil {
 		panic(err)
 	}
 
-	ast, err := parser.ParseString("example.cffc", string(file))
+	ast, err := parser.ParseString(filename, string(file))
 	if err != nil {
 		panic(err)
 	}

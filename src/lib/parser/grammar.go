@@ -1,6 +1,10 @@
 package parser
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/alecthomas/participle/v2/lexer"
+)
 
 type Bool bool
 
@@ -25,6 +29,7 @@ func (d *Duration) Capture(values []string) error {
 }
 
 type Value struct {
+	Pos      lexer.Position
 	Float    *float64  `parser:"  @Float"`
 	Int      *int64    `parser:"| @Int"`
 	Bool     *Bool     `parser:"| @('true' | 'false')"`
@@ -33,25 +38,30 @@ type Value struct {
 }
 
 type Identifier struct {
+	Pos  lexer.Position
 	Name string      `parser:"@Ident"`
 	Sub  *Identifier `parser:"( '.' @@ )*"`
 }
 
 type ArgumentList struct {
+	Pos       lexer.Position
 	Arguments []*Expression `parser:"( @@ ( ',' @@ )* )?"`
 }
 
 type ClassInitializer struct {
+	Pos       lexer.Position
 	ClassName string       `parser:"'new' @Ident"`
 	Args      ArgumentList `parser:"'(' @@ ')' ';'"`
 }
 
 type FunctionCall struct {
+	Pos          lexer.Position
 	FunctionName string       `parser:"@Ident"`
 	Args         ArgumentList `parser:"'(' @@ ')' ';'"`
 }
 
 type Factor struct {
+	Pos              lexer.Position
 	Value            *Value            `parser:"  @@"`
 	ClassInitializer *ClassInitializer `parser:"| (?= 'new') @@"`
 	SubExpression    *Expression       `parser:"| '(' @@ ')'"`
@@ -61,58 +71,69 @@ type Factor struct {
 }
 
 type Term struct {
+	Pos   lexer.Position
 	Left  *Factor   `parser:"@@"`
 	Right []*OpTerm `parser:"@@*"`
 }
 
 type OpTerm struct {
+	Pos  lexer.Position
 	Op   string  `parser:"@( '*' | '/' | '%' )"`
 	Term *Factor `parser:"@@"`
 }
 
 type Comparison struct {
+	Pos   lexer.Position
 	Left  *Term           `parser:"@@"`
 	Right []*OpComparison `parser:"@@*"`
 }
 
 type OpComparison struct {
+	Pos        lexer.Position
 	Op         string `parser:"@( ('=' '=') | ( '<' '=' ) | '<'  | ( '>' '=' ) |'>' | ('!' '=') )"`
 	Comparison *Term  `parser:"@@"`
 }
 
 type Expression struct {
+	Pos   lexer.Position
 	Left  *Comparison     `parser:"@@"`
 	Right []*OpExpression `parser:"@@*"`
 }
 
 type OpExpression struct {
+	Pos        lexer.Position
 	Op         string      `parser:"@( '+' | '-' )"`
 	Expression *Comparison `parser:"@@"`
 }
 
 type Assignment struct {
+	Pos   lexer.Position
 	Left  *Identifier `parser:"@@"`
 	Right *Expression `parser:"'=' @@"`
 }
 
 type VariableDefinition struct {
+	Pos        lexer.Position
 	Name       string      `parser:"'var' @Ident"`
 	Type       string      `parser:"':' @Ident"`
 	Assignment *Expression `parser:"( '=' @@ )?"`
 }
 
 type FieldDefinition struct {
+	Pos     lexer.Position
 	Private bool   `parser:"@'private'?"`
 	Name    string `parser:"@Ident"`
 	Type    string `parser:"':' @Ident ';'"`
 }
 
 type ArgumentDefinition struct {
+	Pos  lexer.Position
 	Name string `parser:"@Ident"`
 	Type string `parser:"':' @Ident"`
 }
 
 type FunctionDefinition struct {
+	Pos        lexer.Position
 	Private    bool                  `parser:"@'private'?"`
 	Static     bool                  `parser:"@'static'?"`
 	Name       string                `parser:"'func' @Ident"`
@@ -122,16 +143,19 @@ type FunctionDefinition struct {
 }
 
 type ClassDefinition struct {
+	Pos  lexer.Position
 	Name string       `parser:"'class' @Ident"`
 	Body []*Statement `parser:"'{' @@* '}'"`
 }
 
 type ClassMethod struct {
+	Pos        lexer.Position
 	Identifier *Identifier   `parser:"@@"`
 	Args       *ArgumentList `parser:"'(' @@ ')' ';'"`
 }
 
 type If struct {
+	Pos       lexer.Position
 	Condition *Expression  `parser:"'if' '(' @@ ')'"`
 	Body      []*Statement `parser:"'{' @@* '}'"`
 	ElseIf    []*ElseIf    `parser:"( 'else' 'if' @@ )*"`
@@ -139,11 +163,13 @@ type If struct {
 }
 
 type ElseIf struct {
+	Pos       lexer.Position
 	Condition *Expression  `parser:"'else' 'if' '(' @@ ')'"`
 	Body      []*Statement `parser:"'{' @@* '}'"`
 }
 
 type For struct {
+	Pos         lexer.Position
 	Initializer *VariableDefinition `parser:"'for' '(' @@ ';'"`
 	Condition   *Expression         `parser:"@@ ';'"`
 	Increment   *Assignment         `parser:"@@ ')'"`
@@ -151,21 +177,25 @@ type For struct {
 }
 
 type While struct {
+	Pos       lexer.Position
 	Condition *Expression  `parser:"'while' '(' @@ ')'"`
 	Body      []*Statement `parser:"'{' @@* '}'"`
 }
 
 type Return struct {
+	Pos        lexer.Position
 	Expression *Expression `parser:"'return' @@ ';'"`
 }
 
 type ExternalFunctionDefinition struct {
+	Pos        lexer.Position
 	Name       string                `parser:"'extern' 'func' @Ident"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )? ')'"`
 	ReturnType string                `parser:"( ':' @('*'? Ident) )?"`
 }
 
 type Statement struct {
+	Pos                lexer.Position
 	VariableDefinition *VariableDefinition         `parser:"(?= 'var' Ident) @@? ';'"`
 	Assignment         *Assignment                 `parser:"| (?= Ident '=') @@? ';'"`
 	ExternalFunction   *ExternalFunctionDefinition `parser:"| (?= 'extern' 'func') @@? ';'"`
@@ -182,5 +212,6 @@ type Statement struct {
 }
 
 type Program struct {
+	Pos        lexer.Position
 	Statements []*Statement `parser:"@@*"`
 }

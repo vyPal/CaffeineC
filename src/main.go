@@ -40,6 +40,16 @@ func main() {
 						Usage:   "Dump the AST to a file",
 					},
 					&cli.BoolFlag{
+						Name:    "only-parse",
+						Aliases: []string{"p"},
+						Usage:   "Only parse the file and dump the AST to stdout",
+					},
+					&cli.StringFlag{
+						Name:    "input-str",
+						Aliases: []string{"s"},
+						Usage:   "Compile a string instead of a file",
+					},
+					&cli.BoolFlag{
 						Name:    "no-optimization",
 						Aliases: []string{"n"},
 						Usage:   "Don't run the 'opt' command",
@@ -72,6 +82,16 @@ func main() {
 						Usage:   "Dump the AST to a file",
 					},
 					&cli.BoolFlag{
+						Name:    "only-parse",
+						Aliases: []string{"p"},
+						Usage:   "Only parse the file and dump the AST to stdout",
+					},
+					&cli.StringFlag{
+						Name:    "input-str",
+						Aliases: []string{"s"},
+						Usage:   "Compile a string instead of a file",
+					},
+					&cli.BoolFlag{
 						Name:    "no-optimization",
 						Aliases: []string{"n"},
 						Usage:   "Don't run the 'opt' command",
@@ -101,12 +121,27 @@ func main() {
 func build(c *cli.Context) error {
 	isWindows := runtime.GOOS == "windows"
 
-	filename := c.Args().First()
-	if filename == "" {
-		return cli.Exit(color.RedString("Error: No file specified"), 1)
+	var ast *parser.Program
+
+	if c.String("input-str") != "" {
+		ast = parser.ParseString(c.String("input-str"))
+	} else {
+		filename := c.Args().First()
+		if filename == "" {
+			return cli.Exit(color.RedString("Error: No file specified"), 1)
+		}
+
+		ast = parser.ParseFile(filename)
 	}
 
-	ast := parser.ParseFile(filename)
+	if c.Bool("only-parse") {
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(ast); err != nil {
+			return cli.Exit(color.RedString("Error encoding AST: %s", err), 1)
+		}
+		return nil
+	}
 
 	if c.Bool("dump-ast") {
 		astFile, err := os.Create("ast_dump.json")
