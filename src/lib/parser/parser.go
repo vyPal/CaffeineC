@@ -21,6 +21,10 @@ func ParseFile(filename string) *Program {
 	return ast
 }
 
+func Parser() *participle.Parser[Program] {
+	return participle.MustBuild[Program]()
+}
+
 func ParseString(code string) *Program {
 	parser := participle.MustBuild[Program]()
 

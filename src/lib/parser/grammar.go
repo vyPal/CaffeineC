@@ -115,7 +115,7 @@ type Assignment struct {
 type VariableDefinition struct {
 	Pos        lexer.Position
 	Name       string      `parser:"'var' @Ident"`
-	Type       string      `parser:"':' @Ident"`
+	Type       string      `parser:"':' @('*'? Ident)"`
 	Assignment *Expression `parser:"( '=' @@ )?"`
 }
 
@@ -129,7 +129,7 @@ type FieldDefinition struct {
 type ArgumentDefinition struct {
 	Pos  lexer.Position
 	Name string `parser:"@Ident"`
-	Type string `parser:"':' @Ident"`
+	Type string `parser:"':' @('*'? Ident)"`
 }
 
 type FunctionDefinition struct {

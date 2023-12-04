@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<style>
+body {
+	background-color: hsl(30,20%, 95%);
+}
+h1 {
+	font-family: sans-serif;
+	font-size: 1em;
+}
+</style>
+<!-- From https://github.com/tabatkins/railroad-diagrams -->
+<link rel='stylesheet' href='railroad-diagrams.css'>
+<script src='railroad-diagrams.js'></script>
+<body>
+<h1 id="Program">Program</h1>
+<script>
+Diagram(Choice(0, Sequence(ZeroOrMore(NonTerminal("Statement", {href:"#Statement"}))))).addTo();
+</script>
+
+<h1 id="Statement">Statement</h1>
+<script>
+Diagram(Choice(0, Sequence(Choice(0, Sequence(Group(Choice(0, Sequence(Terminal("var"), NonTerminal("ident"))), "?="), Optional(NonTerminal("VariableDefinition", {href:"#VariableDefinition"})), Terminal(";")))), Sequence(Choice(0, Sequence(Group(Choice(0, Sequence(NonTerminal("ident"), Terminal("="))), "?="), Optional(NonTerminal("Assignment", {href:"#Assignment"})), Terminal(";")))), Sequence(Choice(0, Sequence(Group(Choice(0, Sequence(Terminal("extern"), Terminal("func"))), "?="), Optional(NonTerminal("ExternalFunctionDefinition", {href:"#ExternalFunctionDefinition"})), Terminal(";")))), Sequence(Choice(0, Sequence(Group(Choice(0, Sequence(Optional(Terminal("private")), Optional(Terminal("static")), Terminal("func"))), "?="), Optional(NonTerminal("FunctionDefinition", {href:"#FunctionDefinition"}))))), Sequence(Choice(0, Sequence(Group(Choice(0, Sequence(Terminal("class"))), "?="), Optional(NonTerminal("ClassDefinition", {href:"#ClassDefinition"}))))), Sequence(Choice(0, Sequence(Group(Choice(0, Sequence(Terminal("if"))), "?="), Optional(NonTerminal("If", {href:"#If"}))))), Sequence(Choice(0, Sequence(Group(Choice(0, Sequence(Terminal("for"))), "?="), Optional(NonTerminal("For", {href:"#For"}))))), Sequence(Choice(0, Sequence(Group(Choice(0, Sequence(Terminal("while"))), "?="), Optional(NonTerminal("While", {href:"#While"}))))), Sequence(Choice(0, Sequence(Group(Choice(0, Sequence(Terminal("return"))), "?="), Optional(NonTerminal("Return", {href:"#Return"}))))), Sequence(Choice(0, Sequence(Group(Choice(0, Sequence(Optional(Terminal("private")), NonTerminal("ident"), Terminal(":"), NonTerminal("ident"))), "?="), Optional(NonTerminal("FieldDefinition", {href:"#FieldDefinition"}))))), Sequence(Choice(0, Sequence(Terminal("break"), Terminal(";")))), Sequence(Choice(0, Sequence(Terminal("continue"), Terminal(";")))), Sequence(NonTerminal("Expression", {href:"#Expression"})))).addTo();
+</script>
+
+<h1 id="VariableDefinition">VariableDefinition</h1>
+<script>
+Diagram(Choice(0, Sequence(Terminal("var"), NonTerminal("ident"), Terminal(":"), Choice(0, Sequence(Optional(Terminal("*")), NonTerminal("ident"))), Optional(Choice(0, Sequence(Terminal("="), NonTerminal("Expression", {href:"#Expression"}))))))).addTo();
+</script>
+
+<h1 id="Expression">Expression</h1>
+<script>
+Diagram(Choice(0, Sequence(NonTerminal("Comparison", {href:"#Comparison"}), ZeroOrMore(NonTerminal("OpExpression", {href:"#OpExpression"}))))).addTo();
+</script>
+
+<h1 id="Comparison">Comparison</h1>
+<script>
+Diagram(Choice(0, Sequence(NonTerminal("Term", {href:"#Term"}), ZeroOrMore(NonTerminal("OpComparison", {href:"#OpComparison"}))))).addTo();
+</script>
+
+<h1 id="Term">Term</h1>
+<script>
+Diagram(Choice(0, Sequence(NonTerminal("Factor", {href:"#Factor"}), ZeroOrMore(NonTerminal("OpTerm", {href:"#OpTerm"}))))).addTo();
+</script>
+
+<h1 id="Factor">Factor</h1>
+<script>
+Diagram(Choice(0, Sequence(NonTerminal("Value", {href:"#Value"})), Sequence(Choice(0, Sequence(Group(Choice(0, Sequence(Terminal("new"))), "?="), NonTerminal("ClassInitializer", {href:"#ClassInitializer"})))), Sequence(Choice(0, Sequence(Terminal("("), NonTerminal("Expression", {href:"#Expression"}), Terminal(")")))), Sequence(Choice(0, Sequence(Group(Choice(0, Sequence(NonTerminal("ident"), Terminal("("))), "?="), NonTerminal("FunctionCall", {href:"#FunctionCall"})))), Sequence(Choice(0, Sequence(Group(Choice(0, Sequence(NonTerminal("ident"), OneOrMore(Choice(0, Sequence(Terminal("."), NonTerminal("ident")))), Terminal("("))), "?="), NonTerminal("ClassMethod", {href:"#ClassMethod"})))), Sequence(NonTerminal("Identifier", {href:"#Identifier"})))).addTo();
+</script>
+
+<h1 id="Value">Value</h1>
+<script>
+Diagram(Choice(0, Sequence(NonTerminal("float")), Sequence(NonTerminal("int")), Sequence(Choice(0, Sequence(Terminal("true")), Sequence(Terminal("false")))), Sequence(NonTerminal("string")), Sequence(Choice(0, Sequence(NonTerminal("int"), Choice(0, Sequence(Terminal("h")), Sequence(Terminal("m")), Sequence(Terminal("s")), Sequence(Terminal("ms")), Sequence(Terminal("us")), Sequence(Terminal("ns")))))))).addTo();
+</script>
+
+<h1 id="ClassInitializer">ClassInitializer</h1>
+<script>
+Diagram(Choice(0, Sequence(Terminal("new"), NonTerminal("ident"), Terminal("("), NonTerminal("ArgumentList", {href:"#ArgumentList"}), Terminal(")"), Terminal(";")))).addTo();
+</script>
+
+<h1 id="ArgumentList">ArgumentList</h1>
+<script>
+Diagram(Choice(0, Sequence(Optional(Choice(0, Sequence(NonTerminal("Expression", {href:"#Expression"}), ZeroOrMore(Choice(0, Sequence(Terminal(","), NonTerminal("Expression", {href:"#Expression"})))))))))).addTo();
+</script>
+
+<h1 id="FunctionCall">FunctionCall</h1>
+<script>
+Diagram(Choice(0, Sequence(NonTerminal("ident"), Terminal("("), NonTerminal("ArgumentList", {href:"#ArgumentList"}), Terminal(")"), Terminal(";")))).addTo();
+</script>
+
+<h1 id="ClassMethod">ClassMethod</h1>
+<script>
+Diagram(Choice(0, Sequence(NonTerminal("Identifier", {href:"#Identifier"}), Terminal("("), NonTerminal("ArgumentList", {href:"#ArgumentList"}), Terminal(")"), Terminal(";")))).addTo();
+</script>
+
+<h1 id="Identifier">Identifier</h1>
+<script>
+Diagram(Choice(0, Sequence(NonTerminal("ident"), ZeroOrMore(Choice(0, Sequence(Terminal("."), NonTerminal("Identifier", {href:"#Identifier"}))))))).addTo();
+</script>
+
+<h1 id="OpTerm">OpTerm</h1>
+<script>
+Diagram(Choice(0, Sequence(Choice(0, Sequence(Terminal("*")), Sequence(Terminal("/")), Sequence(Terminal("%"))), NonTerminal("Factor", {href:"#Factor"})))).addTo();
+</script>
+
+<h1 id="OpComparison">OpComparison</h1>
+<script>
+Diagram(Choice(0, Sequence(Choice(0, Sequence(Choice(0, Sequence(Terminal("="), Terminal("=")))), Sequence(Choice(0, Sequence(Terminal("<"), Terminal("=")))), Sequence(Terminal("<")), Sequence(Choice(0, Sequence(Terminal(">"), Terminal("=")))), Sequence(Terminal(">")), Sequence(Choice(0, Sequence(Terminal("!"), Terminal("="))))), NonTerminal("Term", {href:"#Term"})))).addTo();
+</script>
+
+<h1 id="OpExpression">OpExpression</h1>
+<script>
+Diagram(Choice(0, Sequence(Choice(0, Sequence(Terminal("+")), Sequence(Terminal("-"))), NonTerminal("Comparison", {href:"#Comparison"})))).addTo();
+</script>
+
+<h1 id="Assignment">Assignment</h1>
+<script>
+Diagram(Choice(0, Sequence(NonTerminal("Identifier", {href:"#Identifier"}), Terminal("="), NonTerminal("Expression", {href:"#Expression"})))).addTo();
+</script>
+
+<h1 id="ExternalFunctionDefinition">ExternalFunctionDefinition</h1>
+<script>
+Diagram(Choice(0, Sequence(Terminal("extern"), Terminal("func"), NonTerminal("ident"), Terminal("("), Optional(Choice(0, Sequence(NonTerminal("ArgumentDefinition", {href:"#ArgumentDefinition"}), ZeroOrMore(Choice(0, Sequence(Terminal(","), NonTerminal("ArgumentDefinition", {href:"#ArgumentDefinition"}))))))), Terminal(")"), Optional(Choice(0, Sequence(Terminal(":"), Choice(0, Sequence(Optional(Terminal("*")), NonTerminal("ident"))))))))).addTo();
+</script>
+
+<h1 id="ArgumentDefinition">ArgumentDefinition</h1>
+<script>
+Diagram(Choice(0, Sequence(NonTerminal("ident"), Terminal(":"), Choice(0, Sequence(Optional(Terminal("*")), NonTerminal("ident")))))).addTo();
+</script>
+
+<h1 id="FunctionDefinition">FunctionDefinition</h1>
+<script>
+Diagram(Choice(0, Sequence(Optional(Terminal("private")), Optional(Terminal("static")), Terminal("func"), NonTerminal("ident"), Terminal("("), Optional(Choice(0, Sequence(NonTerminal("ArgumentDefinition", {href:"#ArgumentDefinition"}), ZeroOrMore(Choice(0, Sequence(Terminal(","), NonTerminal("ArgumentDefinition", {href:"#ArgumentDefinition"}))))))), Terminal(")"), Optional(Choice(0, Sequence(Terminal(":"), NonTerminal("ident")))), Terminal("{"), ZeroOrMore(NonTerminal("Statement", {href:"#Statement"})), Terminal("}")))).addTo();
+</script>
+
+<h1 id="ClassDefinition">ClassDefinition</h1>
+<script>
+Diagram(Choice(0, Sequence(Terminal("class"), NonTerminal("ident"), Terminal("{"), ZeroOrMore(NonTerminal("Statement", {href:"#Statement"})), Terminal("}")))).addTo();
+</script>
+
+<h1 id="If">If</h1>
+<script>
+Diagram(Choice(0, Sequence(Terminal("if"), Terminal("("), NonTerminal("Expression", {href:"#Expression"}), Terminal(")"), Terminal("{"), ZeroOrMore(NonTerminal("Statement", {href:"#Statement"})), Terminal("}"), ZeroOrMore(Choice(0, Sequence(Terminal("else"), Terminal("if"), NonTerminal("ElseIf", {href:"#ElseIf"})))), Optional(Choice(0, Sequence(Terminal("else"), Terminal("{"), ZeroOrMore(NonTerminal("Statement", {href:"#Statement"})), Terminal("}"))))))).addTo();
+</script>
+
+<h1 id="ElseIf">ElseIf</h1>
+<script>
+Diagram(Choice(0, Sequence(Terminal("else"), Terminal("if"), Terminal("("), NonTerminal("Expression", {href:"#Expression"}), Terminal(")"), Terminal("{"), ZeroOrMore(NonTerminal("Statement", {href:"#Statement"})), Terminal("}")))).addTo();
+</script>
+
+<h1 id="For">For</h1>
+<script>
+Diagram(Choice(0, Sequence(Terminal("for"), Terminal("("), NonTerminal("VariableDefinition", {href:"#VariableDefinition"}), Terminal(";"), NonTerminal("Expression", {href:"#Expression"}), Terminal(";"), NonTerminal("Assignment", {href:"#Assignment"}), Terminal(")"), Terminal("{"), ZeroOrMore(NonTerminal("Statement", {href:"#Statement"})), Terminal("}")))).addTo();
+</script>
+
+<h1 id="While">While</h1>
+<script>
+Diagram(Choice(0, Sequence(Terminal("while"), Terminal("("), NonTerminal("Expression", {href:"#Expression"}), Terminal(")"), Terminal("{"), ZeroOrMore(NonTerminal("Statement", {href:"#Statement"})), Terminal("}")))).addTo();
+</script>
+
+<h1 id="Return">Return</h1>
+<script>
+Diagram(Choice(0, Sequence(Terminal("return"), NonTerminal("Expression", {href:"#Expression"}), Terminal(";")))).addTo();
+</script>
+
+<h1 id="FieldDefinition">FieldDefinition</h1>
+<script>
+Diagram(Choice(0, Sequence(Optional(Terminal("private")), NonTerminal("ident"), Terminal(":"), NonTerminal("ident"), Terminal(";")))).addTo();
+</script>
+
+</body>

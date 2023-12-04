@@ -3,6 +3,7 @@ package main
 import (
 	_ "embed"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -43,6 +44,11 @@ func main() {
 						Name:    "only-parse",
 						Aliases: []string{"p"},
 						Usage:   "Only parse the file and dump the AST to stdout",
+					},
+					&cli.BoolFlag{
+						Name: "ebnf",
+						Usage: "Print the EBNF grammar for CaffeineC. " +
+							"Useful for debugging the parser.",
 					},
 					&cli.StringFlag{
 						Name:    "input-str",
@@ -122,6 +128,11 @@ func build(c *cli.Context) error {
 	isWindows := runtime.GOOS == "windows"
 
 	var ast *parser.Program
+
+	if c.Bool("ebnf") {
+		fmt.Println(parser.Parser().String())
+		return nil
+	}
 
 	if c.String("input-str") != "" {
 		ast = parser.ParseString(c.String("input-str"))
