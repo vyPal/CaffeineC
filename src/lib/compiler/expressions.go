@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/fatih/color"
+	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
@@ -92,7 +93,14 @@ func (ctx *Context) compileFactor(f *parser.Factor) (value.Value, error) {
 	if f.Value != nil {
 		return ctx.compileValue(f.Value)
 	} else if f.Identifier != nil {
-		return ctx.compileIdentifier(f.Identifier)
+		val, err := ctx.compileIdentifier(f.Identifier)
+		if err != nil {
+			return nil, err
+		}
+		if v, ok := val.(*ir.InstAlloca); ok {
+			return ctx.NewLoad(v.Type().(*types.PointerType).ElemType, val), nil
+		}
+		return val, nil
 	} else if f.ClassMethod != nil {
 		return ctx.compileClassMethod(f.ClassMethod)
 	} else if f.FunctionCall != nil {

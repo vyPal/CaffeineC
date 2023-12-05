@@ -98,7 +98,7 @@ func NewCompiler() *Compiler {
 func (c *Compiler) Compile(program *parser.Program) {
 	c.AST = program
 	fn := c.Module.NewFunc("main", types.I32)
-	block := fn.NewBlock("entry")
+	block := fn.NewBlock("")
 	c.Context = NewContext(block, c)
 	for _, s := range program.Statements {
 		c.Context.compileStatement(s)

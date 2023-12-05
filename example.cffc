@@ -2,7 +2,11 @@ extern func malloc(size: i64): *i8;
 extern func printf(format: string): void;
 
 var a:int = 1;
+printf("Initial value: %d\n", a);
 
 while (a < 5) {
   a = 1 + a;
+  printf("New value: %d\n", a);
 }
+
+printf("Final value: %d\n", a);

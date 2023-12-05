@@ -64,8 +64,10 @@ func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Nam
 	if err != nil {
 		return "", nil, nil, err
 	}
-	ctx.vars[v.Name] = val
-	return v.Name, val.Type(), val, nil
+	alloc := ctx.NewAlloca(val.Type())
+	ctx.NewStore(val, alloc)
+	ctx.vars[v.Name] = alloc
+	return v.Name, alloc.Type(), alloc, nil
 }
 
 func (ctx *Context) compileAssignment(a *parser.Assignment) (Name string, Value value.Value, Err error) {
@@ -81,7 +83,12 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Name string, Value 
 
 	ptr, ok := variable.(*ir.InstGetElementPtr)
 	if !ok {
-		ctx.vars[a.Left.Name] = val
+		aptr, ok := variable.(*ir.InstAlloca)
+		if !ok {
+			ctx.vars[a.Left.Name] = val
+		} else {
+			ctx.NewStore(val, aptr)
+		}
 	} else {
 		ctx.Block.NewStore(val, ptr)
 	}
@@ -246,22 +253,30 @@ func (ctx *Context) compileFor(f *parser.For) error {
 }
 
 func (ctx *Context) compileWhile(w *parser.While) error {
-	condCtx := ctx.NewContext(ctx.Block.Parent.NewBlock("while.loop.cond"))
-	ctx.NewBr(condCtx.Block)
-	loopCtx := ctx.NewContext(ctx.Block.Parent.NewBlock("while.loop.body"))
-	leaveB := ctx.Block.Parent.NewBlock("leave.do.while")
-	cond, err := condCtx.compileExpression(w.Condition)
+	cond, err := ctx.compileExpression(w.Condition)
 	if err != nil {
 		return err
 	}
-	condCtx.NewCondBr(cond, loopCtx.Block, leaveB)
-	condCtx.fc.Leave = leaveB
+
+	loopB := ctx.Block.Parent.NewBlock("")
+	leaveB := ctx.Block.Parent.NewBlock("")
+	loopCtx := ctx.NewContext(loopB)
+
+	ctx.NewCondBr(cond, loopB, leaveB)
 	loopCtx.fc.Leave = leaveB
+	loopCtx.fc.Continue = loopB
+
 	for _, stmt := range w.Body {
 		loopCtx.compileStatement(stmt)
 	}
-	loopCtx.NewBr(condCtx.Block)
+
+	cond, err = loopCtx.compileExpression(w.Condition)
+	if err != nil {
+		return err
+	}
+	loopCtx.NewCondBr(cond, loopB, leaveB)
 	ctx.Compiler.Context.Block = leaveB
+
 	return nil
 }
 
