@@ -73,8 +73,8 @@
               "Line": 2,
               "Column": 20
             },
-            "Name": "ptr",
-            "Type": "*i8"
+            "Name": "format",
+            "Type": "string"
           }
         ],
         "ReturnType": "void"
@@ -93,14 +93,14 @@
     {
       "Pos": {
         "Filename": "example.cffc",
-        "Offset": 73,
+        "Offset": 79,
         "Line": 4,
         "Column": 1
       },
       "VariableDefinition": {
         "Pos": {
           "Filename": "example.cffc",
-          "Offset": 73,
+          "Offset": 79,
           "Line": 4,
           "Column": 1
         },
@@ -109,40 +109,40 @@
         "Assignment": {
           "Pos": {
             "Filename": "example.cffc",
-            "Offset": 85,
+            "Offset": 91,
             "Line": 4,
             "Column": 13
           },
           "Left": {
             "Pos": {
               "Filename": "example.cffc",
-              "Offset": 85,
+              "Offset": 91,
               "Line": 4,
               "Column": 13
             },
             "Left": {
               "Pos": {
                 "Filename": "example.cffc",
-                "Offset": 85,
+                "Offset": 91,
                 "Line": 4,
                 "Column": 13
               },
               "Left": {
                 "Pos": {
                   "Filename": "example.cffc",
-                  "Offset": 85,
+                  "Offset": 91,
                   "Line": 4,
                   "Column": 13
                 },
                 "Value": {
                   "Pos": {
                     "Filename": "example.cffc",
-                    "Offset": 85,
+                    "Offset": 91,
                     "Line": 4,
                     "Column": 13
                   },
                   "Float": null,
-                  "Int": 0,
+                  "Int": 1,
                   "Bool": null,
                   "String": null,
                   "Duration": null
@@ -176,8 +176,8 @@
     {
       "Pos": {
         "Filename": "example.cffc",
-        "Offset": 88,
-        "Line": 5,
+        "Offset": 95,
+        "Line": 6,
         "Column": 1
       },
       "VariableDefinition": null,
@@ -185,40 +185,42 @@
       "ExternalFunction": null,
       "FunctionDefinition": null,
       "ClassDefinition": null,
-      "If": {
+      "If": null,
+      "For": null,
+      "While": {
         "Pos": {
           "Filename": "example.cffc",
-          "Offset": 88,
-          "Line": 5,
+          "Offset": 95,
+          "Line": 6,
           "Column": 1
         },
         "Condition": {
           "Pos": {
             "Filename": "example.cffc",
-            "Offset": 92,
-            "Line": 5,
-            "Column": 5
+            "Offset": 102,
+            "Line": 6,
+            "Column": 8
           },
           "Left": {
             "Pos": {
               "Filename": "example.cffc",
-              "Offset": 92,
-              "Line": 5,
-              "Column": 5
+              "Offset": 102,
+              "Line": 6,
+              "Column": 8
             },
             "Left": {
               "Pos": {
                 "Filename": "example.cffc",
-                "Offset": 92,
-                "Line": 5,
-                "Column": 5
+                "Offset": 102,
+                "Line": 6,
+                "Column": 8
               },
               "Left": {
                 "Pos": {
                   "Filename": "example.cffc",
-                  "Offset": 92,
-                  "Line": 5,
-                  "Column": 5
+                  "Offset": 102,
+                  "Line": 6,
+                  "Column": 8
                 },
                 "Value": null,
                 "ClassInitializer": null,
@@ -228,9 +230,9 @@
                 "Identifier": {
                   "Pos": {
                     "Filename": "example.cffc",
-                    "Offset": 92,
-                    "Line": 5,
-                    "Column": 5
+                    "Offset": 102,
+                    "Line": 6,
+                    "Column": 8
                   },
                   "Name": "a",
                   "Sub": null
@@ -242,34 +244,34 @@
               {
                 "Pos": {
                   "Filename": "example.cffc",
-                  "Offset": 94,
-                  "Line": 5,
-                  "Column": 7
+                  "Offset": 104,
+                  "Line": 6,
+                  "Column": 10
                 },
-                "Op": "==",
+                "Op": "\u003c",
                 "Comparison": {
                   "Pos": {
                     "Filename": "example.cffc",
-                    "Offset": 97,
-                    "Line": 5,
-                    "Column": 10
+                    "Offset": 106,
+                    "Line": 6,
+                    "Column": 12
                   },
                   "Left": {
                     "Pos": {
                       "Filename": "example.cffc",
-                      "Offset": 97,
-                      "Line": 5,
-                      "Column": 10
+                      "Offset": 106,
+                      "Line": 6,
+                      "Column": 12
                     },
                     "Value": {
                       "Pos": {
                         "Filename": "example.cffc",
-                        "Offset": 97,
-                        "Line": 5,
-                        "Column": 10
+                        "Offset": 106,
+                        "Line": 6,
+                        "Column": 12
                       },
                       "Float": null,
-                      "Int": 0,
+                      "Int": 5,
                       "Bool": null,
                       "String": null,
                       "Duration": null
@@ -291,12 +293,133 @@
           {
             "Pos": {
               "Filename": "example.cffc",
-              "Offset": 104,
-              "Line": 6,
+              "Offset": 113,
+              "Line": 7,
               "Column": 3
             },
             "VariableDefinition": null,
-            "Assignment": null,
+            "Assignment": {
+              "Pos": {
+                "Filename": "example.cffc",
+                "Offset": 113,
+                "Line": 7,
+                "Column": 3
+              },
+              "Left": {
+                "Pos": {
+                  "Filename": "example.cffc",
+                  "Offset": 113,
+                  "Line": 7,
+                  "Column": 3
+                },
+                "Name": "a",
+                "Sub": null
+              },
+              "Right": {
+                "Pos": {
+                  "Filename": "example.cffc",
+                  "Offset": 117,
+                  "Line": 7,
+                  "Column": 7
+                },
+                "Left": {
+                  "Pos": {
+                    "Filename": "example.cffc",
+                    "Offset": 117,
+                    "Line": 7,
+                    "Column": 7
+                  },
+                  "Left": {
+                    "Pos": {
+                      "Filename": "example.cffc",
+                      "Offset": 117,
+                      "Line": 7,
+                      "Column": 7
+                    },
+                    "Left": {
+                      "Pos": {
+                        "Filename": "example.cffc",
+                        "Offset": 117,
+                        "Line": 7,
+                        "Column": 7
+                      },
+                      "Value": {
+                        "Pos": {
+                          "Filename": "example.cffc",
+                          "Offset": 117,
+                          "Line": 7,
+                          "Column": 7
+                        },
+                        "Float": null,
+                        "Int": 1,
+                        "Bool": null,
+                        "String": null,
+                        "Duration": null
+                      },
+                      "ClassInitializer": null,
+                      "SubExpression": null,
+                      "FunctionCall": null,
+                      "ClassMethod": null,
+                      "Identifier": null
+                    },
+                    "Right": null
+                  },
+                  "Right": null
+                },
+                "Right": [
+                  {
+                    "Pos": {
+                      "Filename": "example.cffc",
+                      "Offset": 119,
+                      "Line": 7,
+                      "Column": 9
+                    },
+                    "Op": "+",
+                    "Expression": {
+                      "Pos": {
+                        "Filename": "example.cffc",
+                        "Offset": 121,
+                        "Line": 7,
+                        "Column": 11
+                      },
+                      "Left": {
+                        "Pos": {
+                          "Filename": "example.cffc",
+                          "Offset": 121,
+                          "Line": 7,
+                          "Column": 11
+                        },
+                        "Left": {
+                          "Pos": {
+                            "Filename": "example.cffc",
+                            "Offset": 121,
+                            "Line": 7,
+                            "Column": 11
+                          },
+                          "Value": null,
+                          "ClassInitializer": null,
+                          "SubExpression": null,
+                          "FunctionCall": null,
+                          "ClassMethod": null,
+                          "Identifier": {
+                            "Pos": {
+                              "Filename": "example.cffc",
+                              "Offset": 121,
+                              "Line": 7,
+                              "Column": 11
+                            },
+                            "Name": "a",
+                            "Sub": null
+                          }
+                        },
+                        "Right": null
+                      },
+                      "Right": null
+                    }
+                  }
+                ]
+              }
+            },
             "ExternalFunction": null,
             "FunctionDefinition": null,
             "ClassDefinition": null,
@@ -307,125 +430,10 @@
             "FieldDefinition": null,
             "Break": null,
             "Continue": null,
-            "Expression": {
-              "Pos": {
-                "Filename": "example.cffc",
-                "Offset": 104,
-                "Line": 6,
-                "Column": 3
-              },
-              "Left": {
-                "Pos": {
-                  "Filename": "example.cffc",
-                  "Offset": 104,
-                  "Line": 6,
-                  "Column": 3
-                },
-                "Left": {
-                  "Pos": {
-                    "Filename": "example.cffc",
-                    "Offset": 104,
-                    "Line": 6,
-                    "Column": 3
-                  },
-                  "Left": {
-                    "Pos": {
-                      "Filename": "example.cffc",
-                      "Offset": 104,
-                      "Line": 6,
-                      "Column": 3
-                    },
-                    "Value": null,
-                    "ClassInitializer": null,
-                    "SubExpression": null,
-                    "FunctionCall": {
-                      "Pos": {
-                        "Filename": "example.cffc",
-                        "Offset": 104,
-                        "Line": 6,
-                        "Column": 3
-                      },
-                      "FunctionName": "printf",
-                      "Args": {
-                        "Pos": {
-                          "Filename": "example.cffc",
-                          "Offset": 111,
-                          "Line": 6,
-                          "Column": 10
-                        },
-                        "Arguments": [
-                          {
-                            "Pos": {
-                              "Filename": "example.cffc",
-                              "Offset": 111,
-                              "Line": 6,
-                              "Column": 10
-                            },
-                            "Left": {
-                              "Pos": {
-                                "Filename": "example.cffc",
-                                "Offset": 111,
-                                "Line": 6,
-                                "Column": 10
-                              },
-                              "Left": {
-                                "Pos": {
-                                  "Filename": "example.cffc",
-                                  "Offset": 111,
-                                  "Line": 6,
-                                  "Column": 10
-                                },
-                                "Left": {
-                                  "Pos": {
-                                    "Filename": "example.cffc",
-                                    "Offset": 111,
-                                    "Line": 6,
-                                    "Column": 10
-                                  },
-                                  "Value": {
-                                    "Pos": {
-                                      "Filename": "example.cffc",
-                                      "Offset": 111,
-                                      "Line": 6,
-                                      "Column": 10
-                                    },
-                                    "Float": null,
-                                    "Int": null,
-                                    "Bool": null,
-                                    "String": "\"Bek\\n\"",
-                                    "Duration": null
-                                  },
-                                  "ClassInitializer": null,
-                                  "SubExpression": null,
-                                  "FunctionCall": null,
-                                  "ClassMethod": null,
-                                  "Identifier": null
-                                },
-                                "Right": null
-                              },
-                              "Right": null
-                            },
-                            "Right": null
-                          }
-                        ]
-                      }
-                    },
-                    "ClassMethod": null,
-                    "Identifier": null
-                  },
-                  "Right": null
-                },
-                "Right": null
-              },
-              "Right": null
-            }
+            "Expression": null
           }
-        ],
-        "ElseIf": null,
-        "Else": null
+        ]
       },
-      "For": null,
-      "While": null,
       "Return": null,
       "FieldDefinition": null,
       "Break": null,

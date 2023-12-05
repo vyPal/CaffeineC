@@ -26,7 +26,7 @@ func (ctx *Context) compileStatement(s *parser.Statement) {
 	} else if s.For != nil {
 		ctx.compileFor(s.For)
 	} else if s.While != nil {
-		panic("Not implemented") // TODO: Implement
+		ctx.compileWhile(s.While)
 	} else if s.Return != nil {
 		ctx.compileReturn(s.Return)
 	} else if s.Break != nil {
@@ -232,6 +232,7 @@ func (ctx *Context) compileFor(f *parser.For) error {
 	loopCtx.vars[stepName] = stepVal
 	leaveB := ctx.Block.Parent.NewBlock("")
 	loopCtx.fc.Leave = leaveB
+	loopCtx.fc.Continue = loopCtx.Block
 	for _, stmt := range f.Body {
 		loopCtx.compileStatement(stmt)
 	}
@@ -244,8 +245,24 @@ func (ctx *Context) compileFor(f *parser.For) error {
 	return nil
 }
 
-func (ctx *Context) compileWhile(w *parser.While) {
-
+func (ctx *Context) compileWhile(w *parser.While) error {
+	condCtx := ctx.NewContext(ctx.Block.Parent.NewBlock("while.loop.cond"))
+	ctx.NewBr(condCtx.Block)
+	loopCtx := ctx.NewContext(ctx.Block.Parent.NewBlock("while.loop.body"))
+	leaveB := ctx.Block.Parent.NewBlock("leave.do.while")
+	cond, err := condCtx.compileExpression(w.Condition)
+	if err != nil {
+		return err
+	}
+	condCtx.NewCondBr(cond, loopCtx.Block, leaveB)
+	condCtx.fc.Leave = leaveB
+	loopCtx.fc.Leave = leaveB
+	for _, stmt := range w.Body {
+		loopCtx.compileStatement(stmt)
+	}
+	loopCtx.NewBr(condCtx.Block)
+	ctx.Compiler.Context.Block = leaveB
+	return nil
 }
 
 func (ctx *Context) compileReturn(r *parser.Return) {

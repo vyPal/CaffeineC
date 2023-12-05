@@ -24,9 +24,9 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 		}
 		switch right.Op {
 		case "+":
-			left = ctx.Block.NewAdd(left, rightVal)
+			left = ctx.NewAdd(left, rightVal)
 		case "-":
-			left = ctx.Block.NewSub(left, rightVal)
+			left = ctx.NewSub(left, rightVal)
 		default:
 			cli.Exit(color.RedString("Error: Unknown expression operator: %s", right.Op), 1)
 		}
@@ -46,17 +46,17 @@ func (ctx *Context) compileComparison(c *parser.Comparison) (value.Value, error)
 		}
 		switch right.Op {
 		case "==":
-			left = ctx.Block.NewICmp(enum.IPredEQ, left, rightVal)
+			left = ctx.NewICmp(enum.IPredEQ, left, rightVal)
 		case "!=":
-			left = ctx.Block.NewICmp(enum.IPredNE, left, rightVal)
+			left = ctx.NewICmp(enum.IPredNE, left, rightVal)
 		case ">":
-			left = ctx.Block.NewICmp(enum.IPredSGT, left, rightVal)
+			left = ctx.NewICmp(enum.IPredSGT, left, rightVal)
 		case "<":
-			left = ctx.Block.NewICmp(enum.IPredSLT, left, rightVal)
+			left = ctx.NewICmp(enum.IPredSLT, left, rightVal)
 		case ">=":
-			left = ctx.Block.NewICmp(enum.IPredSGE, left, rightVal)
+			left = ctx.NewICmp(enum.IPredSGE, left, rightVal)
 		case "<=":
-			left = ctx.Block.NewICmp(enum.IPredSLE, left, rightVal)
+			left = ctx.NewICmp(enum.IPredSLE, left, rightVal)
 		default:
 			cli.Exit(color.RedString("Error: Unknown comparison operator: %s", right.Op), 1)
 		}
@@ -76,11 +76,11 @@ func (ctx *Context) compileTerm(t *parser.Term) (value.Value, error) {
 		}
 		switch right.Op {
 		case "*":
-			left = ctx.Block.NewMul(left, rightVal)
+			left = ctx.NewMul(left, rightVal)
 		case "/":
-			left = ctx.Block.NewSDiv(left, rightVal)
+			left = ctx.NewSDiv(left, rightVal)
 		case "%":
-			left = ctx.Block.NewSRem(left, rightVal)
+			left = ctx.NewSRem(left, rightVal)
 		default:
 			cli.Exit(color.RedString("Error: Unknown term operator: %s", right.Op), 1)
 		}
@@ -115,13 +115,13 @@ func (ctx *Context) compileClassInitializer(ci *parser.ClassInitializer) (value.
 	class = class.(*types.StructType)
 
 	// Allocate memory for the class
-	classPtr := ctx.Block.NewAlloca(class)
+	classPtr := ctx.NewAlloca(class)
 	classPtr.SetName(ci.ClassName + "_ptr")
 
 	// Initialize the class
 	constructor, exists := ctx.lookupFunction(class.Name() + "_init")
 	if exists {
-		ctx.Block.NewStore(classPtr, ctx.Block.NewCall(constructor, classPtr))
+		ctx.NewStore(classPtr, ctx.NewCall(constructor, classPtr))
 
 		// Compile the arguments
 		compiledArgs := make([]value.Value, len(ci.Args.Arguments))
@@ -134,7 +134,7 @@ func (ctx *Context) compileClassInitializer(ci *parser.ClassInitializer) (value.
 		}
 
 		// Call the constructor
-		ctx.Block.NewCall(constructor, append([]value.Value{classPtr}, compiledArgs...)...)
+		ctx.NewCall(constructor, append([]value.Value{classPtr}, compiledArgs...)...)
 	}
 
 	// Return the class pointer
@@ -159,7 +159,7 @@ func (ctx *Context) compileFunctionCall(fc *parser.FunctionCall) (value.Value, e
 	}
 
 	// Call the function
-	return ctx.Block.NewCall(function, compiledArgs...), nil
+	return ctx.NewCall(function, compiledArgs...), nil
 }
 
 func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
@@ -185,13 +185,13 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 			cli.Exit(color.RedString("Error: malloc function not found"), 1)
 		}
 		// Allocate memory for the string
-		mem := ctx.Block.NewCall(malloc, constant.NewInt(types.I64, int64(strLen)))
+		mem := ctx.NewCall(malloc, constant.NewInt(types.I64, int64(strLen)))
 		// Store the string in the allocated memory
 		for i, char := range str {
-			ctx.Block.NewStore(constant.NewInt(types.I8, int64(char)), ctx.Block.NewGetElementPtr(types.I8, mem, constant.NewInt(types.I32, int64(i))))
+			ctx.NewStore(constant.NewInt(types.I8, int64(char)), ctx.NewGetElementPtr(types.I8, mem, constant.NewInt(types.I32, int64(i))))
 		}
 		// Add null character at the end
-		ctx.Block.NewStore(constant.NewInt(types.I8, 0), ctx.Block.NewGetElementPtr(types.I8, mem, constant.NewInt(types.I32, int64(len(str)))))
+		ctx.NewStore(constant.NewInt(types.I8, 0), ctx.NewGetElementPtr(types.I8, mem, constant.NewInt(types.I32, int64(len(str)))))
 		return mem, nil
 	} else if v.Duration != nil {
 		var factor float64
@@ -222,13 +222,13 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier) (value.Value, error)
 	if i.Sub == nil {
 		return val, nil
 	}
-	fieldType, fieldPtr := ctx.compileSubIdentifier(val.Type(), val, i.Sub)
-	return ctx.Block.NewLoad(fieldType, fieldPtr), nil
+	_, fieldPtr := ctx.compileSubIdentifier(val.Type(), val, i.Sub)
+	return fieldPtr, nil
 }
 
 func (ctx *Context) compileSubIdentifier(fieldType types.Type, pointer value.Value, sub *parser.Identifier) (FieldType types.Type, Pointer value.Value) {
 	if sub != nil {
-		val := ctx.Block.NewLoad(fieldType, pointer)
+		val := ctx.NewLoad(fieldType, pointer)
 		var field parser.FieldDefinition
 		var nfield int
 		elemtypename := val.Type().(*types.PointerType).ElemType.Name()
@@ -239,7 +239,7 @@ func (ctx *Context) compileSubIdentifier(fieldType types.Type, pointer value.Val
 				break
 			}
 		}
-		fieldPtr := ctx.Block.NewGetElementPtr(stringToType(field.Type), val, constant.NewInt(types.I32, int64(nfield)))
+		fieldPtr := ctx.NewGetElementPtr(stringToType(field.Type), val, constant.NewInt(types.I32, int64(nfield)))
 		return ctx.compileSubIdentifier(stringToType(field.Type), fieldPtr, sub.Sub)
 	}
 	return fieldType, pointer
@@ -273,7 +273,7 @@ func (ctx *Context) compileMethodCall(classInstance value.Value, methodName stri
 	}
 
 	// Call the method
-	return ctx.Block.NewCall(method, compiledArgs...), nil
+	return ctx.NewCall(method, compiledArgs...), nil
 }
 
 func (ctx *Context) lookupMethod(classType types.Type, methodName string) (value.Value, bool) {

@@ -1,3 +1,8 @@
-var a: int = 5;
-var b: int = 10;
-var c: int = 15;
+extern func malloc(size: i64): *i8;
+extern func printf(format: string): void;
+
+var a:int = 1;
+
+while (a < 5) {
+  a = 1 + a;
+}
