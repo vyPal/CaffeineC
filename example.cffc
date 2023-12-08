@@ -1,12 +1,6 @@
 extern func malloc(size: i64): *i8;
-extern func printf(format: string): void;
+extern func printf(fmt: *i8): void;
 
-var a:int = 1;
-printf("Initial value: %d\n", a);
-
-while (a < 5) {
-  a = 1 + a;
-  printf("New value: %d\n", a);
+for (var i:int = 0; i < 5; i = i + 1) {
+  printf("Hello\n");
 }
-
-printf("Final value: %d\n", a);

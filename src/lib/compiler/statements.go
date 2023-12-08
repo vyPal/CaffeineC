@@ -12,7 +12,7 @@ import (
 	"github.com/vyPal/CaffeineC/lib/parser"
 )
 
-func (ctx *Context) compileStatement(s *parser.Statement) {
+func (ctx *Context) compileStatement(s *parser.Statement) error {
 	if s.VariableDefinition != nil {
 		ctx.compileVariableDefinition(s.VariableDefinition)
 	} else if s.Assignment != nil {
@@ -22,11 +22,11 @@ func (ctx *Context) compileStatement(s *parser.Statement) {
 	} else if s.ClassDefinition != nil {
 		panic("Not implemented") // TODO: Implement
 	} else if s.If != nil {
-		ctx.compileIf(s.If)
+		return ctx.compileIf(s.If)
 	} else if s.For != nil {
-		ctx.compileFor(s.For)
+		return ctx.compileFor(s.For)
 	} else if s.While != nil {
-		ctx.compileWhile(s.While)
+		return ctx.compileWhile(s.While)
 	} else if s.Return != nil {
 		ctx.compileReturn(s.Return)
 	} else if s.Break != nil {
@@ -42,6 +42,7 @@ func (ctx *Context) compileStatement(s *parser.Statement) {
 	} else {
 		panic("Empty statement?")
 	}
+	return nil
 }
 
 func (ctx *Context) compileExternalFunction(v *parser.ExternalFunctionDefinition) {
@@ -223,32 +224,52 @@ func (ctx *Context) compileIf(i *parser.If) error {
 }
 
 func (ctx *Context) compileFor(f *parser.For) error {
-	loopCtx := ctx.NewContext(ctx.Block.Parent.NewBlock(""))
-	ctx.NewBr(loopCtx.Block)
-	initName, _, initVal, err := loopCtx.compileVariableDefinition(f.Initializer)
-	if err != nil {
+	// Compile the initializer
+	if err := ctx.compileStatement(f.Initializer); err != nil {
 		return err
 	}
-	firstAppear := loopCtx.NewPhi(ir.NewIncoming(initVal, ctx.Block))
-	loopCtx.vars[initName] = firstAppear
-	stepName, stepVal, err := loopCtx.compileAssignment(f.Increment)
-	if err != nil {
-		return err
-	}
-	firstAppear.Incs = append(firstAppear.Incs, ir.NewIncoming(stepVal, loopCtx.Block))
-	loopCtx.vars[stepName] = stepVal
+
+	// Create the loop and leave blocks
+	loopB := ctx.Block.Parent.NewBlock("")
 	leaveB := ctx.Block.Parent.NewBlock("")
-	loopCtx.fc.Leave = leaveB
-	loopCtx.fc.Continue = loopCtx.Block
-	for _, stmt := range f.Body {
-		loopCtx.compileStatement(stmt)
-	}
-	expr, err := loopCtx.compileExpression(f.Condition)
+	loopCtx := ctx.NewContext(loopB)
+
+	// Compile the condition
+	cond, err := ctx.compileExpression(f.Condition)
 	if err != nil {
 		return err
 	}
-	loopCtx.NewCondBr(expr, loopCtx.Block, leaveB)
+
+	// Create a conditional branch to the loop or leave block based on the condition
+	ctx.Block.NewCondBr(cond, loopB, leaveB)
+
+	// Set the current block to the loop block
+	ctx.Compiler.Context.Block = loopB
+
+	// Compile the body of the loop
+	for _, stmt := range f.Body {
+		if err := loopCtx.compileStatement(stmt); err != nil {
+			return err
+		}
+	}
+
+	// Compile the increment expression
+	if err := loopCtx.compileStatement(f.Increment); err != nil {
+		return err
+	}
+
+	// Compile the condition again
+	cond, err = loopCtx.compileExpression(f.Condition)
+	if err != nil {
+		return err
+	}
+
+	// Create a conditional branch to the loop or leave block based on the condition
+	loopCtx.Block.NewCondBr(cond, loopB, leaveB)
+
+	// Set the current block to the leave block
 	ctx.Compiler.Context.Block = leaveB
+
 	return nil
 }
 

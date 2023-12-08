@@ -100,6 +100,9 @@ func (ctx *Context) compileFactor(f *parser.Factor) (value.Value, error) {
 		if v, ok := val.(*ir.InstAlloca); ok {
 			return ctx.NewLoad(v.Type().(*types.PointerType).ElemType, val), nil
 		}
+		if v, ok := val.(*ir.InstPhi); ok {
+			return ctx.NewLoad(v.Type().(*types.PointerType).ElemType, val), nil
+		}
 		return val, nil
 	} else if f.ClassMethod != nil {
 		return ctx.compileClassMethod(f.ClassMethod)
