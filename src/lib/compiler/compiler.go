@@ -95,15 +95,19 @@ func NewCompiler() *Compiler {
 	}
 }
 
-func (c *Compiler) Compile(program *parser.Program) {
+func (c *Compiler) Compile(program *parser.Program) error {
 	c.AST = program
 	fn := c.Module.NewFunc("main", types.I32)
 	block := fn.NewBlock("")
 	c.Context = NewContext(block, c)
 	for _, s := range program.Statements {
-		c.Context.compileStatement(s)
+		err := c.Context.compileStatement(s)
+		if err != nil {
+			return err
+		}
 	}
 	if c.Context.Term == nil {
 		c.Context.NewRet(constant.NewInt(types.I32, 0))
 	}
+	return nil
 }

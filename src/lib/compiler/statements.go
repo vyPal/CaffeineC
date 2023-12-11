@@ -20,7 +20,7 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 	} else if s.FunctionDefinition != nil {
 		ctx.compileFunctionDefinition(s.FunctionDefinition)
 	} else if s.ClassDefinition != nil {
-		panic("Not implemented") // TODO: Implement
+		ctx.compileClassDefinition(s.ClassDefinition)
 	} else if s.If != nil {
 		return ctx.compileIf(s.If)
 	} else if s.For != nil {
@@ -36,7 +36,7 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 	} else if s.Expression != nil {
 		ctx.compileExpression(s.Expression)
 	} else if s.FieldDefinition != nil {
-		panic("Not implemented") // TODO: Implement
+		return cli.Exit(color.RedString("Error: Field definitions are not allowed outside of classes"), 1)
 	} else if s.ExternalFunction != nil {
 		ctx.compileExternalFunction(s.ExternalFunction)
 	} else {
@@ -149,7 +149,7 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 	fn := ctx.Module.NewFunc(f.Name, stringToType(f.ReturnType), params...)
 	fn.Sig.Variadic = false
 	fn.Sig.RetType = stringToType(f.ReturnType)
-	block := fn.NewBlock("function-entry")
+	block := fn.NewBlock("")
 	nctx := NewContext(block, ctx.Compiler)
 	for _, stmt := range f.Body {
 		nctx.compileStatement(stmt)
@@ -166,8 +166,45 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 	return f.Name, stringToType(f.ReturnType), params
 }
 
-func (ctx *Context) compileClassDefinition(c *parser.ClassDefinition) (Name string, TypeDef types.StructType, Methods []ir.Func) {
-	panic("Not implemented")
+func (ctx *Context) compileClassDefinition(c *parser.ClassDefinition) (Name string, TypeDef *types.StructType, Methods []ir.Func) {
+	classType := types.NewStruct()
+
+	for _, s := range c.Body {
+		if s.FieldDefinition != nil {
+			classType.Fields = append(classType.Fields, stringToType(s.FieldDefinition.Type))
+		} else if s.FunctionDefinition != nil {
+			ctx.compileClassMethodDefinition(s.FunctionDefinition, c.Name, classType)
+		}
+	}
+
+	ctx.Module.NewTypeDef(c.Name, classType)
+	return c.Name, classType, nil
+}
+
+func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, cname string, ctype *types.StructType) {
+	var params []*ir.Param
+	for _, arg := range f.Parameters {
+		params = append(params, ir.NewParam(arg.Name, stringToType(arg.Type)))
+	}
+	params = append(params, ir.NewParam("this", types.NewPointer(ctype)))
+
+	fn := ctx.Module.NewFunc(f.Name, stringToType(f.ReturnType), params...)
+	fn.Sig.Variadic = false
+	fn.Sig.RetType = stringToType(f.ReturnType)
+	block := fn.NewBlock("")
+	nctx := NewContext(block, ctx.Compiler)
+	for _, stmt := range f.Body {
+		nctx.compileStatement(stmt)
+	}
+	if nctx.Term == nil {
+		if stringToType(f.ReturnType).Equal(types.Void) {
+			nctx.NewRet(nil)
+		} else {
+			cli.Exit(color.RedString("Error: Method `%s` of class `%s` does not return a value", f.Name, cname), 1)
+		}
+	}
+
+	ctx.SymbolTable[cname+"."+f.Name] = fn
 }
 
 func (ctx *Context) compileIf(i *parser.If) error {
@@ -311,8 +348,4 @@ func (ctx *Context) compileReturn(r *parser.Return) {
 	} else {
 		ctx.NewRet(nil)
 	}
-}
-
-func (ctx *Context) compileFieldDefinition(f *parser.FieldDefinition) {
-
 }

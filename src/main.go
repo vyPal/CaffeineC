@@ -171,10 +171,13 @@ func build(c *cli.Context) error {
 	analyzer.Analyze(ast)
 
 	comp := compiler.NewCompiler()
-	comp.Compile(ast)
+	err := comp.Compile(ast)
+	if err != nil {
+		return cli.Exit(color.RedString("Error compiling: %s", err), 1)
+	}
 
 	tmpDir := "tmp_compile"
-	err := os.Mkdir(tmpDir, 0755)
+	err = os.Mkdir(tmpDir, 0755)
 
 	if err != nil && !os.IsExist(err) {
 		return cli.Exit(color.RedString("Error creating temporary directory: %s", err), 1)
