@@ -197,7 +197,7 @@ type ExternalFunctionDefinition struct {
 type Statement struct {
 	Pos                lexer.Position
 	VariableDefinition *VariableDefinition         `parser:"(?= 'var' Ident) @@? (';' | '\\n')?"`
-	Assignment         *Assignment                 `parser:"| (?= Ident '=') @@? (';' | '\\n')?"`
+	Assignment         *Assignment                 `parser:"| (?= Ident ( '.' Ident)* '=') @@? (';' | '\\n')?"`
 	ExternalFunction   *ExternalFunctionDefinition `parser:"| (?= 'extern' 'func') @@? (';' | '\\n')?"`
 	FunctionDefinition *FunctionDefinition         `parser:"| (?= 'private'? 'static'? 'func') @@?"`
 	ClassDefinition    *ClassDefinition            `parser:"| (?= 'class') @@?"`

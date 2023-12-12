@@ -14,9 +14,11 @@ import (
 
 func (ctx *Context) compileStatement(s *parser.Statement) error {
 	if s.VariableDefinition != nil {
-		ctx.compileVariableDefinition(s.VariableDefinition)
+		_, _, _, err := ctx.compileVariableDefinition(s.VariableDefinition)
+		return err
 	} else if s.Assignment != nil {
-		ctx.compileAssignment(s.Assignment)
+		_, _, err := ctx.compileAssignment(s.Assignment)
+		return err
 	} else if s.FunctionDefinition != nil {
 		ctx.compileFunctionDefinition(s.FunctionDefinition)
 	} else if s.ClassDefinition != nil {
@@ -34,7 +36,8 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 	} else if s.Continue != nil {
 		ctx.NewBr(ctx.fc.Continue)
 	} else if s.Expression != nil {
-		ctx.compileExpression(s.Expression)
+		_, err := ctx.compileExpression(s.Expression)
+		return err
 	} else if s.FieldDefinition != nil {
 		return cli.Exit(color.RedString("Error: Field definitions are not allowed outside of classes"), 1)
 	} else if s.ExternalFunction != nil {
@@ -65,6 +68,11 @@ func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Nam
 	if err != nil {
 		return "", nil, nil, err
 	}
+	ptr, ok := val.(*ir.InstAlloca)
+	if ok {
+		ctx.vars[v.Name] = ptr
+		return v.Name, ptr.Type(), ptr, nil
+	}
 	alloc := ctx.NewAlloca(val.Type())
 	ctx.NewStore(val, alloc)
 	ctx.vars[v.Name] = alloc
@@ -77,7 +85,7 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Name string, Value 
 		return "", nil, err
 	}
 	// Compile the identifier to get the variable
-	variable, err := ctx.compileIdentifier(a.Left)
+	variable, err := ctx.compileIdentifier(a.Left, false)
 	if err != nil {
 		return "", nil, err
 	}
@@ -168,25 +176,28 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 
 func (ctx *Context) compileClassDefinition(c *parser.ClassDefinition) (Name string, TypeDef *types.StructType, Methods []ir.Func) {
 	classType := types.NewStruct()
+	classType.SetName(c.Name)
 
 	for _, s := range c.Body {
 		if s.FieldDefinition != nil {
 			classType.Fields = append(classType.Fields, stringToType(s.FieldDefinition.Type))
+			ctx.Compiler.StructFields[c.Name] = append(ctx.Compiler.StructFields[c.Name], s.FieldDefinition)
 		} else if s.FunctionDefinition != nil {
 			ctx.compileClassMethodDefinition(s.FunctionDefinition, c.Name, classType)
 		}
 	}
 
+	ctx.structNames[classType] = c.Name
 	ctx.Module.NewTypeDef(c.Name, classType)
 	return c.Name, classType, nil
 }
 
 func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, cname string, ctype *types.StructType) {
 	var params []*ir.Param
+	params = append(params, ir.NewParam("this", types.NewPointer(ctype)))
 	for _, arg := range f.Parameters {
 		params = append(params, ir.NewParam(arg.Name, stringToType(arg.Type)))
 	}
-	params = append(params, ir.NewParam("this", types.NewPointer(ctype)))
 
 	fn := ctx.Module.NewFunc(f.Name, stringToType(f.ReturnType), params...)
 	fn.Sig.Variadic = false

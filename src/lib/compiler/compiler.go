@@ -13,10 +13,11 @@ import (
 type Context struct {
 	*ir.Block
 	*Compiler
-	parent   *Context
-	vars     map[string]value.Value
-	usedVars map[string]bool
-	fc       *FlowControl
+	parent      *Context
+	vars        map[string]value.Value
+	usedVars    map[string]bool
+	structNames map[*types.StructType]string
+	fc          *FlowControl
 }
 
 type FlowControl struct {
@@ -26,12 +27,13 @@ type FlowControl struct {
 
 func NewContext(b *ir.Block, comp *Compiler) *Context {
 	return &Context{
-		Block:    b,
-		Compiler: comp,
-		parent:   nil,
-		vars:     make(map[string]value.Value),
-		usedVars: make(map[string]bool),
-		fc:       &FlowControl{},
+		Block:       b,
+		Compiler:    comp,
+		parent:      nil,
+		vars:        make(map[string]value.Value),
+		usedVars:    make(map[string]bool),
+		structNames: make(map[*types.StructType]string),
+		fc:          &FlowControl{},
 	}
 }
 
@@ -79,10 +81,19 @@ func (c Context) lookupClass(name string) (types.Type, bool) {
 	return nil, false
 }
 
+func (c Context) getFieldIndex(structType *types.StructType, fieldName string) int {
+	for i, field := range structType.Fields {
+		if field.Name() == fieldName {
+			return i
+		}
+	}
+	return -1
+}
+
 type Compiler struct {
 	Module       *ir.Module
 	SymbolTable  map[string]value.Value
-	StructFields map[string][]parser.FieldDefinition
+	StructFields map[string][]*parser.FieldDefinition
 	Context      *Context
 	AST          *parser.Program
 }
@@ -91,7 +102,7 @@ func NewCompiler() *Compiler {
 	return &Compiler{
 		Module:       ir.NewModule(),
 		SymbolTable:  make(map[string]value.Value),
-		StructFields: make(map[string][]parser.FieldDefinition),
+		StructFields: make(map[string][]*parser.FieldDefinition),
 	}
 }
 

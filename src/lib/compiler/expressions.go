@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/fatih/color"
@@ -93,14 +94,15 @@ func (ctx *Context) compileFactor(f *parser.Factor) (value.Value, error) {
 	if f.Value != nil {
 		return ctx.compileValue(f.Value)
 	} else if f.Identifier != nil {
-		val, err := ctx.compileIdentifier(f.Identifier)
+		val, err := ctx.compileIdentifier(f.Identifier, false)
 		if err != nil {
 			return nil, err
 		}
 		if v, ok := val.(*ir.InstAlloca); ok {
 			return ctx.NewLoad(v.Type().(*types.PointerType).ElemType, val), nil
-		}
-		if v, ok := val.(*ir.InstPhi); ok {
+		} else if v, ok := val.(*ir.InstPhi); ok {
+			return ctx.NewLoad(v.Type().(*types.PointerType).ElemType, val), nil
+		} else if v, ok := val.(*ir.InstGetElementPtr); ok {
 			return ctx.NewLoad(v.Type().(*types.PointerType).ElemType, val), nil
 		}
 		return val, nil
@@ -127,12 +129,11 @@ func (ctx *Context) compileClassInitializer(ci *parser.ClassInitializer) (value.
 
 	// Allocate memory for the class
 	classPtr := ctx.NewAlloca(class)
-	classPtr.SetName(ci.ClassName + "_ptr")
 
 	// Initialize the class
-	constructor, exists := ctx.lookupFunction(class.Name() + "_init")
+	constructor, exists := ctx.lookupFunction(class.Name() + ".constructor")
 	if exists {
-		ctx.NewStore(classPtr, ctx.NewCall(constructor, classPtr))
+		ctx.NewCall(constructor, classPtr)
 
 		// Compile the arguments
 		compiledArgs := make([]value.Value, len(ci.Args.Arguments))
@@ -228,21 +229,55 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 	}
 }
 
-func (ctx *Context) compileIdentifier(i *parser.Identifier) (value.Value, error) {
+func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct bool) (value.Value, error) {
 	val := ctx.lookupVariable(i.Name)
+	if val == nil {
+		return nil, fmt.Errorf("Variable %s not found", i.Name)
+	}
+
 	if i.Sub == nil {
 		return val, nil
 	}
-	_, fieldPtr := ctx.compileSubIdentifier(val.Type(), val, i.Sub)
-	return fieldPtr, nil
+
+	// Iterate over the subs
+	currentVal := val
+	currentSub := i.Sub
+	for currentSub != nil {
+		fieldType, fieldPtr, isMethod := ctx.compileSubIdentifier(currentVal.Type(), currentVal, currentSub)
+
+		if isMethod {
+			if returnTopLevelStruct {
+				return currentVal, nil
+			} else {
+				return nil, fmt.Errorf("Unexpected method in identifier")
+			}
+		}
+
+		if currentSub.Sub == nil && !returnTopLevelStruct {
+			// If this is the last sub and we're not returning the top-level struct,
+			// return the field pointer
+			return fieldPtr, nil
+		}
+
+		// Otherwise, load the field and continue
+		currentVal = ctx.NewLoad(fieldType, fieldPtr)
+		currentSub = currentSub.Sub
+	}
+
+	// If we're here, we're returning the top-level struct
+	return currentVal, nil
 }
 
-func (ctx *Context) compileSubIdentifier(fieldType types.Type, pointer value.Value, sub *parser.Identifier) (FieldType types.Type, Pointer value.Value) {
+func (ctx *Context) compileSubIdentifier(fieldType types.Type, pointer value.Value, sub *parser.Identifier) (FieldType types.Type, Pointer value.Value, IsMethod bool) {
 	if sub != nil {
-		val := ctx.NewLoad(fieldType, pointer)
-		var field parser.FieldDefinition
+		_, isMethod := ctx.lookupMethod(fieldType, sub.Name)
+		if isMethod {
+			return fieldType, pointer, true
+		}
+
+		var field *parser.FieldDefinition
 		var nfield int
-		elemtypename := val.Type().(*types.PointerType).ElemType.Name()
+		elemtypename := pointer.Type().(*types.PointerType).ElemType.Name()
 		for f := range ctx.Compiler.StructFields[elemtypename] {
 			if ctx.Compiler.StructFields[elemtypename][f].Name == sub.Name {
 				field = ctx.Compiler.StructFields[elemtypename][f]
@@ -250,44 +285,73 @@ func (ctx *Context) compileSubIdentifier(fieldType types.Type, pointer value.Val
 				break
 			}
 		}
-		fieldPtr := ctx.NewGetElementPtr(stringToType(field.Type), val, constant.NewInt(types.I32, int64(nfield)))
+		fieldPtr := ctx.NewGetElementPtr(stringToType(field.Type), pointer, constant.NewInt(types.I32, int64(nfield)))
 		return ctx.compileSubIdentifier(stringToType(field.Type), fieldPtr, sub.Sub)
 	}
-	return fieldType, pointer
+	return fieldType, pointer, false
 }
 
 func (ctx *Context) compileClassMethod(cm *parser.ClassMethod) (value.Value, error) {
 	// First, compile the class identifier to get the class instance
-	classInstance, err := ctx.compileIdentifier(cm.Identifier)
+	classInstance, err := ctx.compileIdentifier(cm.Identifier, true)
 	if err != nil {
 		return nil, err
 	}
+
+	var methodName string
+	var currentSub *parser.Identifier
+	for currentSub = cm.Identifier.Sub; currentSub != nil; currentSub = currentSub.Sub {
+		methodName = currentSub.Name
+	}
+
 	// Then, compile the method call on the class instance
-	return ctx.compileMethodCall(classInstance, cm.Identifier.Name, cm.Args)
+	return ctx.compileMethodCall(classInstance, methodName, cm.Args)
 }
 
 func (ctx *Context) compileMethodCall(classInstance value.Value, methodName string, arguments *parser.ArgumentList) (value.Value, error) {
 	// Lookup the method on the class
-	method, exists := ctx.lookupMethod(classInstance.Type(), methodName)
+	pointerType, ok := classInstance.Type().(*types.PointerType)
+	if !ok {
+		return nil, cli.Exit(color.RedString("classInstance is not a pointer type"), 1)
+	}
+	method, exists := ctx.lookupMethod(pointerType, methodName)
 	if !exists {
-		return nil, cli.Exit(color.RedString("Error: Method %s not found for class %s", methodName, classInstance.Type().Name()), 1)
+		return nil, cli.Exit(color.RedString("Error: Method %s not found for class %s", methodName, pointerType.ElemType.Name()), 1)
 	}
 
-	// Compile the arguments
-	compiledArgs := make([]value.Value, len(arguments.Arguments))
-	for i, arg := range arguments.Arguments {
-		expr, err := ctx.compileExpression(arg)
+	// Prepare the arguments for the method call
+	args := []value.Value{classInstance}
+	for _, arg := range arguments.Arguments {
+		compiledArg, err := ctx.compileExpression(arg)
 		if err != nil {
 			return nil, err
 		}
-		compiledArgs[i] = expr
+		args = append(args, compiledArg)
 	}
 
 	// Call the method
-	return ctx.NewCall(method, compiledArgs...), nil
+	return ctx.Block.NewCall(method, args...), nil
 }
 
-func (ctx *Context) lookupMethod(classType types.Type, methodName string) (value.Value, bool) {
-	// TODO: Implement method lookup
-	return nil, false
+func (ctx *Context) lookupMethod(parentType types.Type, methodName string) (value.Value, bool) {
+	// Check if parentType is a pointer to a struct type
+	ptrType, ok := parentType.(*types.PointerType)
+	if !ok {
+		return nil, false
+	}
+	structType, ok := ptrType.ElemType.(*types.StructType)
+	if !ok {
+		return nil, false
+	}
+
+	// Check if the struct type is a named type
+	structName, ok := ctx.structNames[structType]
+	if !ok {
+		return nil, false
+	}
+
+	// Check if methodName is a method of the struct
+	methodKey := fmt.Sprintf("%s.%s", structName, methodName)
+	method, exists := ctx.SymbolTable[methodKey]
+	return method, exists
 }

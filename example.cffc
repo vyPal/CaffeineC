@@ -1,14 +1,13 @@
 extern func malloc(size: i64): *i8;
 extern func printf(fmt: *i8): void;
 
-for (var i:int = 0; i < 5; i = i + 1) {
-  printf("Hello\n");
-}
-
 class idk {
   a: int;
-
-  func bruh() {
-    
+  func bek() {
+    printf("%d\n", this.a);
   }
 }
+
+var neco: idk = new idk();
+neco.a = 5;
+neco.bek();
