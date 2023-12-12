@@ -1,5 +1,5 @@
 Program = Statement* .
-Statement = ((?= "var" <ident>) VariableDefinition? ";") | ((?= <ident> "=") Assignment? ";") | ((?= "extern" "func") ExternalFunctionDefinition? ";") | ((?= "private"? "static"? "func") FunctionDefinition?) | ((?= "class") ClassDefinition?) | ((?= "if") If?) | ((?= "for") For?) | ((?= "while") While?) | ((?= "return") Return?) | ((?= "private"? <ident> ":" <ident>) FieldDefinition?) | ("break" ";") | ("continue" ";") | Expression .
+Statement = ((?= "var" <ident>) VariableDefinition? (";" | "\n")?) | ((?= <ident> ("." <ident>)* "=") Assignment? (";" | "\n")?) | ((?= "extern" "func") ExternalFunctionDefinition? (";" | "\n")?) | ((?= "private"? "static"? "func") FunctionDefinition?) | ((?= "class") ClassDefinition?) | ((?= "if") If?) | ((?= "for") For?) | ((?= "while") While?) | ((?= "return") Return?) | ((?= "private"? <ident> ":" <ident>) FieldDefinition?) | ((?= "import") Import?) | ((?= "from" <string> "import" "{") FromImportMultiple?) | ((?= "from" <string> "import") FromImport?) | ("export" Statement? (";" | "\n")?) | ("break" (";" | "\n")?) | ("continue" (";" | "\n")?) | Expression .
 VariableDefinition = "var" <ident> ":" ("*"? <ident>) ("=" Expression)? .
 Expression = Comparison OpExpression* .
 Comparison = Term OpComparison* .
@@ -21,7 +21,11 @@ FunctionDefinition = "private"? "static"? "func" <ident> "(" (ArgumentDefinition
 ClassDefinition = "class" <ident> "{" Statement* "}" .
 If = "if" "(" Expression ")" "{" Statement* "}" ("else" "if" ElseIf)* ("else" "{" Statement* "}")? .
 ElseIf = "else" "if" "(" Expression ")" "{" Statement* "}" .
-For = "for" "(" VariableDefinition ";" Expression ";" Assignment ")" "{" Statement* "}" .
+For = "for" "(" Statement Expression ";" Statement ")" "{" Statement* "}" .
 While = "while" "(" Expression ")" "{" Statement* "}" .
 Return = "return" Expression ";" .
 FieldDefinition = "private"? <ident> ":" <ident> ";" .
+Import = "import" <string> ";" .
+FromImportMultiple = "from" <string> "import" "{" Symbol ("," Symbol)* "}" ";" .
+Symbol = <string> ("as" <string>)? .
+FromImport = "from" <string> "import" <string> ("as" <string>)? ";" .
