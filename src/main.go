@@ -140,7 +140,7 @@ func build(c *cli.Context) error {
 		return cli.Exit(color.RedString("Error creating temporary directory: %s", err), 1)
 	}
 
-	llFile, err := parseAndCompile(c.Args().First(), tmpDir, c.Bool("dump-ast"))
+	llFile, err := parseAndCompile(c.Args().First(), tmpDir, c.Bool("dump-ast"), true)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,8 @@ func build(c *cli.Context) error {
 		return err
 	}
 
-	args := append([]string{"gcc", oFile, "-o", outName}, imports...)
+	args := append([]string{"gcc", oFile}, imports...)
+	args = append(args, "-o", outName)
 	cmd := exec.Command(args[0], args[1:]...)
 
 	err = cmd.Run()
@@ -166,16 +167,7 @@ func build(c *cli.Context) error {
 	// Remove the temporary files
 
 	if !c.Bool("no-cleanup") {
-		if runtime.GOOS == "windows" {
-			os.Remove(tmpDir + "/llc.exe")
-			os.Remove(tmpDir + "/opt.exe")
-		}
-		os.Remove(tmpDir + "/output.ll")
-		os.Remove(tmpDir + "/output.bc")
-		os.Remove(tmpDir + "/output.o")
-		os.Remove(tmpDir + "/sleep.o")
-		os.Remove(tmpDir + "/sleep.c")
-		os.Remove(tmpDir)
+		os.RemoveAll(tmpDir)
 	}
 
 	return nil
@@ -202,7 +194,7 @@ func run(c *cli.Context) error {
 	return nil
 }
 
-func parseAndCompile(path, tmpdir string, dump bool) (string, error) {
+func parseAndCompile(path, tmpdir string, dump, isMain bool) (string, error) {
 	ast := parser.ParseFile(path)
 	if dump {
 		astFile, err := os.Create("ast_dump.json")
@@ -220,7 +212,7 @@ func parseAndCompile(path, tmpdir string, dump bool) (string, error) {
 	//go analyzer.Analyze(ast) // Removing this makes the compiler ~13ms faster
 
 	comp := compiler.NewCompiler()
-	err := comp.Compile(ast)
+	err := comp.Compile(ast, isMain)
 	if err != nil {
 		return "", cli.Exit(color.RedString("Error compiling: %s", err), 1)
 	}
@@ -271,13 +263,13 @@ func processIncludes(includes []string, tmpDir, llcName, optName string) ([]stri
 			ext := filepath.Ext(path)
 			if ext == ".c" || ext == ".cpp" || ext == ".h" || ext == ".o" {
 				files = append(files, path)
-			} else if ext == ".caffc" {
-				llFile, err := parseAndCompile(path, tmpDir, false)
+			} else if ext == ".cffc" {
+				llFile, err := parseAndCompile(path, tmpDir, false, false)
 				if err != nil {
 					return err
 				}
 
-				oFile, err := llvmToObj(llFile, tmpDir, llcName, optName, false)
+				oFile, err := llvmToObj(llFile, tmpDir, llcName, optName, true)
 				if err != nil {
 					return err
 				}
