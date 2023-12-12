@@ -42,8 +42,12 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 		return cli.Exit(color.RedString("Error: Field definitions are not allowed outside of classes"), 1)
 	} else if s.ExternalFunction != nil {
 		ctx.compileExternalFunction(s.ExternalFunction)
+	} else if s.Import != nil {
+		return ctx.Compiler.ImportAll(s.Import.Package, ctx)
+	} else if s.Export != nil {
+		ctx.compileStatement(s.Export)
 	} else {
-		panic("Empty statement?")
+		return cli.Exit(color.RedString("Empty statement"), 1)
 	}
 	return nil
 }

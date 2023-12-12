@@ -1,6 +1,10 @@
 package compiler
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/fatih/color"
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
@@ -91,23 +95,27 @@ func (c Context) getFieldIndex(structType *types.StructType, fieldName string) i
 }
 
 type Compiler struct {
-	Module       *ir.Module
-	SymbolTable  map[string]value.Value
-	StructFields map[string][]*parser.FieldDefinition
-	Context      *Context
-	AST          *parser.Program
+	Module          *ir.Module
+	SymbolTable     map[string]value.Value
+	StructFields    map[string][]*parser.FieldDefinition
+	Context         *Context
+	AST             *parser.Program
+	workingDir      string
+	RequiredImports []string
 }
 
 func NewCompiler() *Compiler {
 	return &Compiler{
-		Module:       ir.NewModule(),
-		SymbolTable:  make(map[string]value.Value),
-		StructFields: make(map[string][]*parser.FieldDefinition),
+		Module:          ir.NewModule(),
+		SymbolTable:     make(map[string]value.Value),
+		StructFields:    make(map[string][]*parser.FieldDefinition),
+		RequiredImports: make([]string, 0),
 	}
 }
 
-func (c *Compiler) Compile(program *parser.Program, isMain bool) error {
+func (c *Compiler) Compile(program *parser.Program, workingDir string, isMain bool) (needsImports []string, err error) {
 	c.AST = program
+	c.workingDir = workingDir
 	if isMain {
 		fn := c.Module.NewFunc("main", types.I32)
 		block := fn.NewBlock("")
@@ -115,7 +123,7 @@ func (c *Compiler) Compile(program *parser.Program, isMain bool) error {
 		for _, s := range program.Statements {
 			err := c.Context.compileStatement(s)
 			if err != nil {
-				return err
+				return []string{}, err
 			}
 		}
 		if c.Context.Term == nil {
@@ -133,7 +141,52 @@ func (c *Compiler) Compile(program *parser.Program, isMain bool) error {
 		for _, s := range program.Statements {
 			err := c.Context.compileStatement(s)
 			if err != nil {
-				return err
+				return []string{}, err
+			}
+		}
+	}
+	return c.RequiredImports, nil
+}
+
+func (c *Compiler) ImportAll(path string, ctx *Context) error {
+	path = strings.Trim(path, "\"")
+	if !filepath.IsAbs(path) {
+		path = filepath.Clean(filepath.Join(c.workingDir, path))
+	}
+	c.RequiredImports = append(c.RequiredImports, path)
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return cli.Exit(color.RedString("Unable to import directory"), 1)
+	}
+	ast := parser.ParseFile(path)
+	for _, s := range ast.Statements {
+		if s.Export != nil {
+			if s.Export.FunctionDefinition != nil {
+				var params []*ir.Param
+				for _, p := range s.Export.FunctionDefinition.Parameters {
+					params = append(params, ir.NewParam(p.Name, stringToType(p.Type)))
+				}
+				fn := c.Module.NewFunc(s.Export.FunctionDefinition.Name, stringToType(s.Export.FunctionDefinition.ReturnType), params...)
+				ctx.SymbolTable[s.Export.FunctionDefinition.Name] = fn
+			} else if s.Export.ClassDefinition != nil {
+				cStruct := types.NewStruct()
+				for _, st := range s.Export.ClassDefinition.Body {
+					if st.FieldDefinition != nil {
+						cStruct.Fields = append(cStruct.Fields, stringToType(st.FieldDefinition.Type))
+					} else if st.FunctionDefinition != nil {
+						var params []*ir.Param
+						for _, p := range st.FunctionDefinition.Parameters {
+							params = append(params, ir.NewParam(p.Name, stringToType(p.Type)))
+						}
+						fn := c.Module.NewFunc(st.FunctionDefinition.Name, stringToType(st.FunctionDefinition.ReturnType), params...)
+						ctx.SymbolTable[s.Export.ClassDefinition.Name+"."+st.FunctionDefinition.Name] = fn
+					}
+				}
+			} else {
+				continue
 			}
 		}
 	}

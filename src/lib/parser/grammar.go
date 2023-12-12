@@ -194,6 +194,26 @@ type ExternalFunctionDefinition struct {
 	ReturnType string                `parser:"( ':' @('*'? Ident) )?"`
 }
 
+type Import struct {
+	Package string `parser:"'import' @String ';'"`
+}
+
+type FromImport struct {
+	Package string `parser:"'from' @String 'import'"`
+	Symbol  string `parser:"@String"`
+	Alias   string `parser:"('as' @String)? ';'"`
+}
+
+type FromImportMultiple struct {
+	Package string   `parser:"'from' @String 'import' '{'"`
+	Symbols []Symbol `parser:"@@ (',' @@)* '}' ';'"`
+}
+
+type Symbol struct {
+	Name  string `parser:"@String"`
+	Alias string `parser:"('as' @String)?"`
+}
+
 type Statement struct {
 	Pos                lexer.Position
 	VariableDefinition *VariableDefinition         `parser:"(?= 'var' Ident) @@? (';' | '\\n')?"`
@@ -206,6 +226,10 @@ type Statement struct {
 	While              *While                      `parser:"| (?= 'while') @@?"`
 	Return             *Return                     `parser:"| (?= 'return') @@?"`
 	FieldDefinition    *FieldDefinition            `parser:"| (?= 'private'? Ident ':' Ident) @@?"`
+	Import             *Import                     `parser:"| (?= 'import') @@?"`
+	FromImportMultiple *FromImportMultiple         `parser:"| (?= 'from' String 'import' '{') @@?"`
+	FromImport         *FromImport                 `parser:"| (?= 'from' String 'import') @@?"`
+	Export             *Statement                  `parser:"| 'export' @@? (';' | '\\n')?"`
 	Break              *string                     `parser:"| 'break' (';' | '\\n')?"`
 	Continue           *string                     `parser:"| 'continue' (';' | '\\n')?"`
 	Expression         *Expression                 `parser:"| @@"`

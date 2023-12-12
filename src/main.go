@@ -140,7 +140,7 @@ func build(c *cli.Context) error {
 		return cli.Exit(color.RedString("Error creating temporary directory: %s", err), 1)
 	}
 
-	llFile, err := parseAndCompile(c.Args().First(), tmpDir, c.Bool("dump-ast"), true)
+	llFile, req, err := parseAndCompile(c.Args().First(), tmpDir, c.Bool("dump-ast"), true)
 	if err != nil {
 		return err
 	}
@@ -150,7 +150,7 @@ func build(c *cli.Context) error {
 		return err
 	}
 
-	imports, err := processIncludes(c.StringSlice("include"), tmpDir, llcName, optName)
+	imports, err := processIncludes(c.StringSlice("include"), req, tmpDir, llcName, optName)
 	if err != nil {
 		return err
 	}
@@ -194,32 +194,36 @@ func run(c *cli.Context) error {
 	return nil
 }
 
-func parseAndCompile(path, tmpdir string, dump, isMain bool) (string, error) {
+func parseAndCompile(path, tmpdir string, dump, isMain bool) (string, []string, error) {
 	ast := parser.ParseFile(path)
 	if dump {
 		astFile, err := os.Create("ast_dump.json")
 		if err != nil {
-			return "", cli.Exit(color.RedString("Error creating AST dump file: %s", err), 1)
+			return "", []string{}, cli.Exit(color.RedString("Error creating AST dump file: %s", err), 1)
 		}
 		defer astFile.Close()
 
 		encoder := json.NewEncoder(astFile)
 		encoder.SetIndent("", "  ")
 		if err := encoder.Encode(ast); err != nil {
-			return "", cli.Exit(color.RedString("Error encoding AST: %s", err), 1)
+			return "", []string{}, cli.Exit(color.RedString("Error encoding AST: %s", err), 1)
 		}
 	}
 	//go analyzer.Analyze(ast) // Removing this makes the compiler ~13ms faster
 
 	comp := compiler.NewCompiler()
-	err := comp.Compile(ast, isMain)
+	wDir, err := filepath.Abs(filepath.Dir(path))
 	if err != nil {
-		return "", cli.Exit(color.RedString("Error compiling: %s", err), 1)
+		return "", []string{}, err
+	}
+	req, err := comp.Compile(ast, wDir, isMain)
+	if err != nil {
+		return "", []string{}, cli.Exit(color.RedString("Error compiling: %s", err), 1)
 	}
 
 	newPath := filepath.Join(tmpdir, filepath.Base(path)+".ll")
 
-	return newPath, os.WriteFile(newPath, []byte(comp.Module.String()), 0644)
+	return newPath, req, os.WriteFile(newPath, []byte(comp.Module.String()), 0644)
 }
 
 func llvmToObj(path, tmpdir, llc, opt string, noopt bool) (string, error) {
@@ -247,8 +251,9 @@ func llvmToObj(path, tmpdir, llc, opt string, noopt bool) (string, error) {
 	return objPath, nil
 }
 
-func processIncludes(includes []string, tmpDir, llcName, optName string) ([]string, error) {
+func processIncludes(includes []string, requirements []string, tmpDir, llcName, optName string) ([]string, error) {
 	var files []string
+	includes = append(includes, requirements...)
 
 	for _, include := range includes {
 		err := filepath.Walk(include, func(path string, info os.FileInfo, err error) error {
@@ -264,9 +269,13 @@ func processIncludes(includes []string, tmpDir, llcName, optName string) ([]stri
 			if ext == ".c" || ext == ".cpp" || ext == ".h" || ext == ".o" {
 				files = append(files, path)
 			} else if ext == ".cffc" {
-				llFile, err := parseAndCompile(path, tmpDir, false, false)
+				llFile, req, err := parseAndCompile(path, tmpDir, false, false)
 				if err != nil {
 					return err
+				}
+
+				if len(req) > 0 {
+					processIncludes([]string{}, req, tmpDir, llcName, optName)
 				}
 
 				oFile, err := llvmToObj(llFile, tmpDir, llcName, optName, true)
