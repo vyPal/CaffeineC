@@ -7,11 +7,11 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 
 	"github.com/fatih/color"
 	"github.com/urfave/cli/v2"
-	"github.com/vyPal/CaffeineC/lib/analyzer"
 	"github.com/vyPal/CaffeineC/lib/compiler"
 	"github.com/vyPal/CaffeineC/lib/parser"
 )
@@ -41,19 +41,9 @@ func main() {
 						Usage:   "Dump the AST to a file",
 					},
 					&cli.BoolFlag{
-						Name:    "only-parse",
-						Aliases: []string{"p"},
-						Usage:   "Only parse the file and dump the AST to stdout",
-					},
-					&cli.BoolFlag{
 						Name: "ebnf",
 						Usage: "Print the EBNF grammar for CaffeineC. " +
 							"Useful for debugging the parser.",
-					},
-					&cli.StringFlag{
-						Name:    "input-str",
-						Aliases: []string{"s"},
-						Usage:   "Compile a string instead of a file",
 					},
 					&cli.BoolFlag{
 						Name:    "no-optimization",
@@ -88,16 +78,6 @@ func main() {
 						Usage:   "Dump the AST to a file",
 					},
 					&cli.BoolFlag{
-						Name:    "only-parse",
-						Aliases: []string{"p"},
-						Usage:   "Only parse the file and dump the AST to stdout",
-					},
-					&cli.StringFlag{
-						Name:    "input-str",
-						Aliases: []string{"s"},
-						Usage:   "Compile a string instead of a file",
-					},
-					&cli.BoolFlag{
 						Name:    "no-optimization",
 						Aliases: []string{"n"},
 						Usage:   "Don't run the 'opt' command",
@@ -127,160 +107,60 @@ func main() {
 func build(c *cli.Context) error {
 	isWindows := runtime.GOOS == "windows"
 
-	var ast *parser.Program
-
 	if c.Bool("ebnf") {
 		fmt.Println(parser.Parser().String())
 		return nil
 	}
 
-	if c.String("input-str") != "" {
-		ast = parser.ParseString(c.String("input-str"))
-	} else {
-		filename := c.Args().First()
-		if filename == "" {
-			return cli.Exit(color.RedString("Error: No file specified"), 1)
-		}
-
-		ast = parser.ParseFile(filename)
-	}
-
-	if c.Bool("only-parse") {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(ast); err != nil {
-			return cli.Exit(color.RedString("Error encoding AST: %s", err), 1)
-		}
-		return nil
-	}
-
-	if c.Bool("dump-ast") {
-		astFile, err := os.Create("ast_dump.json")
-		if err != nil {
-			return cli.Exit(color.RedString("Error creating AST dump file: %s", err), 1)
-		}
-		defer astFile.Close()
-
-		encoder := json.NewEncoder(astFile)
-		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(ast); err != nil {
-			return cli.Exit(color.RedString("Error encoding AST: %s", err), 1)
-		}
-	}
-
-	analyzer.Analyze(ast)
-
-	comp := compiler.NewCompiler()
-	err := comp.Compile(ast)
-	if err != nil {
-		return cli.Exit(color.RedString("Error compiling: %s", err), 1)
-	}
-
+	llcName := "llc"
+	optName := "opt"
+	outName := c.String("output")
 	tmpDir := "tmp_compile"
-	err = os.Mkdir(tmpDir, 0755)
 
+	if isWindows {
+		if outName == "" {
+			outName = "output.exe"
+		}
+		llcName = tmpDir + "/llc.exe"
+		err := os.WriteFile(llcName, llcExe, 0755)
+		if err != nil {
+			panic(err)
+		}
+		optName = tmpDir + "/opt.exe"
+		err = os.WriteFile(optName, optExe, 0755)
+		if err != nil {
+			panic(err)
+		}
+	}
+	if outName == "" {
+		outName = "output"
+	}
+	err := os.Mkdir(tmpDir, 0755)
 	if err != nil && !os.IsExist(err) {
 		return cli.Exit(color.RedString("Error creating temporary directory: %s", err), 1)
 	}
 
-	err = os.WriteFile("tmp_compile/output.ll", []byte(comp.Module.String()), 0644)
-
+	llFile, err := parseAndCompile(c.Args().First(), tmpDir, c.Bool("dump-ast"))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	if isWindows {
-		// Save the embedded llc executable to a temporary file
-		llcExePath := tmpDir + "/llc.exe"
-		err := os.WriteFile(llcExePath, llcExe, 0755)
-		if err != nil {
-			panic(err)
-		}
-		optExePath := tmpDir + "/opt.exe"
-		err = os.WriteFile(optExePath, optExe, 0755)
-		if err != nil {
-			panic(err)
-		}
+	oFile, err := llvmToObj(llFile, tmpDir, llcName, optName, c.Bool("no-optimization"))
+	if err != nil {
+		return err
+	}
 
-		// Use the embedded llc executable
-		if !c.Bool("no-optimization") {
-			cmd := exec.Command(optExePath, tmpDir+"/output.ll", "-o", tmpDir+"/output.bc")
-			err = cmd.Run()
-			if err != nil {
-				panic(err)
-			}
+	imports, err := processIncludes(c.StringSlice("include"), tmpDir, llcName, optName)
+	if err != nil {
+		return err
+	}
 
-			cmd = exec.Command(llcExePath, tmpDir+"/output.bc", "-filetype=obj", "-o", tmpDir+"/output.o")
-			err = cmd.Run()
-			if err != nil {
-				panic(err)
-			}
-		} else {
-			cmd := exec.Command(llcExePath, tmpDir+"/output.ll", "-filetype=obj", "-o", tmpDir+"/output.o")
-			err = cmd.Run()
-			if err != nil {
-				panic(err)
-			}
-		}
+	args := append([]string{"gcc", oFile, "-o", outName}, imports...)
+	cmd := exec.Command(args[0], args[1:]...)
 
-		includes := c.StringSlice("include")
-
-		args := append([]string{"gcc", tmpDir + "/output.o", "-o", tmpDir + "/output.exe"}, includes...)
-		cmd := exec.Command(args[0], args[1:]...)
-
-		err = cmd.Run()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		out := c.String("output")
-		if out == "" {
-			out = "output.exe"
-		}
-		err = os.Rename(tmpDir+"/output.exe", out)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else {
-
-		if !c.Bool("no-optimization") {
-			cmd := exec.Command("opt", tmpDir+"/output.ll", "-o", tmpDir+"/output.bc")
-			err = cmd.Run()
-			if err != nil {
-				panic(err)
-			}
-
-			cmd = exec.Command("llc", tmpDir+"/output.bc", "-filetype=obj", "-o", tmpDir+"/output.o")
-			err = cmd.Run()
-			if err != nil {
-				panic(err)
-			}
-		} else {
-			cmd := exec.Command("llc", tmpDir+"/output.ll", "-filetype=obj", "-o", tmpDir+"/output.o")
-			err = cmd.Run()
-			if err != nil {
-				panic(err)
-			}
-		}
-
-		includes := c.StringSlice("include")
-
-		args := append([]string{"gcc", tmpDir + "/output.o", "-o", tmpDir + "/output"}, includes...)
-		cmd := exec.Command(args[0], args[1:]...)
-
-		err = cmd.Run()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		out := c.String("output")
-		if out == "" {
-			out = "output"
-		}
-		err = os.Rename(tmpDir+"/output", out)
-		if err != nil {
-			log.Fatal(err)
-		}
+	err = cmd.Run()
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// Remove the temporary files
@@ -320,4 +200,98 @@ func run(c *cli.Context) error {
 	}
 
 	return nil
+}
+
+func parseAndCompile(path, tmpdir string, dump bool) (string, error) {
+	ast := parser.ParseFile(path)
+	if dump {
+		astFile, err := os.Create("ast_dump.json")
+		if err != nil {
+			return "", cli.Exit(color.RedString("Error creating AST dump file: %s", err), 1)
+		}
+		defer astFile.Close()
+
+		encoder := json.NewEncoder(astFile)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(ast); err != nil {
+			return "", cli.Exit(color.RedString("Error encoding AST: %s", err), 1)
+		}
+	}
+	//go analyzer.Analyze(ast) // Removing this makes the compiler ~13ms faster
+
+	comp := compiler.NewCompiler()
+	err := comp.Compile(ast)
+	if err != nil {
+		return "", cli.Exit(color.RedString("Error compiling: %s", err), 1)
+	}
+
+	newPath := filepath.Join(tmpdir, filepath.Base(path)+".ll")
+
+	return newPath, os.WriteFile(newPath, []byte(comp.Module.String()), 0644)
+}
+
+func llvmToObj(path, tmpdir, llc, opt string, noopt bool) (string, error) {
+	objPath := filepath.Join(tmpdir, filepath.Base(path)+".o")
+	if noopt {
+		cmd := exec.Command(llc, path, "-filetype=obj", "-o", objPath)
+		err := cmd.Run()
+		if err != nil {
+			return objPath, err
+		}
+	} else {
+		bitCodePath := filepath.Join(tmpdir, filepath.Base(path)+".bc")
+		cmd := exec.Command(opt, path, "-o", bitCodePath)
+		err := cmd.Run()
+		if err != nil {
+			return objPath, err
+		}
+
+		cmd = exec.Command(llc, bitCodePath, "-filetype=obj", "-o", objPath)
+		err = cmd.Run()
+		if err != nil {
+			return objPath, err
+		}
+	}
+	return objPath, nil
+}
+
+func processIncludes(includes []string, tmpDir, llcName, optName string) ([]string, error) {
+	var files []string
+
+	for _, include := range includes {
+		err := filepath.Walk(include, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if info.IsDir() {
+				return nil
+			}
+
+			ext := filepath.Ext(path)
+			if ext == ".c" || ext == ".cpp" || ext == ".h" || ext == ".o" {
+				files = append(files, path)
+			} else if ext == ".caffc" {
+				llFile, err := parseAndCompile(path, tmpDir, false)
+				if err != nil {
+					return err
+				}
+
+				oFile, err := llvmToObj(llFile, tmpDir, llcName, optName, false)
+				if err != nil {
+					return err
+				}
+
+				files = append(files, oFile)
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return files, nil
 }
