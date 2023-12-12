@@ -192,3 +192,60 @@ func (c *Compiler) ImportAll(path string, ctx *Context) error {
 	}
 	return nil
 }
+
+func (c *Compiler) ImportAs(path string, symbols map[string]string, ctx *Context) error {
+	path = strings.Trim(path, "\"")
+	if !filepath.IsAbs(path) {
+		path = filepath.Clean(filepath.Join(c.workingDir, path))
+	}
+	c.RequiredImports = append(c.RequiredImports, path)
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return cli.Exit(color.RedString("Unable to import directory"), 1)
+	}
+	ast := parser.ParseFile(path)
+	for _, s := range ast.Statements {
+		if s.Export != nil {
+			if s.Export.FunctionDefinition != nil {
+				if newname, ok := symbols[s.Export.FunctionDefinition.Name]; ok {
+					var params []*ir.Param
+					for _, p := range s.Export.FunctionDefinition.Parameters {
+						params = append(params, ir.NewParam(p.Name, stringToType(p.Type)))
+					}
+					fn := c.Module.NewFunc(s.Export.FunctionDefinition.Name, stringToType(s.Export.FunctionDefinition.ReturnType), params...)
+					if newname == "" {
+						newname = s.Export.FunctionDefinition.Name
+					}
+					ctx.SymbolTable[newname] = fn
+				}
+			} else if s.Export.ClassDefinition != nil {
+				if newname, ok := symbols[s.Export.ClassDefinition.Name]; ok {
+					if newname == "" {
+						newname = s.Export.ClassDefinition.Name
+					}
+					cStruct := types.NewStruct()
+					for _, st := range s.Export.ClassDefinition.Body {
+						if st.FieldDefinition != nil {
+							cStruct.Fields = append(cStruct.Fields, stringToType(st.FieldDefinition.Type))
+						} else if st.FunctionDefinition != nil {
+							var params []*ir.Param
+							for _, p := range st.FunctionDefinition.Parameters {
+								params = append(params, ir.NewParam(p.Name, stringToType(p.Type)))
+							}
+							fn := c.Module.NewFunc(st.FunctionDefinition.Name, stringToType(st.FunctionDefinition.ReturnType), params...)
+							ctx.SymbolTable[newname+"."+st.FunctionDefinition.Name] = fn
+						}
+					}
+					ctx.structNames[cStruct] = newname
+					ctx.Module.NewTypeDef(newname, cStruct)
+				}
+			} else {
+				continue
+			}
+		}
+	}
+	return nil
+}

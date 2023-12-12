@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/llir/llvm/ir"
@@ -44,6 +45,18 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 		ctx.compileExternalFunction(s.ExternalFunction)
 	} else if s.Import != nil {
 		return ctx.Compiler.ImportAll(s.Import.Package, ctx)
+	} else if s.FromImport != nil {
+		symbols := map[string]string{strings.Trim(s.FromImport.Symbol, "\""): strings.Trim(s.FromImport.Symbol, "\"")}
+		ctx.Compiler.ImportAs(s.FromImport.Package, symbols, ctx)
+	} else if s.FromImportMultiple != nil {
+		symbols := map[string]string{}
+		for _, symbol := range s.FromImportMultiple.Symbols {
+			if symbol.Alias == "" {
+				symbol.Alias = symbol.Name
+			}
+			symbols[strings.Trim(symbol.Name, "\"")] = strings.Trim(symbol.Alias, "\"")
+		}
+		ctx.Compiler.ImportAs(s.FromImportMultiple.Package, symbols, ctx)
 	} else if s.Export != nil {
 		ctx.compileStatement(s.Export)
 	} else {
