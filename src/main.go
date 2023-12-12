@@ -16,9 +16,6 @@ import (
 	"github.com/vyPal/CaffeineC/lib/parser"
 )
 
-//go:embed c_files/sleep.c
-var cSource string
-
 func main() {
 	app := &cli.App{
 		Name:                   "CaffeineC",
