@@ -1,7 +1,7 @@
 extern func malloc(size: i64): *i8;
 extern func printf(fmt: *i8): void;
 
-from "example2.cffc" import { "printBek" };
+from "example2.cffc" import { "printBek" as "pront" };
 
-printBek();
+pront();
 printf("Celkem bek\n");

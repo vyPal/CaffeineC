@@ -67,6 +67,10 @@ func (c Context) lookupVariable(name string) value.Value {
 }
 
 func (c *Context) lookupFunction(name string) (*ir.Func, bool) {
+	fn, ok := c.Compiler.SymbolTable[name]
+	if ok {
+		return fn.(*ir.Func), true
+	}
 	for _, f := range c.Module.Funcs {
 		if f.Name() == name {
 			return f, true
