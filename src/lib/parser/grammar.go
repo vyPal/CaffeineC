@@ -57,7 +57,7 @@ type ClassInitializer struct {
 type FunctionCall struct {
 	Pos          lexer.Position
 	FunctionName string       `parser:"@Ident"`
-	Args         ArgumentList `parser:"'(' @@ ')' ';'"`
+	Args         ArgumentList `parser:"'(' @@ ')'"`
 }
 
 type Factor struct {
@@ -232,7 +232,7 @@ type Statement struct {
 	Export             *Statement                  `parser:"| 'export' @@? (';' | '\\n')?"`
 	Break              *string                     `parser:"| 'break' (';' | '\\n')?"`
 	Continue           *string                     `parser:"| 'continue' (';' | '\\n')?"`
-	Expression         *Expression                 `parser:"| @@"`
+	Expression         *Expression                 `parser:"| @@ ';'"`
 }
 
 type Program struct {
