@@ -5,7 +5,7 @@ extern func free(ptr: *i8): void;
 
 export func readLine(): *i8 {
   var buffer: *i8 = malloc(256);
-  scanf("%s", buffer);
+  scanf("%[^\n]", buffer);
   return buffer;
 }
 
