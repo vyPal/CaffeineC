@@ -1,7 +1,6 @@
 package compiler
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/fatih/color"
@@ -131,7 +130,6 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 	for _, arg := range f.Parameters {
 		argsUsed = append(argsUsed, arg.Name)
 		tmpCtx.vars[arg.Name] = constant.NewInt(types.I1, 0)
-		fmt.Println("Defined " + arg.Name)
 	}
 	for _, stmt := range f.Body {
 		tmpCtx.compileStatement(stmt)

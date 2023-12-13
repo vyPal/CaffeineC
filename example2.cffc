@@ -1,6 +1,14 @@
 extern func malloc(size: i64): *i8;
-extern func printf(fmt: *i8): void;
+extern func printf(format: *i8): i32;
+extern func scanf(format: *i8, buffer: *i8): i32;
+extern func free(ptr: *i8): void;
 
-export func printBek(): void {
-  printf("Bek\n");
+export func readLine(): *i8 {
+  var buffer: *i8 = malloc(256);
+  scanf("%s", buffer);
+  return buffer;
+}
+
+export func print(text: *i8): void {
+  printf("%s\n", text);
 }

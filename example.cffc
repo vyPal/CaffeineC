@@ -1,9 +1,4 @@
-extern func malloc(size: i64): *i8;
-extern func printf(format: *i8): i32;
-extern func scanf(format: *i8, buffer: *i8): i32;
-extern func free(ptr: *i8): void;
+import "example2.cffc";
 
-var buffer: *i8 = malloc(256);
-scanf("%s", buffer);
-printf("%s\n", buffer);
-free(buffer);
+var text: string = readLine();
+print(text);

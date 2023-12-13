@@ -138,7 +138,7 @@ type FunctionDefinition struct {
 	Static     bool                  `parser:"@'static'?"`
 	Name       string                `parser:"'func' @Ident"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )? ')'"`
-	ReturnType string                `parser:"( ':' @Ident )?"`
+	ReturnType string                `parser:"( ':' @('*'? Ident) )?"`
 	Body       []*Statement          `parser:"'{' @@* '}'"`
 }
 

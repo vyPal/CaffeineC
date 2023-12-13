@@ -183,6 +183,7 @@ func run(c *cli.Context) error {
 	cmd := exec.Command("./" + out)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
 	err = cmd.Run()
 	if err != nil {
 		return cli.Exit(color.RedString("Error running binary: %s", err), 1)
