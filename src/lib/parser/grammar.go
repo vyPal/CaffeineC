@@ -151,7 +151,7 @@ type ClassDefinition struct {
 type ClassMethod struct {
 	Pos        lexer.Position
 	Identifier *Identifier   `parser:"@@"`
-	Args       *ArgumentList `parser:"'(' @@ ')' ';'"`
+	Args       *ArgumentList `parser:"'(' @@ ')'"`
 }
 
 type If struct {

@@ -177,18 +177,29 @@ func (c *Compiler) ImportAll(path string, ctx *Context) error {
 				ctx.SymbolTable[s.Export.FunctionDefinition.Name] = fn
 			} else if s.Export.ClassDefinition != nil {
 				cStruct := types.NewStruct()
+				cStruct.SetName(s.Export.ClassDefinition.Name)
 				for _, st := range s.Export.ClassDefinition.Body {
 					if st.FieldDefinition != nil {
 						cStruct.Fields = append(cStruct.Fields, stringToType(st.FieldDefinition.Type))
+						ctx.Compiler.StructFields[s.Export.ClassDefinition.Name] = append(ctx.Compiler.StructFields[s.Export.ClassDefinition.Name], st.FieldDefinition)
 					} else if st.FunctionDefinition != nil {
+						f := st.FunctionDefinition
 						var params []*ir.Param
-						for _, p := range st.FunctionDefinition.Parameters {
-							params = append(params, ir.NewParam(p.Name, stringToType(p.Type)))
+						params = append(params, ir.NewParam("this", types.NewPointer(cStruct)))
+						for _, arg := range f.Parameters {
+							params = append(params, ir.NewParam(arg.Name, stringToType(arg.Type)))
 						}
-						fn := c.Module.NewFunc(st.FunctionDefinition.Name, stringToType(st.FunctionDefinition.ReturnType), params...)
-						ctx.SymbolTable[s.Export.ClassDefinition.Name+"."+st.FunctionDefinition.Name] = fn
+
+						fn := ctx.Module.NewFunc(s.Export.ClassDefinition.Name+"."+f.Name, stringToType(f.ReturnType), params...)
+						fn.Sig.Variadic = false
+						fn.Sig.RetType = stringToType(f.ReturnType)
+
+						ctx.SymbolTable[s.Export.ClassDefinition.Name+"."+f.Name] = fn
 					}
 				}
+
+				ctx.Module.NewTypeDef(s.Export.ClassDefinition.Name, cStruct)
+				ctx.structNames[cStruct] = s.Export.ClassDefinition.Name
 			} else {
 				continue
 			}

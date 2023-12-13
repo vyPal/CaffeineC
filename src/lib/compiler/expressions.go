@@ -133,8 +133,6 @@ func (ctx *Context) compileClassInitializer(ci *parser.ClassInitializer) (value.
 	// Initialize the class
 	constructor, exists := ctx.lookupFunction(class.Name() + ".constructor")
 	if exists {
-		ctx.NewCall(constructor, classPtr)
-
 		// Compile the arguments
 		compiledArgs := make([]value.Value, len(ci.Args.Arguments))
 		for i, arg := range ci.Args.Arguments {
@@ -243,8 +241,10 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 	currentVal := val
 	currentSub := i.Sub
 	for currentSub != nil {
-		fieldType, fieldPtr, isMethod := ctx.compileSubIdentifier(currentVal.Type(), currentVal, currentSub)
-
+		fieldType, fieldPtr, isMethod, err := ctx.compileSubIdentifier(currentVal.Type(), currentVal, currentSub)
+		if err != nil {
+			return nil, err
+		}
 		if isMethod {
 			if returnTopLevelStruct {
 				return currentVal, nil
@@ -268,11 +268,11 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 	return currentVal, nil
 }
 
-func (ctx *Context) compileSubIdentifier(fieldType types.Type, pointer value.Value, sub *parser.Identifier) (FieldType types.Type, Pointer value.Value, IsMethod bool) {
+func (ctx *Context) compileSubIdentifier(fieldType types.Type, pointer value.Value, sub *parser.Identifier) (FieldType types.Type, Pointer value.Value, IsMethod bool, err error) {
 	if sub != nil {
 		_, isMethod := ctx.lookupMethod(fieldType, sub.Name)
 		if isMethod {
-			return fieldType, pointer, true
+			return fieldType, pointer, true, nil
 		}
 
 		var field *parser.FieldDefinition
@@ -285,10 +285,13 @@ func (ctx *Context) compileSubIdentifier(fieldType types.Type, pointer value.Val
 				break
 			}
 		}
+		if field == nil {
+			return nil, nil, false, cli.Exit(color.RedString("Error: Field %s not found in struct %s", sub.Name, elemtypename), 1)
+		}
 		fieldPtr := ctx.NewGetElementPtr(stringToType(field.Type), pointer, constant.NewInt(types.I32, int64(nfield)))
 		return ctx.compileSubIdentifier(stringToType(field.Type), fieldPtr, sub.Sub)
 	}
-	return fieldType, pointer, false
+	return fieldType, pointer, false, nil
 }
 
 func (ctx *Context) compileClassMethod(cm *parser.ClassMethod) (value.Value, error) {

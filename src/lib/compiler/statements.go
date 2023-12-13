@@ -214,7 +214,7 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 		params = append(params, ir.NewParam(arg.Name, stringToType(arg.Type)))
 	}
 
-	fn := ctx.Module.NewFunc(f.Name, stringToType(f.ReturnType), params...)
+	fn := ctx.Module.NewFunc(cname+"."+f.Name, stringToType(f.ReturnType), params...)
 	fn.Sig.Variadic = false
 	fn.Sig.RetType = stringToType(f.ReturnType)
 	block := fn.NewBlock("")

@@ -12,3 +12,13 @@ export func readLine(): *i8 {
 export func print(text: *i8): void {
   printf("%s\n", text);
 }
+
+export class SomeType {
+  value: int;
+  func constructor() {
+    this.value = 0;
+  }
+  func increment() {
+    this.value = this.value + 1;
+  }
+}
