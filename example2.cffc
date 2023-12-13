@@ -13,12 +13,15 @@ export func print(text: *i8): void {
   printf("%s\n", text);
 }
 
-export class SomeType {
+export class Integer {
   value: int;
-  func constructor() {
+  func constructor(): void {
     this.value = 0;
   }
-  func increment() {
-    this.value = this.value + 1;
+  func setValue(v: int): void {
+    this.value = v;
+  }
+  func getValue(): int {
+    return this.value;
   }
 }

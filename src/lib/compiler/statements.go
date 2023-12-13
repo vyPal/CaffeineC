@@ -69,11 +69,11 @@ func (ctx *Context) compileExternalFunction(v *parser.ExternalFunctionDefinition
 	if v.ReturnType == "" {
 		retType = types.Void
 	} else {
-		retType = stringToType(v.ReturnType)
+		retType = ctx.stringToType(v.ReturnType)
 	}
 	var args []*ir.Param
 	for _, arg := range v.Parameters {
-		args = append(args, ir.NewParam(arg.Name, stringToType(arg.Type)))
+		args = append(args, ir.NewParam(arg.Name, ctx.stringToType(arg.Type)))
 	}
 
 	ctx.Module.NewFunc(v.Name, retType, args...)
@@ -148,7 +148,7 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 		})
 	}
 	if tmpCtx.Term == nil {
-		if stringToType(f.ReturnType).Equal(types.Void) {
+		if ctx.stringToType(f.ReturnType).Equal(types.Void) {
 			tmpCtx.NewRet(nil)
 		} else {
 			cli.Exit(color.RedString("Error: Function `%s` does not return a value", f.Name), 1)
@@ -166,19 +166,19 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 
 	var params []*ir.Param
 	for _, arg := range f.Parameters {
-		params = append(params, ir.NewParam(arg.Name, stringToType(arg.Type)))
+		params = append(params, ir.NewParam(arg.Name, ctx.stringToType(arg.Type)))
 	}
 
-	fn := ctx.Module.NewFunc(f.Name, stringToType(f.ReturnType), params...)
+	fn := ctx.Module.NewFunc(f.Name, ctx.stringToType(f.ReturnType), params...)
 	fn.Sig.Variadic = false
-	fn.Sig.RetType = stringToType(f.ReturnType)
+	fn.Sig.RetType = ctx.stringToType(f.ReturnType)
 	block := fn.NewBlock("")
 	nctx := NewContext(block, ctx.Compiler)
 	for _, stmt := range f.Body {
 		nctx.compileStatement(stmt)
 	}
 	if nctx.Term == nil {
-		if stringToType(f.ReturnType).Equal(types.Void) {
+		if ctx.stringToType(f.ReturnType).Equal(types.Void) {
 			nctx.NewRet(nil)
 		} else {
 			cli.Exit(color.RedString("Error: Function `%s` does not return a value", f.Name), 1)
@@ -186,24 +186,24 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 	}
 
 	ctx.SymbolTable[f.Name] = fn
-	return f.Name, stringToType(f.ReturnType), params
+	return f.Name, ctx.stringToType(f.ReturnType), params
 }
 
 func (ctx *Context) compileClassDefinition(c *parser.ClassDefinition) (Name string, TypeDef *types.StructType, Methods []ir.Func) {
 	classType := types.NewStruct()
 	classType.SetName(c.Name)
+	ctx.structNames[classType] = c.Name
+	ctx.Module.NewTypeDef(c.Name, classType)
 
 	for _, s := range c.Body {
 		if s.FieldDefinition != nil {
-			classType.Fields = append(classType.Fields, stringToType(s.FieldDefinition.Type))
+			classType.Fields = append(classType.Fields, ctx.stringToType(s.FieldDefinition.Type))
 			ctx.Compiler.StructFields[c.Name] = append(ctx.Compiler.StructFields[c.Name], s.FieldDefinition)
 		} else if s.FunctionDefinition != nil {
 			ctx.compileClassMethodDefinition(s.FunctionDefinition, c.Name, classType)
 		}
 	}
 
-	ctx.structNames[classType] = c.Name
-	ctx.Module.NewTypeDef(c.Name, classType)
 	return c.Name, classType, nil
 }
 
@@ -211,19 +211,19 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 	var params []*ir.Param
 	params = append(params, ir.NewParam("this", types.NewPointer(ctype)))
 	for _, arg := range f.Parameters {
-		params = append(params, ir.NewParam(arg.Name, stringToType(arg.Type)))
+		params = append(params, ir.NewParam(arg.Name, ctx.stringToType(arg.Type)))
 	}
 
-	fn := ctx.Module.NewFunc(cname+"."+f.Name, stringToType(f.ReturnType), params...)
+	fn := ctx.Module.NewFunc(cname+"."+f.Name, ctx.stringToType(f.ReturnType), params...)
 	fn.Sig.Variadic = false
-	fn.Sig.RetType = stringToType(f.ReturnType)
+	fn.Sig.RetType = ctx.stringToType(f.ReturnType)
 	block := fn.NewBlock("")
 	nctx := NewContext(block, ctx.Compiler)
 	for _, stmt := range f.Body {
 		nctx.compileStatement(stmt)
 	}
 	if nctx.Term == nil {
-		if stringToType(f.ReturnType).Equal(types.Void) {
+		if ctx.stringToType(f.ReturnType).Equal(types.Void) {
 			nctx.NewRet(nil)
 		} else {
 			cli.Exit(color.RedString("Error: Method `%s` of class `%s` does not return a value", f.Name, cname), 1)

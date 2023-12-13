@@ -2,7 +2,7 @@ import "example2.cffc";
 extern func printf(fmt: *i8): void;
 extern func malloc(size: i64): *i8;
 
-var somevar: SomeType = new SomeType();
-printf("%d\n", somevar.value);
-somevar.increment();
-printf("%d\n", somevar.value);
+var somevar: Integer = new Integer();
+printf("%d\n", somevar.getValue());
+somevar.setValue(10);
+printf("%d\n", somevar.getValue());

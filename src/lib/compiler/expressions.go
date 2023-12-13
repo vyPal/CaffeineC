@@ -288,8 +288,8 @@ func (ctx *Context) compileSubIdentifier(fieldType types.Type, pointer value.Val
 		if field == nil {
 			return nil, nil, false, cli.Exit(color.RedString("Error: Field %s not found in struct %s", sub.Name, elemtypename), 1)
 		}
-		fieldPtr := ctx.NewGetElementPtr(stringToType(field.Type), pointer, constant.NewInt(types.I32, int64(nfield)))
-		return ctx.compileSubIdentifier(stringToType(field.Type), fieldPtr, sub.Sub)
+		fieldPtr := ctx.NewGetElementPtr(ctx.stringToType(field.Type), pointer, constant.NewInt(types.I32, int64(nfield)))
+		return ctx.compileSubIdentifier(ctx.stringToType(field.Type), fieldPtr, sub.Sub)
 	}
 	return fieldType, pointer, false, nil
 }

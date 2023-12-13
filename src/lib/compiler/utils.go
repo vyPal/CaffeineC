@@ -4,7 +4,7 @@ import (
 	"github.com/llir/llvm/ir/types"
 )
 
-func stringToType(name string) types.Type {
+func (ctx *Context) stringToType(name string) types.Type {
 	switch name {
 	// Standard types
 	case "int":
@@ -57,6 +57,11 @@ func stringToType(name string) types.Type {
 	case "ptr64", "*64", "*i64":
 		return types.NewPointer(types.I64)
 	default:
+		for _, t := range ctx.Module.TypeDefs {
+			if t.Name() == name {
+				return t
+			}
+		}
 		return types.Void
 	}
 }
