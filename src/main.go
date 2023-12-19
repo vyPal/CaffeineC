@@ -28,7 +28,7 @@ func main() {
 		EnableBashCompletion:   true,
 		Suggest:                true,
 		UseShortOptionHandling: true,
-		Version:                "2.0.2",
+		Version: "2.0.4+0",
 		Commands: []*cli.Command{
 			{
 				Name:  "build",
