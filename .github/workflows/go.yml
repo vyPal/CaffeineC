@@ -94,7 +94,15 @@ jobs:
 
     - name: Update version
       run: |
-        sed -i 's/Version:                "2.0.2"/Version:                ${{ needs.create_release.outputs.new_version }}/g' main.go
+        sed -i 's/Version:[[:space:]]*"[0-9]\+\.[0-9]\+\.[0-9]\+"/Version: "${{ needs.create_release.outputs.new_version }}"/g' ./src/main.go
+
+    - name: Commit and push
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add ./src/main.go
+        git commit -m "Update version to ${{ needs.create_release.outputs.new_version }}"
+        git push
 
     - name: Build
       run: go build -v ./src
