@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -96,6 +98,68 @@ func main() {
 					},
 				},
 				Action: run,
+			},
+			{
+				Name:  "autocomplete",
+				Usage: "Install autocomplete script for CaffeineC",
+				Action: func(c *cli.Context) error {
+					shell := filepath.Base(os.Getenv("SHELL"))
+					homeDir, _ := os.UserHomeDir()
+					var autocompleteScriptURL, shellConfigFile string
+
+					switch shell {
+					case "bash":
+						autocompleteScriptURL = "https://raw.githubusercontent.com/vyPal/CaffeineC/master/autocomplete/bash_autocomplete"
+						shellConfigFile = filepath.Join(homeDir, ".bashrc")
+					case "zsh":
+						autocompleteScriptURL = "https://raw.githubusercontent.com/vyPal/CaffeineC/master/autocomplete/zsh_autocomplete"
+						shellConfigFile = filepath.Join(homeDir, ".zshrc")
+					default:
+						fmt.Println("Unsupported shell for autocomplete. Skipping...")
+						return nil
+					}
+
+					installDir := path.Join(homeDir, ".local", "share", "CaffeineC")
+					if err := os.MkdirAll(installDir, 0755); err != nil {
+						return err
+					}
+					autocompleteScriptPath := filepath.Join(installDir, "CaffeineC_autocomplete")
+
+					fmt.Printf("Downloading autocomplete script for %s...\n", shell)
+					err := downloadFile(autocompleteScriptURL, autocompleteScriptPath)
+					if err != nil {
+						return err
+					}
+
+					// Add the source command to the shell's configuration file to make it persistent
+					file, err := os.OpenFile(shellConfigFile, os.O_RDWR, 0644)
+					if err != nil {
+						return err
+					}
+					defer file.Close()
+
+					// Check if the source line already exists in the file
+					sourceLine := fmt.Sprintf("source %s", autocompleteScriptPath)
+					scanner := bufio.NewScanner(file)
+					for scanner.Scan() {
+						if strings.Contains(scanner.Text(), sourceLine) {
+							fmt.Println("Autocomplete script already installed.")
+							return nil
+						}
+					}
+
+					// If the source line doesn't exist, append it to the file
+					_, err = file.WriteString(sourceLine)
+					if err != nil {
+						return err
+					}
+
+					fmt.Println("Autocomplete script installed. It will be sourced automatically in new shell sessions.")
+					fmt.Println("To source it in the current session, run:")
+					relativePath := strings.Replace(autocompleteScriptPath, homeDir, "~", 1)
+					fmt.Printf("\tsource %s\n", relativePath)
+					return nil
+				},
 			},
 			{
 				Name:  "update",
@@ -194,6 +258,23 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func downloadFile(url string, filepath string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	return err
 }
 
 type Release struct {
