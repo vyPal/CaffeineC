@@ -110,7 +110,9 @@ if [ -n "$autocomplete_script_url" ]; then
   fi
 
   # Add the source command to the shell's configuration file to make it persistent
-  echo "source $autocomplete_script_path" >> $shell_config_file
+  if ! grep -q "source $autocomplete_script_path" $shell_config_file; then
+    echo "source $autocomplete_script_path" >> $shell_config_file
+  fi
 
   echo "Autocomplete script installed and sourced. It will be sourced automatically in new shell sessions."
 fi
