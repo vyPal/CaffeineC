@@ -67,6 +67,9 @@ jobs:
     needs: [check_changes, create_release]
     if: needs.check_changes.outputs.run_build == 'true'
     steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
       - name: Update version
         run: |
           sed -i 's/Version:[[:space:]]*"[0-9]\+\.[0-9]\+\.[0-9]\+"/Version: "${{ needs.create_release.outputs.new_version }}"/g' ./src/main.go
@@ -145,9 +148,7 @@ jobs:
       - name: Get release ID
         id: get_release_id
         run: |
-          RELEASE_ID=$(curl --silent "https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ needs.create_release.outputs.new_version }}" \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" | jq '.id')
+          RELEASE_ID=$(curl --silent "https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ needs.create_release.outputs.new_version }}" | jq '.id')
           echo "::set-output name=id::$RELEASE_ID"
       - name: Publish or delete release
         run: |
