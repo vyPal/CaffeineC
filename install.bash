@@ -66,7 +66,7 @@ install_dir="$HOME/.local/bin"
 mkdir -p $install_dir
 
 # Download and install your compiler binary
-latest_version=$(curl -sL https://github.com/vyPal/CaffeineC/releases/latest | grep -oP 'tag/\K[\d.]+' | head -n 1)
+latest_version=$(curl -sL https://github.com/vyPal/CaffeineC/releases/latest | grep -Eo 'tag/v[0-9\.]+' | head -n 1)
 download_url="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC"
 
 echo "Downloading CaffeineC version $latest_version..."
