@@ -1,0 +1,29 @@
+{
+  "scopeName": "source.cffc",
+  "patterns": [
+    {
+      "match": "\\b(var|extern|func|class|if|for|while|return|private|import|from|export|break|continue|new|true|false)\\b",
+      "name": "keyword.control.cffc"
+    },
+    {
+      "match": "\\b([0-9]+(\\.[0-9]+)?)\\b",
+      "name": "constant.numeric.cffc"
+    },
+    {
+      "match": "\"[^\"]*\"",
+      "name": "string.quoted.double.cffc"
+    },
+    {
+      "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\b",
+      "name": "identifier.cffc"
+    },
+    {
+      "match": "(\\*|/|%|=|<|>|!|\\+|-)",
+      "name": "operator.cffc"
+    },
+    {
+      "match": "\\b(h|m|s|ms|us|ns)\\b",
+      "name": "keyword.time.cffc"
+    }
+  ]
+}

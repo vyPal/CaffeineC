@@ -1,56 +1,31 @@
-program          ::= statement* functionDeclaration*
-
-statement        ::= variableDeclaration
-                  | assignmentStatement
-                  | expressionStatement
-                  | sleepStatement
-                  | caffeineStatement
-                  | printStatement
-                  | goStatement
-                  | functionCallStatement
-
-variableDeclaration ::= "var" identifier ":" type ( "=" expression )? ";"
-
-assignmentStatement ::= identifier "=" expression ";"
-
-expressionStatement ::= expression ";"
-
-sleepStatement    ::= "sleep" expression ";"
-
-caffeineStatement ::= "caffeinate" expression ";"
-
-printStatement    ::= "print" expression ";"
-
-goStatement       ::= "async" identifier "(" argumentList? ")" ";"
-
-functionDeclaration ::= "func" identifier "(" parameterList? ")" (":" type)? "{" statement* "}"
-
-functionCallStatement ::= identifier "(" argumentList? ")" ";"
-
-expression       ::= term (("+" | "-") term)*
-                  | functionCall
-
-term             ::= factor (("*" | "/") factor)*
-
-factor           ::= number
-                  | identifier
-                  | "(" expression ")"
-                  | stringLiteral
-                  | durationLiteral
-
-functionCall     ::= identifier "(" argumentList? ")"
-
-number           ::= digit+ ("." digit+)? (("e" | "E") ("+" | "-")? digit+)?
-
-stringLiteral    ::= "\"" .*? "\""
-
-durationLiteral  ::= number ("ns" | "us" | "ms" | "s" | "m" | "h")
-
-identifier       ::= letter (letter | digit | "_")*
-
-type             ::= "int" | "float64" | "string" | "bool"
-                  | "[]" type | "chan" "<" type ">" | "duration"
-
-argumentList     ::= expression ("," expression)*
-
-parameterList    ::= variableDeclaration ("," variableDeclaration)*
+Program = Statement* .
+Statement = ((?= "var" <ident>) VariableDefinition? (";" | "\n")?) | ((?= <ident> ("." <ident>)* "=") Assignment? (";" | "\n")?) | ((?= "extern" "func") ExternalFunctionDefinition? (";" | "\n")?) | ((?= "private"? "static"? "func") FunctionDefinition?) | ((?= "class") ClassDefinition?) | ((?= "if") If?) | ((?= "for") For?) | ((?= "while") While?) | ((?= "return") Return?) | ((?= "private"? <ident> ":" <ident>) FieldDefinition?) | ((?= "import") Import?) | ((?= "from" <string> "import" "{") FromImportMultiple?) | ((?= "from" <string> "import") FromImport?) | ("export" Statement? (";" | "\n")?) | ("break" (";" | "\n")?) | ("continue" (";" | "\n")?) | Expression .
+VariableDefinition = "var" <ident> ":" ("*"? <ident>) ("=" Expression)? .
+Expression = Comparison OpExpression* .
+Comparison = Term OpComparison* .
+Term = Factor OpTerm* .
+Factor = Value | ((?= "new") ClassInitializer) | ("(" Expression ")") | ((?= <ident> "(") FunctionCall) | ((?= <ident> ("." <ident>)+ "(") ClassMethod) | Identifier .
+Value = <float> | <int> | ("true" | "false") | <string> | (<int> ("h" | "m" | "s" | "ms" | "us" | "ns")) .
+ClassInitializer = "new" <ident> "(" ArgumentList ")" ";" .
+ArgumentList = (Expression ("," Expression)*)? .
+FunctionCall = <ident> "(" ArgumentList ")" ";" .
+ClassMethod = Identifier "(" ArgumentList ")" ";" .
+Identifier = <ident> ("." Identifier)* .
+OpTerm = ("*" | "/" | "%") Factor .
+OpComparison = (("=" "=") | ("<" "=") | "<" | (">" "=") | ">" | ("!" "=")) Term .
+OpExpression = ("+" | "-") Comparison .
+Assignment = Identifier "=" Expression .
+ExternalFunctionDefinition = "extern" "func" <ident> "(" (ArgumentDefinition ("," ArgumentDefinition)*)? ")" (":" ("*"? <ident>))? .
+ArgumentDefinition = <ident> ":" ("*"? <ident>) .
+FunctionDefinition = "private"? "static"? "func" <ident> "(" (ArgumentDefinition ("," ArgumentDefinition)*)? ")" (":" <ident>)? "{" Statement* "}" .
+ClassDefinition = "class" <ident> "{" Statement* "}" .
+If = "if" "(" Expression ")" "{" Statement* "}" ("else" "if" ElseIf)* ("else" "{" Statement* "}")? .
+ElseIf = "else" "if" "(" Expression ")" "{" Statement* "}" .
+For = "for" "(" Statement Expression ";" Statement ")" "{" Statement* "}" .
+While = "while" "(" Expression ")" "{" Statement* "}" .
+Return = "return" Expression ";" .
+FieldDefinition = "private"? <ident> ":" <ident> ";" .
+Import = "import" <string> ";" .
+FromImportMultiple = "from" <string> "import" "{" Symbol ("," Symbol)* "}" ";" .
+Symbol = <string> ("as" <string>)? .
+FromImport = "from" <string> "import" <string> ("as" <string>)? ";" .
