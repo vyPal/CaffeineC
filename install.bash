@@ -5,9 +5,10 @@ set -e
 install_package() {
     local package_manager=$1
     local package_name=$2
+    local test_cmd=$3
 
     # Check if the package is already installed
-    if ! command -v $package_name > /dev/null; then
+    if ! command -v $test_cmd > /dev/null; then
         echo "Installing $package_name..."
         sudo $package_manager install -y $package_name
     else
@@ -56,8 +57,8 @@ case $OS in
 esac
 
 # Check and install LLVM and GCC
-install_package "$PACKAGE_MANAGER" "llvm"
-install_package "$PACKAGE_MANAGER" "gcc"
+install_package "$PACKAGE_MANAGER" "llc" "llvm"
+install_package "$PACKAGE_MANAGER" "gcc" "gcc"
 
 # Directory to store user-installed binaries
 install_dir="$HOME/.local/bin"
