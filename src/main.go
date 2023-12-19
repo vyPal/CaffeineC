@@ -201,6 +201,7 @@ func checkUpdate(c *cli.Context) {
 }
 
 func build(c *cli.Context) error {
+	checkUpdate(c)
 	isWindows := runtime.GOOS == "windows"
 
 	if c.Bool("ebnf") {

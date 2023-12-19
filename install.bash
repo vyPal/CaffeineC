@@ -103,7 +103,11 @@ if [ -n "$autocomplete_script_url" ]; then
   curl -sL $autocomplete_script_url -o $autocomplete_script_path
 
   # Source the downloaded script
-  source $autocomplete_script_path
+  if [ "$current_shell" = "zsh" ]; then
+    zsh -c "source $shell_config_file && source $autocomplete_script_path"
+  else
+    source $autocomplete_script_path
+  fi
 
   # Add the source command to the shell's configuration file to make it persistent
   echo "source $autocomplete_script_path" >> $shell_config_file
