@@ -30,6 +30,7 @@ jobs:
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       new_version: ${{ steps.semver.outputs.version }}
+      release_id: ${{ steps.get_release_id.outputs.id }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -59,6 +60,14 @@ jobs:
           title: "Release ${{ steps.semver.outputs.version_tag  }}"
           automatic_release_tag: "${{ steps.semver.outputs.version_tag  }}"
           prerelease: false
+          draft: true
+      - name: Get release ID
+        id: get_release_id
+        run: |
+          RELEASE_ID=$(curl --silent "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ steps.semver.outputs.version_tag }}" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" | jq '.id')
+          echo "::set-output name=id::$RELEASE_ID"
 
   build:
     name: Build
@@ -101,6 +110,8 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add ./src/main.go
+        git add ./src/go.mod
+        git add ./src/go.sum
         git commit -m "Update version to ${{ needs.create_release.outputs.new_version }}"
         git push
 
@@ -122,3 +133,23 @@ jobs:
         asset_path: ${{ runner.os == 'Windows' && './CaffeineC.exe' || './CaffeineC' }}
         asset_name: ${{ runner.os == 'Windows' && 'CaffeineC.exe' || 'CaffeineC' }}
         asset_content_type: application/octet-stream
+
+  finalize_release:
+    name: Finalize Release
+    runs-on: ubuntu-latest
+    needs: [check_changes, create_release, build]
+    if: always() && needs.check_changes.outputs.run_build == 'true'
+    steps:
+      - name: Publish or delete release
+        run: |
+          if ${{ needs.build.result == 'success' }}; then
+            curl -X PATCH -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/releases/${{ needs.create_release.outputs.release_id }} \
+              -d '{"draft": false}'
+          else
+            curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              https://api.github.com/repos/${{ github.repository }}/git/refs/tags/${{ needs.create_release.outputs.new_version }}
+            curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              https://api.github.com/repos/${{ github.repository }}/releases/${{ needs.create_release.outputs.release_id }}
+          fi
