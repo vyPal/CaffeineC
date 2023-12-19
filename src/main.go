@@ -216,6 +216,13 @@ func main() {
 						// Set the destination file path
 						dstFilePath := filepath.Join(homeDir, ".local", "bin", "CaffeineC")
 
+						// Rename the old file
+						oldFilePath := dstFilePath + ".old"
+						if err := os.Rename(dstFilePath, oldFilePath); err != nil {
+							fmt.Println("Failed to rename the old file:", err)
+							return nil
+						}
+
 						// Create the destination file
 						dstFile, err := os.Create(dstFilePath)
 						if err != nil {
@@ -231,15 +238,15 @@ func main() {
 							return nil
 						}
 
-						// Make the temporary file executable
+						// Make the new file executable
 						if err := os.Chmod(dstFilePath, 0755); err != nil {
-							fmt.Println("Failed to make the temporary file executable:", err)
+							fmt.Println("Failed to make the new file executable:", err)
 							return nil
 						}
 
-						// Remove the temporary file
-						if err := os.Remove(tmpFile.Name()); err != nil {
-							fmt.Println("Failed to remove the temporary file:", err)
+						// Remove the old file
+						if err := os.Remove(oldFilePath); err != nil {
+							fmt.Println("Failed to remove the old file:", err)
 							return nil
 						}
 
