@@ -22,7 +22,8 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 	} else if s.FunctionDefinition != nil {
 		ctx.compileFunctionDefinition(s.FunctionDefinition)
 	} else if s.ClassDefinition != nil {
-		ctx.compileClassDefinition(s.ClassDefinition)
+		_, _, _, err := ctx.compileClassDefinition(s.ClassDefinition)
+		return err
 	} else if s.If != nil {
 		return ctx.compileIf(s.If)
 	} else if s.For != nil {
@@ -39,7 +40,7 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 		_, err := ctx.compileExpression(s.Expression)
 		return err
 	} else if s.FieldDefinition != nil {
-		return cli.Exit(color.RedString("Error: Field definitions are not allowed outside of classes"), 1)
+		return posError(s.FieldDefinition.Pos, "Field definitions are not allowed outside of classes")
 	} else if s.ExternalFunction != nil {
 		ctx.compileExternalFunction(s.ExternalFunction)
 	} else if s.Import != nil {
@@ -57,9 +58,9 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 		}
 		ctx.Compiler.ImportAs(s.FromImportMultiple.Package, symbols, ctx)
 	} else if s.Export != nil {
-		ctx.compileStatement(s.Export)
+		return ctx.compileStatement(s.Export)
 	} else {
-		return cli.Exit(color.RedString("Empty statement"), 1)
+		return posError(s.Pos, "Unknown statement")
 	}
 	return nil
 }
@@ -80,15 +81,26 @@ func (ctx *Context) compileExternalFunction(v *parser.ExternalFunctionDefinition
 }
 
 func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Name string, Type types.Type, Value value.Value, Err error) {
+	// If there is no assignment, create an uninitialized variable
+	if v.Assignment == nil {
+		valType := ctx.stringToType(v.Type)
+		alloc := ctx.NewAlloca(valType)
+		ctx.NewStore(constant.NewZeroInitializer(valType), alloc)
+		ctx.vars[v.Name] = alloc
+		return v.Name, alloc.Type(), alloc, nil
+	}
+
 	val, err := ctx.compileExpression(v.Assignment)
 	if err != nil {
 		return "", nil, nil, err
 	}
+
 	ptr, ok := val.(*ir.InstAlloca)
 	if ok {
 		ctx.vars[v.Name] = ptr
 		return v.Name, ptr.Type(), ptr, nil
 	}
+
 	alloc := ctx.NewAlloca(val.Type())
 	ctx.NewStore(val, alloc)
 	ctx.vars[v.Name] = alloc
@@ -121,10 +133,10 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Name string, Value 
 	return a.Left.Name, val, nil
 }
 
-func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Name string, ReturnType types.Type, Args []*ir.Param) {
+func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Name string, ReturnType types.Type, Args []*ir.Param, err error) {
 	// Create a temporary context and block for analysis
 	tmpBlock := ctx.Module.NewFunc("", types.Void)
-	tmpCtx := ctx.NewContext(tmpBlock.NewBlock("tmp-entry"))
+	tmpCtx := ctx.NewContext(tmpBlock.NewBlock(""))
 
 	var argsUsed []string
 	for _, arg := range f.Parameters {
@@ -132,7 +144,10 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 		tmpCtx.vars[arg.Name] = constant.NewInt(types.I1, 0)
 	}
 	for _, stmt := range f.Body {
-		tmpCtx.compileStatement(stmt)
+		err := tmpCtx.compileStatement(stmt)
+		if err != nil {
+			return "", nil, []*ir.Param{}, err
+		}
 	}
 	for name := range tmpCtx.usedVars {
 		for _, arg := range argsUsed {
@@ -151,7 +166,7 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 		if ctx.stringToType(f.ReturnType).Equal(types.Void) {
 			tmpCtx.NewRet(nil)
 		} else {
-			cli.Exit(color.RedString("Error: Function `%s` does not return a value", f.Name), 1)
+			return "", nil, nil, posError(f.Pos, "Function `%s` does not return a value", f.Name)
 		}
 	}
 
@@ -175,21 +190,24 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 	block := fn.NewBlock("")
 	nctx := NewContext(block, ctx.Compiler)
 	for _, stmt := range f.Body {
-		nctx.compileStatement(stmt)
+		err := nctx.compileStatement(stmt)
+		if err != nil {
+			return "", nil, []*ir.Param{}, err
+		}
 	}
 	if nctx.Term == nil {
 		if ctx.stringToType(f.ReturnType).Equal(types.Void) {
 			nctx.NewRet(nil)
 		} else {
-			cli.Exit(color.RedString("Error: Function `%s` does not return a value", f.Name), 1)
+			return "", nil, nil, posError(f.Pos, "Function `%s` does not return a value", f.Name)
 		}
 	}
 
 	ctx.SymbolTable[f.Name] = fn
-	return f.Name, ctx.stringToType(f.ReturnType), params
+	return f.Name, ctx.stringToType(f.ReturnType), params, nil
 }
 
-func (ctx *Context) compileClassDefinition(c *parser.ClassDefinition) (Name string, TypeDef *types.StructType, Methods []ir.Func) {
+func (ctx *Context) compileClassDefinition(c *parser.ClassDefinition) (Name string, TypeDef *types.StructType, Methods []ir.Func, err error) {
 	classType := types.NewStruct()
 	classType.SetName(c.Name)
 	ctx.structNames[classType] = c.Name
@@ -200,14 +218,15 @@ func (ctx *Context) compileClassDefinition(c *parser.ClassDefinition) (Name stri
 			classType.Fields = append(classType.Fields, ctx.stringToType(s.FieldDefinition.Type))
 			ctx.Compiler.StructFields[c.Name] = append(ctx.Compiler.StructFields[c.Name], s.FieldDefinition)
 		} else if s.FunctionDefinition != nil {
-			ctx.compileClassMethodDefinition(s.FunctionDefinition, c.Name, classType)
+			err := ctx.compileClassMethodDefinition(s.FunctionDefinition, c.Name, classType)
+			return "", nil, []ir.Func{}, err
 		}
 	}
 
-	return c.Name, classType, nil
+	return c.Name, classType, nil, nil
 }
 
-func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, cname string, ctype *types.StructType) {
+func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, cname string, ctype *types.StructType) error {
 	var params []*ir.Param
 	params = append(params, ir.NewParam("this", types.NewPointer(ctype)))
 	for _, arg := range f.Parameters {
@@ -220,7 +239,10 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 	block := fn.NewBlock("")
 	nctx := NewContext(block, ctx.Compiler)
 	for _, stmt := range f.Body {
-		nctx.compileStatement(stmt)
+		err := nctx.compileStatement(stmt)
+		if err != nil {
+			return err
+		}
 	}
 	if nctx.Term == nil {
 		if ctx.stringToType(f.ReturnType).Equal(types.Void) {
@@ -231,6 +253,7 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 	}
 
 	ctx.SymbolTable[cname+"."+f.Name] = fn
+	return nil
 }
 
 func (ctx *Context) compileIf(i *parser.If) error {
@@ -251,7 +274,10 @@ func (ctx *Context) compileIf(i *parser.If) error {
 	// Compile the then part
 	ctx.Block = thenBlock
 	for _, stmt := range i.Body {
-		ctx.compileStatement(stmt)
+		err := ctx.compileStatement(stmt)
+		if err != nil {
+			return err
+		}
 	}
 	thenBlock.NewBr(mergeBlock)
 
@@ -266,7 +292,10 @@ func (ctx *Context) compileIf(i *parser.If) error {
 		ctx.Block.NewCondBr(cond, thenBlock, newElseBlock)
 		ctx.Block = thenBlock
 		for _, stmt := range elseif.Body {
-			ctx.compileStatement(stmt)
+			err := ctx.compileStatement(stmt)
+			if err != nil {
+				return err
+			}
 		}
 		thenBlock.NewBr(mergeBlock)
 		elseBlock = newElseBlock
@@ -276,7 +305,10 @@ func (ctx *Context) compileIf(i *parser.If) error {
 	ctx.Block = elseBlock
 	if i.Else != nil {
 		for _, stmt := range i.Else {
-			ctx.compileStatement(stmt)
+			err := ctx.compileStatement(stmt)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	elseBlock.NewBr(mergeBlock)
@@ -351,7 +383,10 @@ func (ctx *Context) compileWhile(w *parser.While) error {
 	loopCtx.fc.Continue = loopB
 
 	for _, stmt := range w.Body {
-		loopCtx.compileStatement(stmt)
+		err := loopCtx.compileStatement(stmt)
+		if err != nil {
+			return err
+		}
 	}
 
 	cond, err = loopCtx.compileExpression(w.Condition)
@@ -364,14 +399,15 @@ func (ctx *Context) compileWhile(w *parser.While) error {
 	return nil
 }
 
-func (ctx *Context) compileReturn(r *parser.Return) {
+func (ctx *Context) compileReturn(r *parser.Return) error {
 	if r.Expression != nil {
 		val, err := ctx.compileExpression(r.Expression)
 		if err != nil {
-			cli.Exit(color.RedString("Error: Unable to compile return expression"), 1)
+			return posError(r.Pos, "Error compiling return expression: %s", err.Error())
 		}
 		ctx.NewRet(val)
 	} else {
 		ctx.NewRet(nil)
 	}
+	return nil
 }

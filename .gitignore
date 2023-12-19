@@ -26,3 +26,5 @@
 
 .vscode
 tmp_compile
+
+!autocomplete/*

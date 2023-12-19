@@ -1,8 +1,5 @@
-import "example2.cffc";
-extern func printf(fmt: *i8): void;
-extern func malloc(size: i64): *i8;
+package "main";
 
-var somevar: Integer = new Integer();
-printf("%d\n", somevar.getValue());
-somevar.setValue(10);
-printf("%d\n", somevar.getValue());
+extern func printf(ptr: *i8): void;
+
+printf("Hello, World!\n");

@@ -21,6 +21,7 @@ func main() {
 		Name:                   "CaffeineC",
 		Usage:                  "A C-like language that compiles to LLVM IR",
 		EnableBashCompletion:   true,
+		Suggest:                true,
 		UseShortOptionHandling: true,
 		Commands: []*cli.Command{
 			{

@@ -30,7 +30,7 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 		case "-":
 			left = ctx.NewSub(left, rightVal)
 		default:
-			cli.Exit(color.RedString("Error: Unknown expression operator: %s", right.Op), 1)
+			return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
 		}
 	}
 	return left, nil
@@ -60,7 +60,7 @@ func (ctx *Context) compileComparison(c *parser.Comparison) (value.Value, error)
 		case "<=":
 			left = ctx.NewICmp(enum.IPredSLE, left, rightVal)
 		default:
-			cli.Exit(color.RedString("Error: Unknown comparison operator: %s", right.Op), 1)
+			return nil, posError(right.Pos, "Unknown comparison operator: %s", right.Op)
 		}
 	}
 	return left, nil
@@ -84,7 +84,7 @@ func (ctx *Context) compileTerm(t *parser.Term) (value.Value, error) {
 		case "%":
 			left = ctx.NewSRem(left, rightVal)
 		default:
-			cli.Exit(color.RedString("Error: Unknown term operator: %s", right.Op), 1)
+			return nil, posError(right.Pos, "Unknown term operator: %s", right.Op)
 		}
 	}
 	return left, nil
@@ -115,7 +115,7 @@ func (ctx *Context) compileFactor(f *parser.Factor) (value.Value, error) {
 	} else if f.ClassInitializer != nil {
 		return ctx.compileClassInitializer(f.ClassInitializer)
 	} else {
-		return nil, cli.Exit(color.RedString("Error: Unknown factor type"), 1)
+		return nil, posError(f.Pos, "Unknown factor type")
 	}
 }
 
@@ -123,7 +123,7 @@ func (ctx *Context) compileClassInitializer(ci *parser.ClassInitializer) (value.
 	// Lookup the class
 	class, exists := ctx.lookupClass(ci.ClassName)
 	if !exists {
-		return nil, cli.Exit(color.RedString("Error: Class %s not found", ci.ClassName), 1)
+		return nil, posError(ci.Pos, "Class %s not found", ci.ClassName)
 	}
 	class = class.(*types.StructType)
 
@@ -155,7 +155,7 @@ func (ctx *Context) compileFunctionCall(fc *parser.FunctionCall) (value.Value, e
 	// Lookup the function
 	function, exists := ctx.lookupFunction(fc.FunctionName)
 	if !exists {
-		return nil, cli.Exit(color.RedString("Error: Function %s not found", fc.FunctionName), 1)
+		return nil, posError(fc.Pos, "Function %s not found", fc.FunctionName)
 	}
 
 	// Compile the arguments
@@ -186,13 +186,13 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 	} else if v.String != nil {
 		str, err := strconv.Unquote(*v.String)
 		if err != nil {
-			cli.Exit(color.RedString("Error: Unable to parse string: %s", *v.String), 1)
+			return nil, posError(v.Pos, "Error parsing string: %s", err)
 		}
 		strLen := len(str) + 1
 		// Declare malloc if it hasn't been declared yet
 		malloc, ok := ctx.lookupFunction("malloc")
 		if !ok {
-			cli.Exit(color.RedString("Error: malloc function not found"), 1)
+			malloc = ctx.Module.NewFunc("malloc", types.I8Ptr, ir.NewParam("size", types.I64))
 		}
 		// Allocate memory for the string
 		mem := ctx.NewCall(malloc, constant.NewInt(types.I64, int64(strLen)))
@@ -219,18 +219,20 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 		case "ns":
 			factor = 0.000000001
 		default:
-			cli.Exit(color.RedString("Error: Unknown duration unit: %s", v.Duration.Unit), 1)
+			return nil, posError(v.Pos, "Unknown duration unit: %s", v.Duration.Unit)
 		}
 		return constant.NewFloat(types.Double, v.Duration.Number*factor), nil
+	} else if v.Null == true {
+		return constant.NewNull(types.I8Ptr), nil
 	} else {
-		return nil, cli.Exit(color.RedString("Error: Unknown value type"), 1)
+		return nil, posError(v.Pos, "Unknown value type")
 	}
 }
 
 func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct bool) (value.Value, error) {
 	val := ctx.lookupVariable(i.Name)
 	if val == nil {
-		return nil, fmt.Errorf("Variable %s not found", i.Name)
+		return nil, posError(i.Pos, "Variable %s not found", i.Name)
 	}
 
 	if i.Sub == nil {
@@ -249,7 +251,7 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 			if returnTopLevelStruct {
 				return currentVal, nil
 			} else {
-				return nil, fmt.Errorf("Unexpected method in identifier")
+				return nil, posError(i.Pos, "Cannot call method %s on %s", currentSub.Name, currentVal.Type().Name())
 			}
 		}
 
@@ -286,7 +288,7 @@ func (ctx *Context) compileSubIdentifier(fieldType types.Type, pointer value.Val
 			}
 		}
 		if field == nil {
-			return nil, nil, false, cli.Exit(color.RedString("Error: Field %s not found in struct %s", sub.Name, elemtypename), 1)
+			return nil, nil, false, posError(sub.Pos, "Field %s not found in struct %s", sub.Name, elemtypename)
 		}
 		fieldPtr := ctx.NewGetElementPtr(ctx.stringToType(field.Type), pointer, constant.NewInt(types.I32, int64(nfield)))
 		return ctx.compileSubIdentifier(ctx.stringToType(field.Type), fieldPtr, sub.Sub)
@@ -315,11 +317,11 @@ func (ctx *Context) compileMethodCall(classInstance value.Value, methodName stri
 	// Lookup the method on the class
 	pointerType, ok := classInstance.Type().(*types.PointerType)
 	if !ok {
-		return nil, cli.Exit(color.RedString("classInstance is not a pointer type"), 1)
+		return nil, cli.Exit(color.RedString("Error: Cannot call method on non-pointer type"), 1)
 	}
 	method, exists := ctx.lookupMethod(pointerType, methodName)
 	if !exists {
-		return nil, cli.Exit(color.RedString("Error: Method %s not found for class %s", methodName, pointerType.ElemType.Name()), 1)
+		return nil, cli.Exit(color.RedString("Error: Method %s not found on type %s", methodName, pointerType.ElemType.Name()), 1)
 	}
 
 	// Prepare the arguments for the method call

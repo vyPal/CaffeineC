@@ -35,6 +35,7 @@ type Value struct {
 	Bool     *Bool     `parser:"| @('true' | 'false')"`
 	String   *string   `parser:"| @String"`
 	Duration *Duration `parser:"| @Int @('h' | 'm' | 's' | 'ms' | 'us' | 'ns')"`
+	Null     bool      `parser:"| @'null'"`
 }
 
 type Identifier struct {
@@ -123,7 +124,7 @@ type FieldDefinition struct {
 	Pos     lexer.Position
 	Private bool   `parser:"@'private'?"`
 	Name    string `parser:"@Ident"`
-	Type    string `parser:"':' @Ident ';'"`
+	Type    string `parser:"':' @('*'? Ident) ';'"`
 }
 
 type ArgumentDefinition struct {
@@ -184,7 +185,7 @@ type While struct {
 
 type Return struct {
 	Pos        lexer.Position
-	Expression *Expression `parser:"'return' @@ ';'"`
+	Expression *Expression `parser:"'return' @@? ';'"`
 }
 
 type ExternalFunctionDefinition struct {
@@ -225,7 +226,7 @@ type Statement struct {
 	For                *For                        `parser:"| (?= 'for') @@?"`
 	While              *While                      `parser:"| (?= 'while') @@?"`
 	Return             *Return                     `parser:"| (?= 'return') @@?"`
-	FieldDefinition    *FieldDefinition            `parser:"| (?= 'private'? Ident ':' Ident) @@?"`
+	FieldDefinition    *FieldDefinition            `parser:"| (?= 'private'? Ident ':' '*'? Ident) @@?"`
 	Import             *Import                     `parser:"| (?= 'import') @@?"`
 	FromImportMultiple *FromImportMultiple         `parser:"| (?= 'from' String 'import' '{') @@?"`
 	FromImport         *FromImport                 `parser:"| (?= 'from' String 'import') @@?"`
@@ -237,5 +238,6 @@ type Statement struct {
 
 type Program struct {
 	Pos        lexer.Position
+	Package    string       `parser:"'package' @String ';'"`
 	Statements []*Statement `parser:"@@*"`
 }

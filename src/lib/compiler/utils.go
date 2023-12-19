@@ -1,8 +1,17 @@
 package compiler
 
 import (
+	"fmt"
+
+	"github.com/alecthomas/participle/v2/lexer"
+	"github.com/fatih/color"
 	"github.com/llir/llvm/ir/types"
+	"github.com/urfave/cli/v2"
 )
+
+func posError(pos lexer.Position, message string, args ...interface{}) error {
+	return cli.Exit(color.RedString("%s at %s:%d:%d", fmt.Sprintf(message, args...), pos.Filename, pos.Line, pos.Column), 1)
+}
 
 func (ctx *Context) stringToType(name string) types.Type {
 	switch name {
