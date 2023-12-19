@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -27,7 +26,7 @@ func main() {
 		EnableBashCompletion:   true,
 		Suggest:                true,
 		UseShortOptionHandling: true,
-		Version:                "2.0.0",
+		Version:                "2.0.2",
 		Commands: []*cli.Command{
 			{
 				Name:  "build",
@@ -130,7 +129,7 @@ func main() {
 						defer resp.Body.Close()
 
 						// Write the new binary to a temporary file
-						tmpFile, err := ioutil.TempFile("", "CaffeineC")
+						tmpFile, err := os.CreateTemp("", "CaffeineC")
 						if err != nil {
 							fmt.Println("Failed to create a temporary file:", err)
 							return nil
@@ -143,15 +142,40 @@ func main() {
 							return nil
 						}
 
+						// Expand the ~ to the user's home directory
+						homeDir, err := os.UserHomeDir()
+						if err != nil {
+							fmt.Println("Failed to get the user's home directory:", err)
+							return nil
+						}
+
+						// Set the destination file path
+						dstFilePath := filepath.Join(homeDir, ".local", "bin", "CaffeineC")
+
+						// Create the destination file
+						dstFile, err := os.Create(dstFilePath)
+						if err != nil {
+							fmt.Println("Failed to create the destination file:", err)
+							return nil
+						}
+						defer dstFile.Close()
+
+						// Copy the temporary file to the destination file
+						_, err = io.Copy(dstFile, tmpFile)
+						if err != nil {
+							fmt.Println("Failed to copy the file:", err)
+							return nil
+						}
+
 						// Make the temporary file executable
-						if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
+						if err := os.Chmod(dstFilePath, 0755); err != nil {
 							fmt.Println("Failed to make the temporary file executable:", err)
 							return nil
 						}
 
-						// Replace the current binary with the new one
-						if err := os.Rename(tmpFile.Name(), os.Args[0]); err != nil {
-							fmt.Println("Failed to replace the current binary:", err)
+						// Remove the temporary file
+						if err := os.Remove(tmpFile.Name()); err != nil {
+							fmt.Println("Failed to remove the temporary file:", err)
 							return nil
 						}
 
