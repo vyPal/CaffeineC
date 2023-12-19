@@ -4,8 +4,8 @@ set -e
 # Function to check and install packages using the package manager
 install_package() {
     local package_manager=$1
-    local package_name=$2
-    local test_cmd=$3
+    local package_name=$3
+    local test_cmd=$2
 
     # Check if the package is already installed
     if ! command -v $test_cmd > /dev/null; then
