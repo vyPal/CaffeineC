@@ -1,4 +1,4 @@
-$fn = $($MyInvocation.MyCommand.Name)
+$fn = 'CaffeineC'
 $name = $fn -replace "(.*)\.ps1$", '$1'
 Register-ArgumentCompleter -Native -CommandName $name -ScriptBlock {
      param($commandName, $wordToComplete, $cursorPosition)

@@ -4,11 +4,15 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/urfave/cli/v2"
@@ -23,6 +27,7 @@ func main() {
 		EnableBashCompletion:   true,
 		Suggest:                true,
 		UseShortOptionHandling: true,
+		Version:                "2.0.0",
 		Commands: []*cli.Command{
 			{
 				Name:  "build",
@@ -93,12 +98,105 @@ func main() {
 				},
 				Action: run,
 			},
+			{
+				Name:  "update",
+				Usage: "Update CaffeineC to the latest version",
+				Action: func(c *cli.Context) error {
+					resp, err := http.Get("https://api.github.com/repos/vyPal/CaffeineC/releases/latest")
+					if err != nil {
+						fmt.Println("Failed to fetch the latest release:", err)
+						return nil
+					}
+					defer resp.Body.Close()
+
+					var release Release
+					if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+						fmt.Println("Failed to decode the release data:", err)
+						return nil
+					}
+
+					// Remove the 'v' prefix from the tag name
+					latestVersion := strings.TrimPrefix(release.TagName, "v")
+
+					if latestVersion != c.App.Version {
+						fmt.Printf("A new version is available: %s. Updating...\n", latestVersion)
+
+						// Download the new binary
+						resp, err = http.Get("https://github.com/vyPal/CaffeineC/releases/download/" + release.TagName + "/CaffeineC")
+						if err != nil {
+							fmt.Println("Failed to download the new version:", err)
+							return nil
+						}
+						defer resp.Body.Close()
+
+						// Write the new binary to a temporary file
+						tmpFile, err := ioutil.TempFile("", "CaffeineC")
+						if err != nil {
+							fmt.Println("Failed to create a temporary file:", err)
+							return nil
+						}
+						defer os.Remove(tmpFile.Name())
+
+						_, err = io.Copy(tmpFile, resp.Body)
+						if err != nil {
+							fmt.Println("Failed to write to the temporary file:", err)
+							return nil
+						}
+
+						// Make the temporary file executable
+						if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
+							fmt.Println("Failed to make the temporary file executable:", err)
+							return nil
+						}
+
+						// Replace the current binary with the new one
+						if err := os.Rename(tmpFile.Name(), os.Args[0]); err != nil {
+							fmt.Println("Failed to replace the current binary:", err)
+							return nil
+						}
+
+						fmt.Println("Update successful!")
+					} else {
+						fmt.Println("You're up to date!")
+					}
+
+					return nil
+				},
+			},
 		},
 	}
 
 	err := app.Run(os.Args)
 	if err != nil {
 		panic(err)
+	}
+}
+
+type Release struct {
+	TagName string `json:"tag_name"`
+}
+
+func checkUpdate(c *cli.Context) {
+	resp, err := http.Get("https://api.github.com/repos/vyPal/CaffeineC/releases/latest")
+	if err != nil {
+		fmt.Println("Failed to fetch the latest release:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	var release Release
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		fmt.Println("Failed to decode the release data:", err)
+		return
+	}
+
+	// Remove the 'v' prefix from the tag name
+	latestVersion := strings.TrimPrefix(release.TagName, "v")
+
+	if latestVersion != c.App.Version {
+		fmt.Printf("A new version is available: %s to update, run 'CaffeineC update'\n", latestVersion)
+	} else {
+		fmt.Println("You're up to date!")
 	}
 }
 

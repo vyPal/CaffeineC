@@ -67,7 +67,7 @@ mkdir -p $install_dir
 
 # Download and install your compiler binary
 latest_version=$(curl -sL https://github.com/vyPal/CaffeineC/releases/latest | grep -oP 'tag/\K[\d.]+' | head -n 1)
-download_url="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC-linux"
+download_url="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC"
 
 echo "Downloading CaffeineC version $latest_version..."
 curl -sL $download_url -o $install_dir/CaffeineC
@@ -81,11 +81,11 @@ current_shell=$(basename "$SHELL")
 # Set the autocomplete script URL based on the current shell
 case $current_shell in
   bash)
-    autocomplete_script_url="https://raw.githubusercontent.com/vyPal/CaffeineC/v2/autocomplete/bash_autocomplete"
+    autocomplete_script_url="https://raw.githubusercontent.com/vyPal/CaffeineC/master/autocomplete/bash_autocomplete"
     shell_config_file="$HOME/.bashrc"
     ;;
   zsh)
-    autocomplete_script_url="https://raw.githubusercontent.com/vyPal/CaffeineC/v2/autocomplete/zsh_autocomplete"
+    autocomplete_script_url="https://raw.githubusercontent.com/vyPal/CaffeineC/master/autocomplete/zsh_autocomplete"
     shell_config_file="$HOME/.zshrc"
     ;;
   *)
