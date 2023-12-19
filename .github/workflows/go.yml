@@ -49,7 +49,7 @@ jobs:
           # A string which indicates the flags used by the `minor_pattern` regular expression. Supported flags: idgs
           minor_regexp_flags: ""
           # A string to determine the format of the version output
-          version_format: "${major}.${minor}.${patch}+${increment}"
+          version_format: "${major}.${minor}.${patch}"
           bump_each_commit: false
       - name: Create Release
         uses: "marvinpinto/action-automatic-releases@latest"
