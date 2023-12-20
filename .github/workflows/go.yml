@@ -103,16 +103,6 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v3
 
-    - name: Download artifact
-      if: matrix.os == 'windows-latest'
-      id: download-artifact
-      uses: dawidd6/action-download-artifact@v2
-      with:
-        workflow: llc.yml
-        workflow_conclusion: success
-        name: RequiredBinaries
-        path: ./src/windows
-
     - name: Get dependencies
       run: cd ./src && go get -v -t -d ./...
 
