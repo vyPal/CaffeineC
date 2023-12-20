@@ -28,7 +28,7 @@ func main() {
 		EnableBashCompletion:   true,
 		Suggest:                true,
 		UseShortOptionHandling: true,
-		Version: "2.0.7",
+		Version:                "2.0.7",
 		Commands: []*cli.Command{
 			{
 				Name:  "build",
@@ -149,7 +149,7 @@ func main() {
 					}
 
 					// If the source line doesn't exist, append it to the file
-					_, err = file.WriteString(sourceLine)
+					_, err = file.WriteString("\n" + sourceLine + "\n")
 					if err != nil {
 						return err
 					}

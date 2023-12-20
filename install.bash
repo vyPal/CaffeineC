@@ -62,6 +62,7 @@ install_package "$PACKAGE_MANAGER" "gcc" "gcc"
 
 # Directory to store user-installed binaries
 install_dir="$HOME/.local/bin"
+autocomplete_dir="$HOME/.local/share"
 
 # Create the directory if it doesn't exist
 mkdir -p $install_dir
@@ -98,7 +99,7 @@ esac
 # If the shell is supported, continue with the rest of the script
 if [ -n "$autocomplete_script_url" ]; then
   # Download the autocomplete script
-  autocomplete_script_path="$install_dir/CaffeineC_autocomplete"
+  autocomplete_script_path="$autocomplete_dir/CaffeineC_autocomplete"
   echo "Downloading autocomplete script for $current_shell..."
   curl -sL $autocomplete_script_url -o $autocomplete_script_path
 
