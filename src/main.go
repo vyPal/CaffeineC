@@ -307,13 +307,11 @@ func checkUpdate(c *cli.Context) {
 
 	if latestVersion != c.App.Version {
 		fmt.Printf("A new version is available: %s to update, run 'CaffeineC update'\n", latestVersion)
-	} else {
-		fmt.Println("You're up to date!")
 	}
 }
 
 func build(c *cli.Context) error {
-	checkUpdate(c)
+	go checkUpdate(c)
 	isWindows := runtime.GOOS == "windows"
 
 	if c.Bool("ebnf") {
@@ -321,32 +319,18 @@ func build(c *cli.Context) error {
 		return nil
 	}
 
-	llcName := "llc"
-	optName := "opt"
 	outName := c.String("output")
-	tmpDir := "tmp_compile"
+	tmpDir, err := os.MkdirTemp("", "caffeinec")
+	if err != nil {
+		return err
+	}
 
-	if isWindows {
-		if outName == "" {
-			outName = "output.exe"
-		}
-		llcName = tmpDir + "/llc.exe"
-		err := os.WriteFile(llcName, llcExe, 0755)
-		if err != nil {
-			panic(err)
-		}
-		optName = tmpDir + "/opt.exe"
-		err = os.WriteFile(optName, optExe, 0755)
-		if err != nil {
-			panic(err)
-		}
-	}
 	if outName == "" {
-		outName = "output"
-	}
-	err := os.Mkdir(tmpDir, 0755)
-	if err != nil && !os.IsExist(err) {
-		return cli.Exit(color.RedString("Error creating temporary directory: %s", err), 1)
+		if isWindows {
+			outName = "output.exe"
+		} else {
+			outName = "output"
+		}
 	}
 
 	llFile, req, err := parseAndCompile(c.Args().First(), tmpDir, c.Bool("dump-ast"), true)
@@ -354,12 +338,12 @@ func build(c *cli.Context) error {
 		return err
 	}
 
-	oFile, err := llvmToObj(llFile, tmpDir, llcName, optName, c.Bool("no-optimization"))
+	oFile, err := llvmToObj(llFile, tmpDir, c.Bool("no-optimization"))
 	if err != nil {
 		return err
 	}
 
-	imports, err := processIncludes(c.StringSlice("include"), req, tmpDir, llcName, optName)
+	imports, err := processIncludes(c.StringSlice("include"), req, tmpDir)
 	if err != nil {
 		return err
 	}
@@ -436,32 +420,51 @@ func parseAndCompile(path, tmpdir string, dump, isMain bool) (string, []string, 
 	return newPath, req, os.WriteFile(newPath, []byte(comp.Module.String()), 0644)
 }
 
-func llvmToObj(path, tmpdir, llc, opt string, noopt bool) (string, error) {
+func llvmToObj(path, tmpdir string, noopt bool) (string, error) {
 	objPath := filepath.Join(tmpdir, filepath.Base(path)+".o")
-	if noopt {
-		cmd := exec.Command(llc, path, "-filetype=obj", "-o", objPath)
+
+	if runtime.GOOS == "windows" {
+		// Use clang on Windows
+		var args []string
+		if noopt {
+			args = []string{"clang", "-O0", "-c", path, "-o", objPath}
+		} else {
+			args = []string{"clang", "-c", path, "-o", objPath}
+		}
+
+		cmd := exec.Command(args[0], args[1:]...)
 		err := cmd.Run()
 		if err != nil {
 			return objPath, err
 		}
 	} else {
-		bitCodePath := filepath.Join(tmpdir, filepath.Base(path)+".bc")
-		cmd := exec.Command(opt, path, "-o", bitCodePath)
-		err := cmd.Run()
-		if err != nil {
-			return objPath, err
-		}
+		// Use llc and opt on other systems
+		if noopt {
+			cmd := exec.Command("llc", path, "-filetype=obj", "-o", objPath)
+			err := cmd.Run()
+			if err != nil {
+				return objPath, err
+			}
+		} else {
+			bitCodePath := filepath.Join(tmpdir, filepath.Base(path)+".bc")
+			cmd := exec.Command("opt", path, "-o", bitCodePath)
+			err := cmd.Run()
+			if err != nil {
+				return objPath, err
+			}
 
-		cmd = exec.Command(llc, bitCodePath, "-filetype=obj", "-o", objPath)
-		err = cmd.Run()
-		if err != nil {
-			return objPath, err
+			cmd = exec.Command("llc", bitCodePath, "-filetype=obj", "-o", objPath)
+			err = cmd.Run()
+			if err != nil {
+				return objPath, err
+			}
 		}
 	}
+
 	return objPath, nil
 }
 
-func processIncludes(includes []string, requirements []string, tmpDir, llcName, optName string) ([]string, error) {
+func processIncludes(includes []string, requirements []string, tmpDir string) ([]string, error) {
 	var files []string
 	includes = append(includes, requirements...)
 
@@ -485,10 +488,10 @@ func processIncludes(includes []string, requirements []string, tmpDir, llcName, 
 				}
 
 				if len(req) > 0 {
-					processIncludes([]string{}, req, tmpDir, llcName, optName)
+					processIncludes([]string{}, req, tmpDir)
 				}
 
-				oFile, err := llvmToObj(llFile, tmpDir, llcName, optName, true)
+				oFile, err := llvmToObj(llFile, tmpDir, true)
 				if err != nil {
 					return err
 				}
