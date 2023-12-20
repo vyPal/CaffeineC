@@ -1,6 +1,4 @@
-$fn = 'CaffeineC'
-$name = $fn -replace "(.*)\.ps1$", '$1'
-Register-ArgumentCompleter -Native -CommandName $name -ScriptBlock {
+Register-ArgumentCompleter -Native -CommandName 'CaffeineC' -ScriptBlock {
      param($commandName, $wordToComplete, $cursorPosition)
      $other = "$wordToComplete --generate-shell-completion"
          Invoke-Expression $other | ForEach-Object {
