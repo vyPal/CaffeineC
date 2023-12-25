@@ -1,0 +1,7 @@
+name: NewProject
+description: A new CaffeineC project
+version: 1.0.0
+main: src/main.cffc
+dependencies: []
+author: Anonymous
+license: MIT

@@ -7,7 +7,6 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/llir/llvm/ir"
-	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 	"github.com/urfave/cli/v2"
@@ -117,36 +116,21 @@ func NewCompiler() *Compiler {
 	}
 }
 
-func (c *Compiler) Compile(program *parser.Program, workingDir string, isMain bool) (needsImports []string, err error) {
+func (c *Compiler) Compile(program *parser.Program, workingDir string) (needsImports []string, err error) {
 	c.AST = program
 	c.workingDir = workingDir
-	if isMain {
-		fn := c.Module.NewFunc("main", types.I32)
-		block := fn.NewBlock("")
-		c.Context = NewContext(block, c)
-		for _, s := range program.Statements {
-			err := c.Context.compileStatement(s)
-			if err != nil {
-				return []string{}, err
-			}
-		}
-		if c.Context.Term == nil {
-			c.Context.NewRet(constant.NewInt(types.I32, 0))
-		}
-	} else {
-		c.Context = &Context{
-			Compiler:    c,
-			parent:      nil,
-			vars:        make(map[string]value.Value),
-			usedVars:    make(map[string]bool),
-			structNames: make(map[*types.StructType]string),
-			fc:          &FlowControl{},
-		}
-		for _, s := range program.Statements {
-			err := c.Context.compileStatement(s)
-			if err != nil {
-				return []string{}, err
-			}
+	c.Context = &Context{
+		Compiler:    c,
+		parent:      nil,
+		vars:        make(map[string]value.Value),
+		usedVars:    make(map[string]bool),
+		structNames: make(map[*types.StructType]string),
+		fc:          &FlowControl{},
+	}
+	for _, s := range program.Statements {
+		err := c.Context.compileStatement(s)
+		if err != nil {
+			return []string{}, err
 		}
 	}
 	return c.RequiredImports, nil

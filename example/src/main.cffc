@@ -1,0 +1,8 @@
+package main;
+
+extern func printf(format: *i8): void;
+
+func main(): i64 {
+	printf("Hello, world!\n");
+	return 0;
+}

@@ -1,5 +1,0 @@
-package "main";
-
-extern func printf(ptr: *i8): void;
-
-printf("Hello, World!\n");

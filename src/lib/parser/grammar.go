@@ -201,8 +201,8 @@ type Import struct {
 
 type FromImport struct {
 	Package string `parser:"'from' @String 'import'"`
-	Symbol  string `parser:"@String"`
-	Alias   string `parser:"('as' @String)? ';'"`
+	Symbol  string `parser:"@Ident"`
+	Alias   string `parser:"('as' @Ident)? ';'"`
 }
 
 type FromImportMultiple struct {
@@ -211,8 +211,8 @@ type FromImportMultiple struct {
 }
 
 type Symbol struct {
-	Name  string `parser:"@String"`
-	Alias string `parser:"('as' @String)?"`
+	Name  string `parser:"@Ident"`
+	Alias string `parser:"('as' @Ident)?"`
 }
 
 type Statement struct {
@@ -238,6 +238,6 @@ type Statement struct {
 
 type Program struct {
 	Pos        lexer.Position
-	Package    string       `parser:"'package' @String ';'"`
+	Package    string       `parser:"'package' @Ident ';'"`
 	Statements []*Statement `parser:"@@*"`
 }
