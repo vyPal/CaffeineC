@@ -144,24 +144,26 @@ func build(c *cli.Context) error {
 		return err
 	}
 
-	if c.Bool("output-llvm") {
-		err = os.WriteFile("output.ll", []byte(llData), 0644)
-		if err != nil {
-			return err
+	/*
+		if c.Bool("output-llvm") {
+			err = os.WriteFile("output.ll", []byte(llData), 0644)
+			if err != nil {
+				return err
+			}
 		}
-	}
 
-	oFile, err := llvmToObj(llData, tmpDir, c.Int("opt-level"))
-	if err != nil {
-		return err
-	}
+			oFile, err := llvmToObj(llData, tmpDir, c.Int("opt-level"))
+			if err != nil {
+				return err
+			}
+	*/
 
 	imports, err := processIncludes(c.StringSlice("include"), req, tmpDir, c.Int("opt-level"))
 	if err != nil {
 		return err
 	}
 
-	args := append([]string{"gcc", oFile}, imports...)
+	args := append([]string{"clang", "-c", llData}, imports...)
 	args = append(args, "-o", outName)
 	cmd := exec.Command(args[0], args[1:]...)
 
@@ -222,7 +224,18 @@ func parseAndCompile(path, tmpdir string, dump bool) (string, []string, error) {
 		return "", []string{}, cli.Exit(color.RedString("Error compiling: %s", err), 1)
 	}
 
-	return comp.Module.String(), req, nil
+	f, err := os.CreateTemp(tmpdir, "caffeinec*.ll")
+	if err != nil {
+		return "", []string{}, err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(comp.Module.String())
+	if err != nil {
+		return "", []string{}, err
+	}
+
+	return f.Name(), req, nil
 }
 
 func llvmToObj(llData, tmpdir string, opt int) (string, error) {
@@ -320,13 +333,7 @@ func processFile(path string, files *[]string, tmpDir string, opt int, wg *sync.
 				}
 			}
 
-			oFile, err := llvmToObj(llFile, tmpDir, opt)
-			if err != nil {
-				errs <- err
-				return
-			}
-
-			*files = append(*files, oFile)
+			*files = append(*files, llFile)
 		}(path)
 	}
 
