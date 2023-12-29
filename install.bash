@@ -52,7 +52,7 @@ case $OS in
   darwin)
     DOWNLOAD_URL="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC-macOS"
     INSTALL_DIR="/usr/local/bin"
-    SHARE_DIR="/usr/local/share
+    SHARE_DIR="/usr/local/share"
     PACKAGE_MANAGER="brew"
     ;;
 
