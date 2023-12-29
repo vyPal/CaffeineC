@@ -104,6 +104,8 @@ if [ -n "$autocomplete_script_url" ]; then
   echo "Downloading autocomplete script for $current_shell..."
   curl -sL $autocomplete_script_url -o $autocomplete_script_path
 
+  touch $shell_config_file
+
   # Source the downloaded script
   if [ "$current_shell" = "zsh" ]; then
     zsh -c "source $shell_config_file && source $autocomplete_script_path"
