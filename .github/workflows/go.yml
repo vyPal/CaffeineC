@@ -91,7 +91,7 @@ jobs:
     if: needs.check_changes.outputs.run_build == 'true'
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         go: [1.21.1]
 
     steps:
@@ -112,21 +112,15 @@ jobs:
 
     - name: Build
       run: go build -v ./src
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: go-binary-${{ matrix.os }}
-        path: ${{ runner.os == 'Windows' && 'CaffeineC.exe' || 'CaffeineC' }}
     
-    - name: upload linux artifact
+    - name: upload artifact
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ needs.create_release.outputs.upload_url }}
         asset_path: ${{ runner.os == 'Windows' && './CaffeineC.exe' || './CaffeineC' }}
-        asset_name: ${{ runner.os == 'Windows' && 'CaffeineC.exe' || 'CaffeineC' }}
+        asset_name: "CaffeineC-${{ runner.os }}${{ runner.os == 'Windows' && '.exe' || '' }}"
         asset_content_type: application/octet-stream
 
   finalize_release:

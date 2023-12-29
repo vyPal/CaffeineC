@@ -21,6 +21,7 @@ OS=$(uname -s | tr A-Z a-z)
 
 case $OS in
   linux)
+    DOWNLOAD_URL="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC-Linux"
     source /etc/os-release
     case $ID in
       debian|ubuntu|mint)
@@ -47,6 +48,7 @@ case $OS in
     ;;
 
   darwin)
+    DOWNLOAD_URL="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC-macOS"
     PACKAGE_MANAGER="brew"
     ;;
 
@@ -69,10 +71,9 @@ mkdir -p $install_dir
 
 # Download and install your compiler binary
 latest_version=$(curl -sL https://github.com/vyPal/CaffeineC/releases/latest | grep -Eo 'tag/v[0-9\.]+' | head -n 1)
-download_url="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC"
 
 echo "Downloading CaffeineC version $latest_version..."
-curl -sL $download_url -o $install_dir/CaffeineC
+curl -sL $DOWNLOAD_URL -o $install_dir/CaffeineC
 
 # Make the binary executable
 chmod +x $install_dir/CaffeineC
