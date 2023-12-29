@@ -8,7 +8,7 @@ install_package() {
     local test_cmd=$2
 
     # Check if the package is already installed
-    if ! command -v $test_cmd > /dev/null; then
+    if ! command -v $test_cmd &> /dev/null; then
         echo "Installing $package_name..."
         command $package_manager install -y $package_name
     else
@@ -59,7 +59,7 @@ case $OS in
 esac
 
 # Check and install clang
-install_package "$PACKAGE_MANAGER" "llvm" "clang"
+install_package "$PACKAGE_MANAGER" "clang" "llvm"
 
 # Directory to store user-installed binaries
 install_dir="$HOME/.local/bin"
