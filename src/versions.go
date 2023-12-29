@@ -190,8 +190,13 @@ func update(c *cli.Context) error {
 			return nil
 		}
 
+		baseDir := filepath.Join(homeDir, ".local", "bin")
+		if runtime.GOOS == "darwin" {
+			baseDir = filepath.Join("/usr", "local", "bin")
+		}
+
 		// Set the destination file path
-		dstFilePath := filepath.Join(homeDir, ".local", "bin", "CaffeineC")
+		dstFilePath := filepath.Join(baseDir, "CaffeineC")
 
 		// Rename the old file
 		oldFilePath := dstFilePath + ".old"

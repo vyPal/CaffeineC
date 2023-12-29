@@ -103,12 +103,12 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v3
 
-    - name: Get dependencies
-      run: cd ./src && go get -v -t -d ./...
-
     - name: Update version
       run: |
         sed -i'' -e 's/Version:[[:space:]]*"[0-9]\+\.[0-9]\+\.[0-9]\+"/Version: "${{ needs.create_release.outputs.new_version }}"/g' ./src/main.go
+
+    - name: Get dependencies
+      run: cd ./src && go get -v -t -d ./...
 
     - name: Build
       run: go build -v ./src
