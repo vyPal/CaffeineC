@@ -147,6 +147,9 @@ func initProject(c *cli.Context) error {
 		}
 
 		_, err = file.WriteString("package main;\n\nextern func printf(format: *i8): void;\n\nfunc main(): i64 {\n\tprintf(\"Hello, world!\\n\");\n\treturn 0;\n}\n")
+		if err != nil {
+			return err
+		}
 
 		fmt.Println("Created file:", path.Join(rootDir, "src", "main.cffc"))
 	}

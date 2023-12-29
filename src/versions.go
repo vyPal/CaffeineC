@@ -9,8 +9,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/urfave/cli/v2"
 )
 
@@ -132,6 +134,9 @@ func autocomplete(c *cli.Context) error {
 }
 
 func update(c *cli.Context) error {
+	if runtime.GOOS == "windows" {
+		return cli.Exit(color.RedString("Windows automatic updates are not supported at this time."), 1)
+	}
 	resp, err := http.Get("https://api.github.com/repos/vyPal/CaffeineC/releases/latest")
 	if err != nil {
 		fmt.Println("Failed to fetch the latest release:", err)
@@ -151,8 +156,13 @@ func update(c *cli.Context) error {
 	if latestVersion != c.App.Version {
 		fmt.Printf("A new version is available: %s. Updating...\n", latestVersion)
 
+		osSuffix := "Linux"
+		if runtime.GOOS == "darwin" {
+			osSuffix = "macOS"
+		}
+
 		// Download the new binary
-		resp, err = http.Get("https://github.com/vyPal/CaffeineC/releases/download/" + release.TagName + "/CaffeineC")
+		resp, err = http.Get("https://github.com/vyPal/CaffeineC/releases/download/" + release.TagName + "/CaffeineC-" + osSuffix)
 		if err != nil {
 			fmt.Println("Failed to download the new version:", err)
 			return nil

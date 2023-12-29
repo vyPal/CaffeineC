@@ -4,12 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
 
 	"github.com/fatih/color"
@@ -236,30 +234,6 @@ func parseAndCompile(path, tmpdir string, dump bool) (string, []string, error) {
 	}
 
 	return f.Name(), req, nil
-}
-
-func llvmToObj(llData, tmpdir string, opt int) (string, error) {
-	randFileName := fmt.Sprintf("caffeinec%d", rand.Int())
-	objPath := filepath.Join(tmpdir, randFileName)
-
-	if runtime.GOOS == "windows" {
-		args := []string{"clang -c -O" + fmt.Sprint(opt) + " - -o" + objPath}
-		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Stdin = strings.NewReader(llData)
-		err := cmd.Run()
-		if err != nil {
-			return objPath, err
-		}
-	} else {
-		cmd := exec.Command("sh", "-c", "llc -filetype=obj -O"+fmt.Sprint(opt)+" - -o "+objPath)
-		cmd.Stdin = strings.NewReader(llData)
-		err := cmd.Run()
-		if err != nil {
-			return objPath, err
-		}
-	}
-
-	return objPath, nil
 }
 
 func processIncludes(includes []string, requirements []string, tmpDir string, opt int) ([]string, error) {
