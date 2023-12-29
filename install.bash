@@ -10,7 +10,7 @@ install_package() {
     # Check if the package is already installed
     if ! command -v $test_cmd > /dev/null; then
         echo "Installing $package_name..."
-        sudo $package_manager install -y $package_name
+        command $package_manager install -y $package_name
     else
         echo "$package_name is already installed."
     fi
@@ -25,19 +25,19 @@ case $OS in
     source /etc/os-release
     case $ID in
       debian|ubuntu|mint)
-        PACKAGE_MANAGER="apt-get"
+        PACKAGE_MANAGER="sudo apt-get"
         ;;
 
       fedora|rhel|centos)
-        PACKAGE_MANAGER="yum"
+        PACKAGE_MANAGER="sudo yum"
         ;;
 
       opensuse*)
-        PACKAGE_MANAGER="zypper"
+        PACKAGE_MANAGER="sudo zypper"
         ;;
 
       arch)
-        PACKAGE_MANAGER="pacman"
+        PACKAGE_MANAGER="sudo pacman"
         ;;
 
       *)
@@ -58,9 +58,8 @@ case $OS in
     ;;
 esac
 
-# Check and install LLVM and GCC
-install_package "$PACKAGE_MANAGER" "llc" "llvm"
-install_package "$PACKAGE_MANAGER" "gcc" "gcc"
+# Check and install clang
+install_package "$PACKAGE_MANAGER" "llvm" "clang"
 
 # Directory to store user-installed binaries
 install_dir="$HOME/.local/bin"
