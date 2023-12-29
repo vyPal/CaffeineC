@@ -76,7 +76,7 @@ echo "Downloading CaffeineC version $latest_version..."
 curl -sL $DOWNLOAD_URL -o $INSTALL_DIR/CaffeineC
 
 # Make the binary executable
-chmod +x $install_dir/CaffeineC
+chmod +x $INSTALL_DIR/CaffeineC
 
 # Determine the current shell
 current_shell=$(basename "$SHELL")
