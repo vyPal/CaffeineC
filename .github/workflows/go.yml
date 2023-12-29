@@ -72,7 +72,7 @@ jobs:
 
       - name: Update version
         run: |
-          sed -i 's/Version:[[:space:]]*"[0-9]\+\.[0-9]\+\.[0-9]\+"/Version: "${{ needs.create_release.outputs.new_version }}"/g' ./src/main.go
+          sed -i 's/Version:[[:space:]]*"[0-9]\+\.[0-9]\+\.[0-9]\+"/Version:                "${{ needs.create_release.outputs.new_version }}"/g' ./src/main.go
 
       - name: Commit and push
         run: |
@@ -87,7 +87,7 @@ jobs:
   build:
     name: Build
     runs-on: ${{ matrix.os }}
-    needs: [check_changes, create_release]
+    needs: [check_changes, create_release, update_version]
     if: needs.check_changes.outputs.run_build == 'true'
     strategy:
       matrix:

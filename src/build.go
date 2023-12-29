@@ -113,9 +113,11 @@ func build(c *cli.Context) error {
 		}
 	}
 
+	var conf CfConf
+
 	f := c.Args().First()
 	if f == "" {
-		conf, err := GetCfConf(".")
+		conf, err = GetCfConf(".")
 		if err != nil {
 			return err
 		}
@@ -142,26 +144,12 @@ func build(c *cli.Context) error {
 		return err
 	}
 
-	/*
-		if c.Bool("output-llvm") {
-			err = os.WriteFile("output.ll", []byte(llData), 0644)
-			if err != nil {
-				return err
-			}
-		}
-
-			oFile, err := llvmToObj(llData, tmpDir, c.Int("opt-level"))
-			if err != nil {
-				return err
-			}
-	*/
-
 	imports, err := processIncludes(c.StringSlice("include"), req, tmpDir, c.Int("opt-level"))
 	if err != nil {
 		return err
 	}
 
-	args := append([]string{"clang", "-c", llData}, imports...)
+	args := append([]string{"clang", llData}, imports...)
 	args = append(args, "-o", outName)
 	cmd := exec.Command(args[0], args[1:]...)
 

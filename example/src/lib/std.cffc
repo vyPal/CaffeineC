@@ -1,0 +1,7 @@
+package std;
+
+extern func printf(fmt: *i8): i32;
+
+export func print(format: *i8) {
+  printf(format);
+}
