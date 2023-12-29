@@ -22,6 +22,8 @@ OS=$(uname -s | tr A-Z a-z)
 case $OS in
   linux)
     DOWNLOAD_URL="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC-Linux"
+    INSTALL_DIR="$HOME/.local/bin"
+    SHARE_DIR="$HOME/.local/share"
     source /etc/os-release
     case $ID in
       debian|ubuntu|mint)
@@ -49,6 +51,8 @@ case $OS in
 
   darwin)
     DOWNLOAD_URL="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC-macOS"
+    INSTALL_DIR="/usr/local/bin"
+    SHARE_DIR="/usr/local/share
     PACKAGE_MANAGER="brew"
     ;;
 
@@ -61,18 +65,15 @@ esac
 # Check and install clang
 install_package "$PACKAGE_MANAGER" "clang" "llvm"
 
-# Directory to store user-installed binaries
-install_dir="$HOME/.local/bin"
-autocomplete_dir="$HOME/.local/share"
-
 # Create the directory if it doesn't exist
-mkdir -p $install_dir
+mkdir -p $INSTALL_DIR
+mkdir -p $SHARE_DIR
 
 # Download and install your compiler binary
 latest_version=$(curl -sL https://github.com/vyPal/CaffeineC/releases/latest | grep -Eo 'tag/v[0-9\.]+' | head -n 1)
 
 echo "Downloading CaffeineC version $latest_version..."
-curl -sL $DOWNLOAD_URL -o $install_dir/CaffeineC
+curl -sL $DOWNLOAD_URL -o $INSTALL_DIR/CaffeineC
 
 # Make the binary executable
 chmod +x $install_dir/CaffeineC
@@ -99,7 +100,7 @@ esac
 # If the shell is supported, continue with the rest of the script
 if [ -n "$autocomplete_script_url" ]; then
   # Download the autocomplete script
-  autocomplete_script_path="$autocomplete_dir/CaffeineC_autocomplete"
+  autocomplete_script_path="$SHARE_DIR/CaffeineC_autocomplete"
   echo "Downloading autocomplete script for $current_shell..."
   curl -sL $autocomplete_script_url -o $autocomplete_script_path
 
@@ -119,11 +120,11 @@ if [ -n "$autocomplete_script_url" ]; then
 fi
 
 # Check if the install directory is in PATH
-if [[ ":$PATH:" == *":$install_dir:"* ]]; then
+if [[ ":$PATH:" == *":$INSTALL_DIR:"* ]]; then
     echo "The CaffeineC compiler is now installed and in your PATH."
 else
     echo "Add the following line to your shell configuration file (e.g., .bashrc, .zshrc, .config/fish/config.fish):"
-    echo "export PATH=\$PATH:$install_dir"
+    echo "export PATH=\$PATH:$INSTALL_DIR"
     echo "Then restart your terminal or run 'source <config-file>' to update the PATH."
 fi
 
