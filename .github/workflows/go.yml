@@ -108,7 +108,7 @@ jobs:
 
     - name: Update version
       run: |
-        sed -i'' 's/Version:[[:space:]]*"[0-9]\+\.[0-9]\+\.[0-9]\+"/Version: "${{ needs.create_release.outputs.new_version }}"/g' ./src/main.go
+        sed -i'' -e 's/Version:[[:space:]]*"[0-9]\+\.[0-9]\+\.[0-9]\+"/Version: "${{ needs.create_release.outputs.new_version }}"/g' ./src/main.go
 
     - name: Build
       run: go build -v ./src
