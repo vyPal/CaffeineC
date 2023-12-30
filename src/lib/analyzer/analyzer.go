@@ -32,8 +32,10 @@ func Analyze(ast *parser.Program) {
 			// analyzeExpression(v.Expression)
 		} else if v.FieldDefinition != nil {
 			// analyzeFieldDefinition(v.FieldDefinition)
-		} else if v.ExternalFunction != nil {
-			analyzeExternalFunction(v.ExternalFunction)
+		} else if v.External != nil {
+			if v.External.Function != nil {
+				analyzeExternalFunction(v.External.Function)
+			}
 		} else {
 			cli.Exit(color.RedString("Error: Empty statement?"), 1)
 		}

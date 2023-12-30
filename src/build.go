@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -24,11 +25,6 @@ func init() {
 		Category: "compile",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
-				Name:    "dump-ast",
-				Aliases: []string{"d"},
-				Usage:   "Dump the AST to a file",
-			},
-			&cli.BoolFlag{
 				Name: "ebnf",
 				Usage: "Print the EBNF grammar for CaffeineC. " +
 					"Useful for debugging the parser.",
@@ -43,11 +39,6 @@ func init() {
 				Aliases: []string{"i"},
 				Usage:   "Add a directory or file to the include path",
 			},
-			&cli.BoolFlag{
-				Name:    "output-llvm",
-				Aliases: []string{"l"},
-				Usage:   "Output the LLVM IR to a file",
-			},
 			&cli.IntFlag{
 				Name: "opt-level",
 				Usage: "The optimization level to use. " +
@@ -56,6 +47,11 @@ func init() {
 				Aliases: []string{"O"},
 				Value:   2,
 			},
+			&cli.BoolFlag{
+				Name:    "debug",
+				Usage:   "Save additional build files for debugging. ",
+				Aliases: []string{"d"},
+			},
 		},
 		Action: build,
 	},
@@ -63,11 +59,6 @@ func init() {
 			Name:  "run",
 			Usage: "Run a CaffeineC file",
 			Flags: []cli.Flag{
-				&cli.BoolFlag{
-					Name:    "dump-ast",
-					Aliases: []string{"d"},
-					Usage:   "Dump the AST to a file",
-				},
 				&cli.StringFlag{
 					Name:    "output",
 					Aliases: []string{"o"},
@@ -79,9 +70,9 @@ func init() {
 					Usage:   "Add a directory or file to the include path",
 				},
 				&cli.BoolFlag{
-					Name:    "output-llvm",
-					Aliases: []string{"l"},
-					Usage:   "Output the LLVM IR to a file",
+					Name:    "debug",
+					Usage:   "Save additional build files for debugging. ",
+					Aliases: []string{"d"},
 				},
 			},
 			Action: run,
@@ -139,23 +130,42 @@ func build(c *cli.Context) error {
 		f = conf.Main
 	}
 
-	llData, req, err := parseAndCompile(f, tmpDir, c.Bool("dump-ast"))
+	llData, req, err := parseAndCompile(f, tmpDir, c.Bool("debug"))
 	if err != nil {
 		return err
 	}
 
-	imports, err := processIncludes(c.StringSlice("include"), req, tmpDir, c.Int("opt-level"))
+	imports, err := processIncludes(c.StringSlice("include"), req, tmpDir, c.Int("opt-level"), c.Bool("debug"))
 	if err != nil {
 		return err
 	}
+
+	var stderr bytes.Buffer
 
 	args := append([]string{"clang", llData}, imports...)
 	args = append(args, "-o", outName)
 	cmd := exec.Command(args[0], args[1:]...)
 
+	cmd.Stderr = &stderr
+
 	err = cmd.Run()
 	if err != nil {
+		log.Print("stderr:", stderr.String())
 		log.Fatal(err)
+	}
+
+	// If c.Bool('debug') copy the tmpdir's contents to a new folder called debug in the current directory
+	if c.Bool("debug") {
+		err = os.Mkdir("debug", 0755)
+		if err != nil {
+			return err
+		}
+
+		cmd := exec.Command("cp", "-r", tmpDir, "debug")
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -186,7 +196,25 @@ func run(c *cli.Context) error {
 func parseAndCompile(path, tmpdir string, dump bool) (string, []string, error) {
 	ast := parser.ParseFile(path)
 	if dump {
-		astFile, err := os.Create("ast_dump.json")
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", []string{}, cli.Exit(color.RedString("Error getting current working directory: %s", err), 1)
+		}
+
+		relativePath, err := filepath.Rel(cwd, path)
+		if err != nil {
+			relativePath = path
+		}
+
+		fullPath := filepath.Join(tmpdir, "ast-"+relativePath+".json")
+		dirPath := filepath.Dir(fullPath)
+
+		err = os.MkdirAll(dirPath, 0755)
+		if err != nil {
+			return "", []string{}, cli.Exit(color.RedString("Error creating directories: %s", err), 1)
+		}
+
+		astFile, err := os.Create(fullPath)
 		if err != nil {
 			return "", []string{}, cli.Exit(color.RedString("Error creating AST dump file: %s", err), 1)
 		}
@@ -224,7 +252,7 @@ func parseAndCompile(path, tmpdir string, dump bool) (string, []string, error) {
 	return f.Name(), req, nil
 }
 
-func processIncludes(includes []string, requirements []string, tmpDir string, opt int) ([]string, error) {
+func processIncludes(includes []string, requirements []string, tmpDir string, opt int, dump bool) ([]string, error) {
 	var files []string
 	includes = append(includes, requirements...)
 
@@ -244,7 +272,7 @@ func processIncludes(includes []string, requirements []string, tmpDir string, op
 				}
 
 				if !info.IsDir() {
-					err = processFile(path, &files, tmpDir, opt, &wg, errs)
+					err = processFile(path, &files, tmpDir, opt, dump, &wg, errs)
 					if err != nil {
 						return err
 					}
@@ -253,7 +281,7 @@ func processIncludes(includes []string, requirements []string, tmpDir string, op
 				return nil
 			})
 		} else {
-			err = processFile(include, &files, tmpDir, opt, &wg, errs)
+			err = processFile(include, &files, tmpDir, opt, dump, &wg, errs)
 		}
 
 		if err != nil {
@@ -273,7 +301,7 @@ func processIncludes(includes []string, requirements []string, tmpDir string, op
 	return files, nil
 }
 
-func processFile(path string, files *[]string, tmpDir string, opt int, wg *sync.WaitGroup, errs chan<- error) error {
+func processFile(path string, files *[]string, tmpDir string, opt int, dump bool, wg *sync.WaitGroup, errs chan<- error) error {
 	ext := filepath.Ext(path)
 	if ext == ".c" || ext == ".cpp" || ext == ".h" || ext == ".o" {
 		*files = append(*files, path)
@@ -281,14 +309,14 @@ func processFile(path string, files *[]string, tmpDir string, opt int, wg *sync.
 		wg.Add(1)
 		go func(path string) {
 			defer wg.Done()
-			llFile, req, err := parseAndCompile(path, tmpDir, false)
+			llFile, req, err := parseAndCompile(path, tmpDir, dump)
 			if err != nil {
 				errs <- err
 				return
 			}
 
 			if len(req) > 0 {
-				_, err := processIncludes([]string{}, req, tmpDir, opt)
+				_, err := processIncludes([]string{}, req, tmpDir, opt, dump)
 				if err != nil {
 					errs <- err
 					return

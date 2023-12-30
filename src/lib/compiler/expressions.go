@@ -98,6 +98,13 @@ func (ctx *Context) compileFactor(f *parser.Factor) (value.Value, error) {
 		if err != nil {
 			return nil, err
 		}
+		if f.GEP != nil {
+			gepExpr, err := ctx.compileExpression(f.GEP)
+			if err != nil {
+				return nil, err
+			}
+			return ctx.NewGetElementPtr(val.Type().(*types.PointerType).ElemType, val, gepExpr), nil
+		}
 		if v, ok := val.(*ir.InstAlloca); ok {
 			return ctx.NewLoad(v.Type().(*types.PointerType).ElemType, val), nil
 		} else if v, ok := val.(*ir.InstPhi); ok {
@@ -222,7 +229,7 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 			return nil, posError(v.Pos, "Unknown duration unit: %s", v.Duration.Unit)
 		}
 		return constant.NewFloat(types.Double, v.Duration.Number*factor), nil
-	} else if v.Null == true {
+	} else if v.Null {
 		return constant.NewNull(types.I8Ptr), nil
 	} else {
 		return nil, posError(v.Pos, "Unknown value type")

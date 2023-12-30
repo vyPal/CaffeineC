@@ -1,7 +1,21 @@
 package std;
 
 extern func printf(fmt: *i8): i32;
+extern func malloc(size: i64): *i8;
+extern func scanf(format: *i8): i32;
 
 export func print(format: *i8) {
   printf(format);
+}
+
+export func println(format: *i8) {
+  printf(format);
+  printf("\n");
+}
+
+export func input(prompt: *i8): *i8 {
+  var buffer: *i8 = malloc(256);
+  printf(prompt);
+  scanf("%255s", buffer);
+  return buffer;
 }

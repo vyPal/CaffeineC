@@ -1,8 +1,15 @@
 package main;
 
-extern func printf(ft: *i8): void;
+import "lib/std.cffc";
+
+extern func malloc(size: i64): *i8;
 
 func main(): i64 {
-	printf("Hello, world!\n");
+	var inp: *i8 = input("Enter your name: ");
+
+	print("Hello, ");
+	print(inp);
+	println("!");
+	
 	return 0;
 }

@@ -69,6 +69,7 @@ type Factor struct {
 	FunctionCall     *FunctionCall     `parser:"| (?= Ident '(') @@"`
 	ClassMethod      *ClassMethod      `parser:"| (?= Ident ( '.' Ident)+ '(') @@"`
 	Identifier       *Identifier       `parser:"| @@"`
+	GEP              *Expression       `parser:"('[' @@ ']')?"`
 }
 
 type Term struct {
@@ -188,6 +189,18 @@ type Return struct {
 	Expression *Expression `parser:"'return' @@? ';'"`
 }
 
+type ExternalDefinition struct {
+	Pos      lexer.Position
+	Function *ExternalFunctionDefinition `parser:"(?= 'extern' 'func')@@?"`
+	Variable *ExternalVariableDefinition `parser:"| (?= 'extern' 'var')@@?"`
+}
+
+type ExternalVariableDefinition struct {
+	Pos  lexer.Position
+	Name string `parser:"'extern' 'var' @Ident"`
+	Type string `parser:"':' @('*'? Ident)"`
+}
+
 type ExternalFunctionDefinition struct {
 	Pos        lexer.Position
 	Name       string                `parser:"'extern' 'func' @Ident"`
@@ -217,23 +230,23 @@ type Symbol struct {
 
 type Statement struct {
 	Pos                lexer.Position
-	VariableDefinition *VariableDefinition         `parser:"(?= 'var' Ident) @@? (';' | '\\n')?"`
-	Assignment         *Assignment                 `parser:"| (?= Ident ( '.' Ident)* '=') @@? (';' | '\\n')?"`
-	ExternalFunction   *ExternalFunctionDefinition `parser:"| (?= 'extern' 'func') @@? (';' | '\\n')?"`
-	FunctionDefinition *FunctionDefinition         `parser:"| (?= 'private'? 'static'? 'func') @@?"`
-	ClassDefinition    *ClassDefinition            `parser:"| (?= 'class') @@?"`
-	If                 *If                         `parser:"| (?= 'if') @@?"`
-	For                *For                        `parser:"| (?= 'for') @@?"`
-	While              *While                      `parser:"| (?= 'while') @@?"`
-	Return             *Return                     `parser:"| (?= 'return') @@?"`
-	FieldDefinition    *FieldDefinition            `parser:"| (?= 'private'? Ident ':' '*'? Ident) @@?"`
-	Import             *Import                     `parser:"| (?= 'import') @@?"`
-	FromImportMultiple *FromImportMultiple         `parser:"| (?= 'from' String 'import' '{') @@?"`
-	FromImport         *FromImport                 `parser:"| (?= 'from' String 'import') @@?"`
-	Export             *Statement                  `parser:"| 'export' @@? (';' | '\\n')?"`
-	Break              *string                     `parser:"| 'break' (';' | '\\n')?"`
-	Continue           *string                     `parser:"| 'continue' (';' | '\\n')?"`
-	Expression         *Expression                 `parser:"| @@ ';'"`
+	VariableDefinition *VariableDefinition `parser:"(?= 'var' Ident) @@? (';' | '\\n')?"`
+	Assignment         *Assignment         `parser:"| (?= Ident ( '.' Ident)* '=') @@? (';' | '\\n')?"`
+	External           *ExternalDefinition `parser:"| (?= 'extern') @@? (';' | '\\n')?"`
+	FunctionDefinition *FunctionDefinition `parser:"| (?= 'private'? 'static'? 'func') @@?"`
+	ClassDefinition    *ClassDefinition    `parser:"| (?= 'class') @@?"`
+	If                 *If                 `parser:"| (?= 'if') @@?"`
+	For                *For                `parser:"| (?= 'for') @@?"`
+	While              *While              `parser:"| (?= 'while') @@?"`
+	Return             *Return             `parser:"| (?= 'return') @@?"`
+	FieldDefinition    *FieldDefinition    `parser:"| (?= 'private'? Ident ':' '*'? Ident) @@?"`
+	Import             *Import             `parser:"| (?= 'import') @@?"`
+	FromImportMultiple *FromImportMultiple `parser:"| (?= 'from' String 'import' '{') @@?"`
+	FromImport         *FromImport         `parser:"| (?= 'from' String 'import') @@?"`
+	Export             *Statement          `parser:"| 'export' @@? (';' | '\\n')?"`
+	Break              *string             `parser:"| 'break' (';' | '\\n')?"`
+	Continue           *string             `parser:"| 'continue' (';' | '\\n')?"`
+	Expression         *Expression         `parser:"| @@ ';'"`
 }
 
 type Program struct {

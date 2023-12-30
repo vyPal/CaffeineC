@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/fatih/color"
@@ -20,7 +21,8 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 		_, _, err := ctx.compileAssignment(s.Assignment)
 		return err
 	} else if s.FunctionDefinition != nil {
-		ctx.compileFunctionDefinition(s.FunctionDefinition)
+		_, _, _, err := ctx.compileFunctionDefinition(s.FunctionDefinition)
+		return err
 	} else if s.ClassDefinition != nil {
 		_, _, _, err := ctx.compileClassDefinition(s.ClassDefinition)
 		return err
@@ -41,8 +43,12 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 		return err
 	} else if s.FieldDefinition != nil {
 		return posError(s.FieldDefinition.Pos, "Field definitions are not allowed outside of classes")
-	} else if s.ExternalFunction != nil {
-		ctx.compileExternalFunction(s.ExternalFunction)
+	} else if s.External != nil {
+		if s.External.Function != nil {
+			ctx.compileExternalFunction(s.External.Function)
+		} else if s.External.Variable != nil {
+			ctx.compileExternalVariable(s.External.Variable)
+		}
 	} else if s.Import != nil {
 		return ctx.Compiler.ImportAll(s.Import.Package, ctx)
 	} else if s.FromImport != nil {
@@ -78,6 +84,14 @@ func (ctx *Context) compileExternalFunction(v *parser.ExternalFunctionDefinition
 	}
 
 	ctx.Module.NewFunc(v.Name, retType, args...)
+}
+
+func (ctx *Context) compileExternalVariable(v *parser.ExternalVariableDefinition) {
+	globalV := ctx.Module.NewGlobal(v.Name, ctx.stringToType(v.Type))
+	globalV.ExternallyInitialized = true
+	globalV.Init = constant.NewZeroInitializer(ctx.stringToType(v.Type))
+	fmt.Println(globalV.Type())
+	ctx.vars[v.Name] = globalV
 }
 
 func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Name string, Type types.Type, Value value.Value, Err error) {
