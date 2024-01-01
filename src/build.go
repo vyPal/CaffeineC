@@ -80,8 +80,12 @@ func init() {
 	)
 }
 
+var isRun bool
+
 func build(c *cli.Context) error {
-	go checkUpdate(c)
+	if !isRun {
+		go checkUpdate(c)
+	}
 	isWindows := runtime.GOOS == "windows"
 
 	if c.Bool("ebnf") {
@@ -157,7 +161,7 @@ func build(c *cli.Context) error {
 	// If c.Bool('debug') copy the tmpdir's contents to a new folder called debug in the current directory
 	if c.Bool("debug") {
 		err = os.Mkdir("debug", 0755)
-		if err != nil {
+		if !os.IsExist(err) {
 			return err
 		}
 
@@ -172,6 +176,7 @@ func build(c *cli.Context) error {
 }
 
 func run(c *cli.Context) error {
+	isRun = true
 	err := build(c)
 	if err != nil {
 		return err

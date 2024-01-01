@@ -65,6 +65,8 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 		ctx.Compiler.ImportAs(s.FromImportMultiple.Package, symbols, ctx)
 	} else if s.Export != nil {
 		return ctx.compileStatement(s.Export)
+	} else if s.Comment != nil {
+		return nil
 	} else {
 		return posError(s.Pos, "Unknown statement")
 	}

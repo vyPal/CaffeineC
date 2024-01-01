@@ -1,49 +1,68 @@
 package analyzer
 
 import (
-	"github.com/fatih/color"
-	"github.com/urfave/cli/v2"
+	"fmt"
+
 	"github.com/vyPal/CaffeineC/lib/parser"
 )
 
-func Analyze(ast *parser.Program) {
-	for _, v := range ast.Statements {
-		if v.VariableDefinition != nil {
-			// analyzeVariableDefinition(v.VariableDefinition)
-		} else if v.Assignment != nil {
-			// analyzeAssignment(v.Assignment)
-		} else if v.FunctionDefinition != nil {
-			// analyzeFunctionDefinition(v.FunctionDefinition)
-		} else if v.ClassDefinition != nil {
-			// analyzeClassDefinition(v.ClassDefinition)
-		} else if v.If != nil {
-			// analyzeIf(v.If)
-		} else if v.For != nil {
-			// analyzeFor(v.For)
-		} else if v.While != nil {
-			// analyzeWhile(v.While)
-		} else if v.Return != nil {
-			// analyzeReturn(v.Return)
-		} else if v.Break != nil {
-			// analyzeBreak(v.Break)
-		} else if v.Continue != nil {
-			// analyzeContinue(v.Continue)
-		} else if v.Expression != nil {
-			// analyzeExpression(v.Expression)
-		} else if v.FieldDefinition != nil {
-			// analyzeFieldDefinition(v.FieldDefinition)
-		} else if v.External != nil {
-			if v.External.Function != nil {
-				analyzeExternalFunction(v.External.Function)
-			}
-		} else {
-			cli.Exit(color.RedString("Error: Empty statement?"), 1)
-		}
-	}
+type Program struct {
+	Package string
+	UseOOP  bool
 }
 
-func analyzeExternalFunction(v *parser.ExternalFunctionDefinition) {
-	if v.ReturnType == "" {
-		color.Yellow("Warning: External function %s has no return type, 'void' will be used", v.Name)
+func Analyze(ast *parser.Program) (*Program, error) {
+	prog := &Program{
+		Package: ast.Package,
+		UseOOP:  false,
+	}
+
+	for _, stmt := range ast.Statements {
+		if stmt.Comment != nil {
+			if *stmt.Comment == "//cffc:force-oop" {
+				prog.UseOOP = true
+			}
+		}
+	}
+
+	ctx := NewContext()
+	AnalyzeStatements(ast.Statements, ctx, prog)
+	return prog, nil
+}
+
+func AnalyzeStatements(stmts []*parser.Statement, ctx *Context, prog *Program) {
+	for _, stmt := range stmts {
+		if stmt.VariableDefinition != nil {
+			ctx.Variables[stmt.VariableDefinition.Name] = Variable{
+				Name:      stmt.VariableDefinition.Name,
+				Type:      stringToType(stmt.VariableDefinition.Type),
+				Constatnt: stmt.VariableDefinition.Constant,
+			}
+		} else if stmt.External != nil {
+		} else if stmt.FunctionDefinition != nil {
+		} else if stmt.ClassDefinition != nil {
+		} else if stmt.Import != nil {
+		} else if stmt.FromImport != nil {
+		} else if stmt.FromImportMultiple != nil {
+		} else if stmt.Export != nil {
+		} else if stmt.Comment != nil {
+		} else {
+			if prog.UseOOP && ctx.topLevel {
+				panic("Cannot have non-OOP code in OOP mode")
+			} else {
+				if stmt.Assignment != nil {
+				} else if stmt.If != nil {
+				} else if stmt.For != nil {
+				} else if stmt.While != nil {
+				} else if stmt.Return != nil {
+				} else if stmt.FieldDefinition != nil {
+				} else if stmt.Break != nil {
+				} else if stmt.Continue != nil {
+				} else if stmt.Expression != nil {
+				} else {
+					panic(fmt.Sprintf("Unknown statement: %v", stmt))
+				}
+			}
+		}
 	}
 }

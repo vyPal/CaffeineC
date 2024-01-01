@@ -116,6 +116,7 @@ type Assignment struct {
 
 type VariableDefinition struct {
 	Pos        lexer.Position
+	Constant   bool        `parser:"'const'?"`
 	Name       string      `parser:"'var' @Ident"`
 	Type       string      `parser:"':' @('*'? Ident)"`
 	Assignment *Expression `parser:"( '=' @@ )?"`
@@ -230,7 +231,7 @@ type Symbol struct {
 
 type Statement struct {
 	Pos                lexer.Position
-	VariableDefinition *VariableDefinition `parser:"(?= 'var' Ident) @@? (';' | '\\n')?"`
+	VariableDefinition *VariableDefinition `parser:"(?= 'const'? 'var' Ident) @@? (';' | '\\n')?"`
 	Assignment         *Assignment         `parser:"| (?= Ident ( '.' Ident)* '=') @@? (';' | '\\n')?"`
 	External           *ExternalDefinition `parser:"| (?= 'extern') @@? (';' | '\\n')?"`
 	FunctionDefinition *FunctionDefinition `parser:"| (?= 'private'? 'static'? 'func') @@?"`
@@ -246,6 +247,7 @@ type Statement struct {
 	Export             *Statement          `parser:"| 'export' @@? (';' | '\\n')?"`
 	Break              *string             `parser:"| 'break' (';' | '\\n')?"`
 	Continue           *string             `parser:"| 'continue' (';' | '\\n')?"`
+	Comment            *string             `parser:"| @Comment"`
 	Expression         *Expression         `parser:"| @@ ';'"`
 }
 

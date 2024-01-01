@@ -90,15 +90,6 @@ func (c Context) lookupClass(name string) (types.Type, bool) {
 	return nil, false
 }
 
-func (c Context) getFieldIndex(structType *types.StructType, fieldName string) int {
-	for i, field := range structType.Fields {
-		if field.Name() == fieldName {
-			return i
-		}
-	}
-	return -1
-}
-
 type Compiler struct {
 	Module          *ir.Module
 	SymbolTable     map[string]value.Value
