@@ -83,7 +83,8 @@ func (ctx *Context) compileExternalFunction(v *parser.ExternalFunctionDefinition
 		args = append(args, ir.NewParam(arg.Name, ctx.stringToType(arg.Type)))
 	}
 
-	ctx.Module.NewFunc(v.Name, retType, args...)
+	fn := ctx.Module.NewFunc(v.Name, retType, args...)
+	fn.Sig.Variadic = v.Variadic
 }
 
 func (ctx *Context) compileExternalVariable(v *parser.ExternalVariableDefinition) {
@@ -148,61 +149,18 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Name string, Value 
 }
 
 func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Name string, ReturnType types.Type, Args []*ir.Param, err error) {
-	// Create a temporary context and block for analysis
-	tmpBlock := ctx.Module.NewFunc("", types.Void)
-	tmpCtx := ctx.NewContext(tmpBlock.NewBlock(""))
-
-	var argsUsed []string
-	for _, arg := range f.Parameters {
-		argsUsed = append(argsUsed, arg.Name)
-		tmpCtx.vars[arg.Name] = constant.NewInt(types.I1, 0)
-	}
-	for _, stmt := range f.Body {
-		err := tmpCtx.compileStatement(stmt)
-		if err != nil {
-			return "", nil, []*ir.Param{}, err
-		}
-	}
-	for name := range tmpCtx.usedVars {
-		for _, arg := range argsUsed {
-			if arg == name {
-				continue
-			}
-		}
-		ctx.usedVars[name] = true
-		value := tmpCtx.lookupVariable(name)
-		f.Parameters = append(f.Parameters, &parser.ArgumentDefinition{
-			Name: name,
-			Type: value.Type().Name(),
-		})
-	}
-	if tmpCtx.Term == nil {
-		if ctx.stringToType(f.ReturnType).Equal(types.Void) {
-			tmpCtx.NewRet(nil)
-		} else {
-			return "", nil, nil, posError(f.Pos, "Function `%s` does not return a value", f.Name)
-		}
-	}
-
-	// Remove the temporary function from the module
-	funcs := []*ir.Func{}
-	for _, f := range ctx.Module.Funcs {
-		if f.Name() != tmpBlock.Name() {
-			funcs = append(funcs, f)
-		}
-	}
-	ctx.Module.Funcs = funcs
-
 	var params []*ir.Param
 	for _, arg := range f.Parameters {
 		params = append(params, ir.NewParam(arg.Name, ctx.stringToType(arg.Type)))
 	}
 
 	fn := ctx.Module.NewFunc(f.Name, ctx.stringToType(f.ReturnType), params...)
-	fn.Sig.Variadic = false
+	fn.Sig.Variadic = f.Variadic
 	fn.Sig.RetType = ctx.stringToType(f.ReturnType)
 	block := fn.NewBlock("")
 	nctx := NewContext(block, ctx.Compiler)
+	ctx.SymbolTable[f.Name] = fn
+
 	for _, stmt := range f.Body {
 		err := nctx.compileStatement(stmt)
 		if err != nil {
@@ -217,7 +175,6 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 		}
 	}
 
-	ctx.SymbolTable[f.Name] = fn
 	return f.Name, ctx.stringToType(f.ReturnType), params, nil
 }
 
@@ -377,7 +334,7 @@ func (ctx *Context) compileFor(f *parser.For) error {
 	loopCtx.Block.NewCondBr(cond, loopB, leaveB)
 
 	// Set the current block to the leave block
-	ctx.Compiler.Context.Block = leaveB
+	ctx.Block = leaveB
 
 	return nil
 }
@@ -408,7 +365,7 @@ func (ctx *Context) compileWhile(w *parser.While) error {
 		return err
 	}
 	loopCtx.NewCondBr(cond, loopB, leaveB)
-	ctx.Compiler.Context.Block = leaveB
+	ctx.Block = leaveB
 
 	return nil
 }

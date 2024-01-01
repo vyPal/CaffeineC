@@ -116,6 +116,7 @@ type Assignment struct {
 
 type VariableDefinition struct {
 	Pos        lexer.Position
+	Constant   bool        `parser:"'const'?"`
 	Name       string      `parser:"'var' @Ident"`
 	Type       string      `parser:"':' @('*'? Ident)"`
 	Assignment *Expression `parser:"( '=' @@ )?"`
@@ -138,6 +139,7 @@ type FunctionDefinition struct {
 	Pos        lexer.Position
 	Private    bool                  `parser:"@'private'?"`
 	Static     bool                  `parser:"@'static'?"`
+	Variadic   bool                  `parser:"@'vararg'?"`
 	Name       string                `parser:"'func' @Ident"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )? ')'"`
 	ReturnType string                `parser:"( ':' @('*'? Ident) )?"`
@@ -191,7 +193,7 @@ type Return struct {
 
 type ExternalDefinition struct {
 	Pos      lexer.Position
-	Function *ExternalFunctionDefinition `parser:"(?= 'extern' 'func')@@?"`
+	Function *ExternalFunctionDefinition `parser:"(?= 'extern' 'vararg'? 'func')@@?"`
 	Variable *ExternalVariableDefinition `parser:"| (?= 'extern' 'var')@@?"`
 }
 
@@ -203,7 +205,8 @@ type ExternalVariableDefinition struct {
 
 type ExternalFunctionDefinition struct {
 	Pos        lexer.Position
-	Name       string                `parser:"'extern' 'func' @Ident"`
+	Variadic   bool                  `parser:"'extern' @'vararg'?"`
+	Name       string                `parser:"'func' @Ident"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )? ')'"`
 	ReturnType string                `parser:"( ':' @('*'? Ident) )?"`
 }
@@ -230,7 +233,7 @@ type Symbol struct {
 
 type Statement struct {
 	Pos                lexer.Position
-	VariableDefinition *VariableDefinition `parser:"(?= 'var' Ident) @@? (';' | '\\n')?"`
+	VariableDefinition *VariableDefinition `parser:"(?= 'const'? 'var' Ident) @@? (';' | '\\n')?"`
 	Assignment         *Assignment         `parser:"| (?= Ident ( '.' Ident)* '=') @@? (';' | '\\n')?"`
 	External           *ExternalDefinition `parser:"| (?= 'extern') @@? (';' | '\\n')?"`
 	FunctionDefinition *FunctionDefinition `parser:"| (?= 'private'? 'static'? 'func') @@?"`
@@ -246,6 +249,7 @@ type Statement struct {
 	Export             *Statement          `parser:"| 'export' @@? (';' | '\\n')?"`
 	Break              *string             `parser:"| 'break' (';' | '\\n')?"`
 	Continue           *string             `parser:"| 'continue' (';' | '\\n')?"`
+	Comment            *string             `parser:"| @Comment"`
 	Expression         *Expression         `parser:"| @@ ';'"`
 }
 

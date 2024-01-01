@@ -1,8 +1,8 @@
 package std;
 
-extern func printf(fmt: *i8): i32;
+extern vararg func printf(fmt: *i8): i32;
 extern func malloc(size: i64): *i8;
-extern func scanf(format: *i8): i32;
+extern func scanf(format: *i8, buffer: *i8): i32;
 
 export func print(format: *i8) {
   printf(format);

@@ -154,14 +154,20 @@ func build(c *cli.Context) error {
 		log.Fatal(err)
 	}
 
-	// If c.Bool('debug') copy the tmpdir's contents to a new folder called debug in the current directory
 	if c.Bool("debug") {
 		err = os.Mkdir("debug", 0755)
 		if err != nil {
-			return err
+			if os.IsExist(err) {
+				err = os.RemoveAll("debug")
+				if err != nil {
+					return err
+				}
+			} else {
+				return err
+			}
 		}
 
-		cmd := exec.Command("cp", "-r", tmpDir, "debug")
+		cmd := exec.Command("sh", "-c", "mv "+tmpDir+"/* debug")
 		err = cmd.Run()
 		if err != nil {
 			return err

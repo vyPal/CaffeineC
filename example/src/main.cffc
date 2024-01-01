@@ -2,7 +2,15 @@ package main;
 
 import "lib/std.cffc";
 
-extern func malloc(size: i64): *i8;
+extern vararg func printf(fmt: *i8): i32;
+
+func recursion(last: i64): i64 {
+	if (last > 0) {
+		printf("Recursions remaining: %d\n", last-1);
+		return recursion(last-1);
+	}
+	return 0;
+}
 
 func main(): i64 {
 	var inp: *i8 = input("Enter your name: ");
@@ -10,6 +18,13 @@ func main(): i64 {
 	print("Hello, ");
 	print(inp);
 	println("!");
+
+	for (var i: i64 = 0; i < 10; i = i + 1) {
+		printf("%d", i);
+	}
+	println("");
+
+	recursion(10);
 	
 	return 0;
 }
