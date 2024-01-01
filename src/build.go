@@ -205,15 +205,8 @@ func build(c *cli.Context) error {
 
 	if c.Bool("debug") {
 		err = os.Mkdir("debug", 0755)
-		if err != nil {
-			if os.IsExist(err) {
-				err = os.RemoveAll("debug")
-				if err != nil {
-					return err
-				}
-			} else {
-				return err
-			}
+		if !os.IsExist(err) {
+			return err
 		}
 
 		cmd := exec.Command("sh", "-c", "mv "+tmpDir+"/* debug")
