@@ -24,6 +24,11 @@ func init() {
 		Usage:    "Build a CaffeineC file",
 		Category: "compile",
 		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "config",
+				Usage:   "The path to the config file. ",
+				Aliases: []string{"c"},
+			},
 			&cli.BoolFlag{
 				Name: "ebnf",
 				Usage: "Print the EBNF grammar for CaffeineC. " +
@@ -59,6 +64,11 @@ func init() {
 			Name:  "run",
 			Usage: "Run a CaffeineC file",
 			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "config",
+					Usage:   "The path to the config file. ",
+					Aliases: []string{"c"},
+				},
 				&cli.StringFlag{
 					Name:    "output",
 					Aliases: []string{"o"},
@@ -108,7 +118,11 @@ func build(c *cli.Context) error {
 
 	f := c.Args().First()
 	if f == "" {
-		conf, err = GetCfConf(".")
+		confPath := "."
+		if c.String("config") != "" {
+			confPath = c.String("config")
+		}
+		conf, err = GetCfConf(confPath)
 		if err != nil {
 			return err
 		}
