@@ -16,11 +16,18 @@ import (
 type Context struct {
 	*ir.Block
 	*Compiler
-	parent      *Context
-	vars        map[string]value.Value
-	usedVars    map[string]bool
-	structNames map[*types.StructType]string
-	fc          *FlowControl
+	parent        *Context
+	vars          map[string]*Variable
+	usedVars      map[string]bool
+	structNames   map[*types.StructType]string
+	fc            *FlowControl
+	RequestedType types.Type
+}
+
+type Variable struct {
+	Name  string
+	Type  types.Type
+	Value value.Value
 }
 
 type FlowControl struct {
@@ -33,7 +40,7 @@ func NewContext(b *ir.Block, comp *Compiler) *Context {
 		Block:       b,
 		Compiler:    comp,
 		parent:      nil,
-		vars:        make(map[string]value.Value),
+		vars:        make(map[string]*Variable),
 		usedVars:    make(map[string]bool),
 		structNames: make(map[*types.StructType]string),
 		fc:          &FlowControl{},
@@ -46,11 +53,15 @@ func (c *Context) NewContext(b *ir.Block) *Context {
 	return ctx
 }
 
-func (c Context) lookupVariable(name string) value.Value {
+func (c Context) lookupVariable(name string) *Variable {
 	if c.Block != nil && c.Block.Parent != nil {
 		for _, param := range c.Block.Parent.Params {
 			if param.Name() == name {
-				return param
+				return &Variable{
+					Name:  param.Name(),
+					Type:  param.Type(),
+					Value: param,
+				}
 			}
 		}
 	}
@@ -115,7 +126,7 @@ func (c *Compiler) Compile(program *parser.Program, workingDir string) (needsImp
 	c.Context = &Context{
 		Compiler:    c,
 		parent:      nil,
-		vars:        make(map[string]value.Value),
+		vars:        make(map[string]*Variable),
 		usedVars:    make(map[string]bool),
 		structNames: make(map[*types.StructType]string),
 		fc:          &FlowControl{},

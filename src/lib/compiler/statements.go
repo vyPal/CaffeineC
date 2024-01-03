@@ -94,7 +94,11 @@ func (ctx *Context) compileExternalVariable(v *parser.ExternalVariableDefinition
 	globalV.ExternallyInitialized = true
 	globalV.Init = constant.NewZeroInitializer(ctx.stringToType(v.Type))
 	fmt.Println(globalV.Type())
-	ctx.vars[v.Name] = globalV
+	ctx.vars[v.Name] = &Variable{
+		Name:  v.Name,
+		Type:  ctx.stringToType(v.Type),
+		Value: globalV,
+	}
 }
 
 func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Name string, Type types.Type, Value value.Value, Err error) {
@@ -103,43 +107,64 @@ func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Nam
 		valType := ctx.stringToType(v.Type)
 		alloc := ctx.NewAlloca(valType)
 		ctx.NewStore(constant.NewZeroInitializer(valType), alloc)
-		ctx.vars[v.Name] = alloc
+		ctx.vars[v.Name] = &Variable{
+			Name:  v.Name,
+			Type:  ctx.stringToType(v.Type),
+			Value: alloc,
+		}
 		return v.Name, alloc.Type(), alloc, nil
 	}
 
+	ctx.RequestedType = ctx.stringToType(v.Type)
 	val, err := ctx.compileExpression(v.Assignment)
 	if err != nil {
 		return "", nil, nil, err
 	}
+	ctx.RequestedType = nil
 
 	ptr, ok := val.(*ir.InstAlloca)
 	if ok {
-		ctx.vars[v.Name] = ptr
+		ctx.vars[v.Name] = &Variable{
+			Name:  v.Name,
+			Type:  ctx.stringToType(v.Type),
+			Value: ptr,
+		}
 		return v.Name, ptr.Type(), ptr, nil
 	}
 
 	alloc := ctx.NewAlloca(val.Type())
 	ctx.NewStore(val, alloc)
-	ctx.vars[v.Name] = alloc
+	ctx.vars[v.Name] = &Variable{
+		Name:  v.Name,
+		Type:  ctx.stringToType(v.Type),
+		Value: alloc,
+	}
 	return v.Name, alloc.Type(), alloc, nil
 }
 
 func (ctx *Context) compileAssignment(a *parser.Assignment) (Name string, Value value.Value, Err error) {
+	// Compile the identifier to get the variable
+	variable, vType, err := ctx.compileIdentifier(a.Left, false)
+	if err != nil {
+		return "", nil, err
+	}
+
+	ctx.RequestedType = vType
 	val, err := ctx.compileExpression(a.Right)
 	if err != nil {
 		return "", nil, err
 	}
-	// Compile the identifier to get the variable
-	variable, err := ctx.compileIdentifier(a.Left, false)
-	if err != nil {
-		return "", nil, err
-	}
+	ctx.RequestedType = nil
 
 	ptr, ok := variable.(*ir.InstGetElementPtr)
 	if !ok {
 		aptr, ok := variable.(*ir.InstAlloca)
 		if !ok {
-			ctx.vars[a.Left.Name] = val
+			ctx.vars[a.Left.Name] = &Variable{
+				Name:  a.Left.Name,
+				Type:  vType,
+				Value: val,
+			}
 		} else {
 			ctx.NewStore(val, aptr)
 		}
@@ -374,10 +399,12 @@ func (ctx *Context) compileWhile(w *parser.While) error {
 
 func (ctx *Context) compileReturn(r *parser.Return) error {
 	if r.Expression != nil {
+		ctx.RequestedType = ctx.Block.Parent.Sig.RetType
 		val, err := ctx.compileExpression(r.Expression)
 		if err != nil {
 			return posError(r.Pos, "Error compiling return expression: %s", err.Error())
 		}
+		ctx.RequestedType = nil
 		ctx.NewRet(val)
 	} else {
 		ctx.NewRet(nil)
