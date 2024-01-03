@@ -13,7 +13,6 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/urfave/cli/v2"
-	"github.com/vyPal/CaffeineC/lib/analyzer"
 	"github.com/vyPal/CaffeineC/lib/compiler"
 	"github.com/vyPal/CaffeineC/lib/parser"
 )
@@ -231,7 +230,6 @@ func parseAndCompile(path, tmpdir string, dump bool) (string, []string, error) {
 			return "", []string{}, cli.Exit(color.RedString("Error encoding AST: %s", err), 1)
 		}
 	}
-	go analyzer.Analyze(ast) // Removing this makes the compiler ~13ms faster
 
 	comp := compiler.NewCompiler()
 	wDir, err := filepath.Abs(filepath.Dir(path))
