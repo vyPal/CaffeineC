@@ -213,6 +213,13 @@ func update(c *cli.Context) error {
 		}
 		defer dstFile.Close()
 
+		// Reset the read position of the temporary file
+		_, err = tmpFile.Seek(0, 0)
+		if err != nil {
+			fmt.Println("Failed to reset the read position of the temporary file:", err)
+			return nil
+		}
+
 		// Copy the temporary file to the destination file
 		_, err = io.Copy(dstFile, tmpFile)
 		if err != nil {

@@ -23,6 +23,11 @@ func init() {
 		Usage:    "Build a CaffeineC file",
 		Category: "compile",
 		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "config",
+				Usage:   "The path to the config file. ",
+				Aliases: []string{"c"},
+			},
 			&cli.BoolFlag{
 				Name: "ebnf",
 				Usage: "Print the EBNF grammar for CaffeineC. " +
@@ -58,6 +63,11 @@ func init() {
 			Name:  "run",
 			Usage: "Run a CaffeineC file",
 			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "config",
+					Usage:   "The path to the config file. ",
+					Aliases: []string{"c"},
+				},
 				&cli.StringFlag{
 					Name:    "output",
 					Aliases: []string{"o"},
@@ -111,7 +121,11 @@ func build(c *cli.Context) error {
 
 	f := c.Args().First()
 	if f == "" {
-		conf, err = GetCfConf(".")
+		confPath := "."
+		if c.String("config") != "" {
+			confPath = c.String("config")
+		}
+		conf, err = GetCfConf(confPath)
 		if err != nil {
 			return err
 		}
@@ -157,14 +171,20 @@ func build(c *cli.Context) error {
 		log.Fatal(err)
 	}
 
-	// If c.Bool('debug') copy the tmpdir's contents to a new folder called debug in the current directory
 	if c.Bool("debug") {
 		err = os.Mkdir("debug", 0755)
-		if !os.IsExist(err) {
-			return err
+		if err != nil {
+			if os.IsExist(err) {
+				err = os.RemoveAll("debug")
+				if err != nil {
+					return err
+				}
+			} else {
+				return err
+			}
 		}
 
-		cmd := exec.Command("cp", "-r", tmpDir, "debug")
+		cmd := exec.Command("sh", "-c", "mv "+tmpDir+"/* debug")
 		err = cmd.Run()
 		if err != nil {
 			return err

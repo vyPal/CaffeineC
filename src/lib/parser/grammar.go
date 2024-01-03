@@ -139,6 +139,7 @@ type FunctionDefinition struct {
 	Pos        lexer.Position
 	Private    bool                  `parser:"@'private'?"`
 	Static     bool                  `parser:"@'static'?"`
+	Variadic   bool                  `parser:"@'vararg'?"`
 	Name       string                `parser:"'func' @Ident"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )? ')'"`
 	ReturnType string                `parser:"( ':' @('*'? Ident) )?"`
@@ -192,7 +193,7 @@ type Return struct {
 
 type ExternalDefinition struct {
 	Pos      lexer.Position
-	Function *ExternalFunctionDefinition `parser:"(?= 'extern' 'func')@@?"`
+	Function *ExternalFunctionDefinition `parser:"(?= 'extern' 'vararg'? 'func')@@?"`
 	Variable *ExternalVariableDefinition `parser:"| (?= 'extern' 'var')@@?"`
 }
 
@@ -204,7 +205,8 @@ type ExternalVariableDefinition struct {
 
 type ExternalFunctionDefinition struct {
 	Pos        lexer.Position
-	Name       string                `parser:"'extern' 'func' @Ident"`
+	Variadic   bool                  `parser:"'extern' @'vararg'?"`
+	Name       string                `parser:"'func' @Ident"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )? ')'"`
 	ReturnType string                `parser:"( ':' @('*'? Ident) )?"`
 }
