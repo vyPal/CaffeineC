@@ -161,8 +161,8 @@ func (c *Compiler) ImportAll(path string, ctx *Context) error {
 				for _, p := range s.Export.FunctionDefinition.Parameters {
 					params = append(params, ir.NewParam(p.Name, ctx.stringToType(p.Type)))
 				}
-				fn := c.Module.NewFunc(s.Export.FunctionDefinition.Name, ctx.stringToType(s.Export.FunctionDefinition.ReturnType), params...)
-				ctx.SymbolTable[s.Export.FunctionDefinition.Name] = fn
+				fn := c.Module.NewFunc(s.Export.FunctionDefinition.Name.Name, ctx.stringToType(s.Export.FunctionDefinition.ReturnType), params...)
+				ctx.SymbolTable[s.Export.FunctionDefinition.Name.Name] = fn
 			} else if s.Export.ClassDefinition != nil {
 				cStruct := types.NewStruct()
 				cStruct.SetName(s.Export.ClassDefinition.Name)
@@ -180,11 +180,20 @@ func (c *Compiler) ImportAll(path string, ctx *Context) error {
 							params = append(params, ir.NewParam(arg.Name, ctx.stringToType(arg.Type)))
 						}
 
-						fn := ctx.Module.NewFunc(s.Export.ClassDefinition.Name+"."+f.Name, ctx.stringToType(f.ReturnType), params...)
+						ms := "." + f.Name.Name
+						if f.Name.Op {
+							ms = ".op." + strings.Trim(f.Name.String, "\"")
+						} else if f.Name.Get {
+							ms = ".get." + strings.Trim(f.Name.String, "\"")
+						} else if f.Name.Set {
+							ms = ".set." + strings.Trim(f.Name.String, "\"")
+						}
+
+						fn := ctx.Module.NewFunc(s.Export.ClassDefinition.Name+ms, ctx.stringToType(f.ReturnType), params...)
 						fn.Sig.Variadic = false
 						fn.Sig.RetType = ctx.stringToType(f.ReturnType)
 
-						ctx.SymbolTable[s.Export.ClassDefinition.Name+"."+f.Name] = fn
+						ctx.SymbolTable[s.Export.ClassDefinition.Name+ms] = fn
 					}
 				}
 			} else {
@@ -212,14 +221,14 @@ func (c *Compiler) ImportAs(path string, symbols map[string]string, ctx *Context
 	for _, s := range ast.Statements {
 		if s.Export != nil {
 			if s.Export.FunctionDefinition != nil {
-				if newname, ok := symbols[s.Export.FunctionDefinition.Name]; ok {
+				if newname, ok := symbols[s.Export.FunctionDefinition.Name.Name]; ok {
 					var params []*ir.Param
 					for _, p := range s.Export.FunctionDefinition.Parameters {
 						params = append(params, ir.NewParam(p.Name, ctx.stringToType(p.Type)))
 					}
-					fn := c.Module.NewFunc(s.Export.FunctionDefinition.Name, ctx.stringToType(s.Export.FunctionDefinition.ReturnType), params...)
+					fn := c.Module.NewFunc(s.Export.FunctionDefinition.Name.Name, ctx.stringToType(s.Export.FunctionDefinition.ReturnType), params...)
 					if newname == "" {
-						newname = s.Export.FunctionDefinition.Name
+						newname = s.Export.FunctionDefinition.Name.Name
 					}
 					ctx.SymbolTable[newname] = fn
 				}
@@ -237,8 +246,22 @@ func (c *Compiler) ImportAs(path string, symbols map[string]string, ctx *Context
 							for _, p := range st.FunctionDefinition.Parameters {
 								params = append(params, ir.NewParam(p.Name, ctx.stringToType(p.Type)))
 							}
-							fn := c.Module.NewFunc(st.FunctionDefinition.Name, ctx.stringToType(st.FunctionDefinition.ReturnType), params...)
-							ctx.SymbolTable[newname+"."+st.FunctionDefinition.Name] = fn
+							f := st.FunctionDefinition
+
+							ms := "." + f.Name.Name
+							if f.Name.Op {
+								ms = ".op." + strings.Trim(f.Name.String, "\"")
+							} else if f.Name.Get {
+								ms = ".get." + strings.Trim(f.Name.String, "\"")
+							} else if f.Name.Set {
+								ms = ".set." + strings.Trim(f.Name.String, "\"")
+							}
+
+							fn := ctx.Module.NewFunc(s.Export.ClassDefinition.Name+ms, ctx.stringToType(f.ReturnType), params...)
+							fn.Sig.Variadic = false
+							fn.Sig.RetType = ctx.stringToType(f.ReturnType)
+
+							ctx.SymbolTable[s.Export.ClassDefinition.Name+ms] = fn
 						}
 					}
 					ctx.structNames[cStruct] = newname

@@ -15,10 +15,13 @@ func recursion(last: i64): i32 {
 func main(): i32 {
 	var inp: *i8 = input("Enter your name: ");
 
-	var hello: *i8 = concat("Hello, ", inp);
-	hello = concat(hello, "!");
+	var i: *String = new String(inp);
+	var h: *String = new String("Hello, ");
+	var e: *String = new String("!");
 
-	println(hello);
+	var msg: *String = h + i + e;
+
+	println(msg.string);
 
 	for (var i: i64 = 0; i < 10; i = i + 1) {
 		printf("%d", i);

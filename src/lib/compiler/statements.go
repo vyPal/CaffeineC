@@ -181,12 +181,12 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 		params = append(params, ir.NewParam(arg.Name, ctx.stringToType(arg.Type)))
 	}
 
-	fn := ctx.Module.NewFunc(f.Name, ctx.stringToType(f.ReturnType), params...)
+	fn := ctx.Module.NewFunc(f.Name.Name, ctx.stringToType(f.ReturnType), params...)
 	fn.Sig.Variadic = f.Variadic
 	fn.Sig.RetType = ctx.stringToType(f.ReturnType)
 	block := fn.NewBlock("")
 	nctx := NewContext(block, ctx.Compiler)
-	ctx.SymbolTable[f.Name] = fn
+	ctx.SymbolTable[f.Name.Name] = fn
 
 	for _, stmt := range f.Body {
 		err := nctx.compileStatement(stmt)
@@ -198,11 +198,11 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 		if ctx.stringToType(f.ReturnType).Equal(types.Void) {
 			nctx.NewRet(nil)
 		} else {
-			return "", nil, nil, posError(f.Pos, "Function `%s` does not return a value", f.Name)
+			return "", nil, nil, posError(f.Pos, "Function `%s` does not return a value", f.Name.Name)
 		}
 	}
 
-	return f.Name, ctx.stringToType(f.ReturnType), params, nil
+	return f.Name.Name, ctx.stringToType(f.ReturnType), params, nil
 }
 
 func (ctx *Context) compileClassDefinition(c *parser.ClassDefinition) (Name string, TypeDef *types.StructType, Methods []ir.Func, err error) {
@@ -210,14 +210,15 @@ func (ctx *Context) compileClassDefinition(c *parser.ClassDefinition) (Name stri
 	classType.SetName(c.Name)
 	ctx.structNames[classType] = c.Name
 	ctx.Module.NewTypeDef(c.Name, classType)
-
 	for _, s := range c.Body {
 		if s.FieldDefinition != nil {
 			classType.Fields = append(classType.Fields, ctx.stringToType(s.FieldDefinition.Type))
 			ctx.Compiler.StructFields[c.Name] = append(ctx.Compiler.StructFields[c.Name], s.FieldDefinition)
 		} else if s.FunctionDefinition != nil {
 			err := ctx.compileClassMethodDefinition(s.FunctionDefinition, c.Name, classType)
-			return "", nil, []ir.Func{}, err
+			if err != nil {
+				return "", nil, []ir.Func{}, err
+			}
 		}
 	}
 
@@ -231,7 +232,16 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 		params = append(params, ir.NewParam(arg.Name, ctx.stringToType(arg.Type)))
 	}
 
-	fn := ctx.Module.NewFunc(cname+"."+f.Name, ctx.stringToType(f.ReturnType), params...)
+	ms := "." + f.Name.Name
+	if f.Name.Op {
+		ms = ".op." + strings.Trim(f.Name.String, "\"")
+	} else if f.Name.Get {
+		ms = ".get." + strings.Trim(f.Name.String, "\"")
+	} else if f.Name.Set {
+		ms = ".set." + strings.Trim(f.Name.String, "\"")
+	}
+
+	fn := ctx.Module.NewFunc(cname+ms, ctx.stringToType(f.ReturnType), params...)
 	fn.Sig.Variadic = false
 	fn.Sig.RetType = ctx.stringToType(f.ReturnType)
 	block := fn.NewBlock("")
@@ -250,7 +260,7 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 		}
 	}
 
-	ctx.SymbolTable[cname+"."+f.Name] = fn
+	ctx.SymbolTable[cname+ms] = fn
 	return nil
 }
 

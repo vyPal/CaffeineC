@@ -166,9 +166,11 @@ func build(c *cli.Context) error {
 	cmd.Stderr = &stderr
 
 	err = cmd.Run()
+	var cerr error
 	if err != nil {
-		log.Print("stderr:", stderr.String())
-		log.Fatal(err)
+		log.Println("stderr:", stderr.String())
+		log.Println(err)
+		cerr = err
 	}
 
 	if c.Bool("debug") {
@@ -191,7 +193,7 @@ func build(c *cli.Context) error {
 		}
 	}
 
-	return nil
+	return cerr
 }
 
 func run(c *cli.Context) error {

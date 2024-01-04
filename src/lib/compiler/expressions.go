@@ -24,13 +24,54 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 		if err != nil {
 			return nil, err
 		}
-		switch right.Op {
-		case "+":
-			left = ctx.NewAdd(left, rightVal)
-		case "-":
-			left = ctx.NewSub(left, rightVal)
+
+		switch leftType := left.(type) {
+		case *ir.InstLoad, *ir.InstCall:
+			if structType, ok := leftType.Type().(*types.PointerType); ok {
+				if _, ok := structType.ElemType.(*types.StructType); ok {
+					// Check if the class has a method with the name "classname.op.operator"
+					methodName := fmt.Sprintf("%s.op.%s", structType.ElemType.Name(), right.Op)
+					if method, ok := ctx.lookupFunction(methodName); ok {
+						// Call the method and use its result as the result
+						left = ctx.NewCall(method, left, rightVal)
+						continue
+					}
+				}
+			} else if _, ok := leftType.Type().(*types.StructType); ok {
+				// Check if the class has a method with the name "classname.op.operator"
+				methodName := fmt.Sprintf("%s.op.%s", leftType.Type().Name(), right.Op)
+				if method, ok := ctx.lookupFunction(methodName); ok {
+					// Call the method and use its result as the result
+					left = ctx.NewCall(method, left, rightVal)
+					continue
+				}
+			} else if _, ok := leftType.Type().(*types.ArrayType); ok {
+				// Check if the class has a method with the name "classname.op.operator"
+				methodName := fmt.Sprintf("%s.op.%s", leftType.Type().Name(), right.Op)
+				if method, ok := ctx.lookupFunction(methodName); ok {
+					// Call the method and use its result as the result
+					left = ctx.NewCall(method, left, rightVal)
+					continue
+				}
+			} else {
+				switch right.Op {
+				case "+":
+					left = ctx.NewAdd(left, rightVal)
+				case "-":
+					left = ctx.NewSub(left, rightVal)
+				default:
+					return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
+				}
+			}
 		default:
-			return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
+			switch right.Op {
+			case "+":
+				left = ctx.NewAdd(left, rightVal)
+			case "-":
+				left = ctx.NewSub(left, rightVal)
+			default:
+				return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
+			}
 		}
 	}
 	return left, nil
@@ -308,6 +349,9 @@ func (ctx *Context) compileSubIdentifier(f *Variable, sub *parser.Identifier) (F
 		var field *parser.FieldDefinition
 		var nfield int
 		elemtypename := f.Value.Type().(*types.PointerType).ElemType.Name()
+		if elemtypename == "" {
+			elemtypename = f.Type.Name()
+		}
 		for f := range ctx.Compiler.StructFields[elemtypename] {
 			if ctx.Compiler.StructFields[elemtypename][f].Name == sub.Name {
 				field = ctx.Compiler.StructFields[elemtypename][f]

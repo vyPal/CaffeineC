@@ -135,12 +135,21 @@ type ArgumentDefinition struct {
 	Type string `parser:"':' @('*'? Ident)"`
 }
 
+type FuncName struct {
+	Dummy  string `parser:"'func'"`
+	Op     bool   `parser:"@'op'?"`
+	Get    bool   `parser:"@'get'?"`
+	Set    bool   `parser:"@'set'?"`
+	Name   string `parser:"@Ident?"`
+	String string `parser:"@String?"`
+}
+
 type FunctionDefinition struct {
 	Pos        lexer.Position
 	Private    bool                  `parser:"@'private'?"`
 	Static     bool                  `parser:"@'static'?"`
 	Variadic   bool                  `parser:"@'vararg'?"`
-	Name       string                `parser:"'func' @Ident"`
+	Name       FuncName              `parser:"@@"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )? ')'"`
 	ReturnType string                `parser:"( ':' @('*'? Ident) )?"`
 	Body       []*Statement          `parser:"'{' @@* '}'"`
