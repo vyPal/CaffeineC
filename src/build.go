@@ -56,6 +56,10 @@ func init() {
 				Usage:   "Save additional build files for debugging. ",
 				Aliases: []string{"d"},
 			},
+			&cli.BoolFlag{
+				Name:  "obj",
+				Usage: "Compile to an object file instead of an executable. ",
+			},
 		},
 		Action: build,
 	},
@@ -159,7 +163,12 @@ func build(c *cli.Context) error {
 
 	var stderr bytes.Buffer
 
-	args := append([]string{"clang", llData}, imports...)
+	extra := ""
+	if c.Bool("obj") {
+		extra = "-c"
+	}
+
+	args := append([]string{"clang", extra, llData}, imports...)
 	args = append(args, "-o", outName)
 	cmd := exec.Command(args[0], args[1:]...)
 
