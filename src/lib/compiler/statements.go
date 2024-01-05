@@ -65,6 +65,8 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 		ctx.Compiler.ImportAs(s.FromImportMultiple.Package, symbols, ctx)
 	} else if s.Export != nil {
 		return ctx.compileStatement(s.Export)
+	} else if s.Comment != nil {
+		return nil
 	} else {
 		return posError(s.Pos, "Unknown statement")
 	}
@@ -92,7 +94,11 @@ func (ctx *Context) compileExternalVariable(v *parser.ExternalVariableDefinition
 	globalV.ExternallyInitialized = true
 	globalV.Init = constant.NewZeroInitializer(ctx.stringToType(v.Type))
 	fmt.Println(globalV.Type())
-	ctx.vars[v.Name] = globalV
+	ctx.vars[v.Name] = &Variable{
+		Name:  v.Name,
+		Type:  ctx.stringToType(v.Type),
+		Value: globalV,
+	}
 }
 
 func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Name string, Type types.Type, Value value.Value, Err error) {
@@ -101,43 +107,64 @@ func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Nam
 		valType := ctx.stringToType(v.Type)
 		alloc := ctx.NewAlloca(valType)
 		ctx.NewStore(constant.NewZeroInitializer(valType), alloc)
-		ctx.vars[v.Name] = alloc
+		ctx.vars[v.Name] = &Variable{
+			Name:  v.Name,
+			Type:  ctx.stringToType(v.Type),
+			Value: alloc,
+		}
 		return v.Name, alloc.Type(), alloc, nil
 	}
 
+	ctx.RequestedType = ctx.stringToType(v.Type)
 	val, err := ctx.compileExpression(v.Assignment)
 	if err != nil {
 		return "", nil, nil, err
 	}
+	ctx.RequestedType = nil
 
 	ptr, ok := val.(*ir.InstAlloca)
 	if ok {
-		ctx.vars[v.Name] = ptr
+		ctx.vars[v.Name] = &Variable{
+			Name:  v.Name,
+			Type:  ctx.stringToType(v.Type),
+			Value: ptr,
+		}
 		return v.Name, ptr.Type(), ptr, nil
 	}
 
 	alloc := ctx.NewAlloca(val.Type())
 	ctx.NewStore(val, alloc)
-	ctx.vars[v.Name] = alloc
+	ctx.vars[v.Name] = &Variable{
+		Name:  v.Name,
+		Type:  ctx.stringToType(v.Type),
+		Value: alloc,
+	}
 	return v.Name, alloc.Type(), alloc, nil
 }
 
 func (ctx *Context) compileAssignment(a *parser.Assignment) (Name string, Value value.Value, Err error) {
+	// Compile the identifier to get the variable
+	variable, vType, err := ctx.compileIdentifier(a.Left, false)
+	if err != nil {
+		return "", nil, err
+	}
+
+	ctx.RequestedType = vType
 	val, err := ctx.compileExpression(a.Right)
 	if err != nil {
 		return "", nil, err
 	}
-	// Compile the identifier to get the variable
-	variable, err := ctx.compileIdentifier(a.Left, false)
-	if err != nil {
-		return "", nil, err
-	}
+	ctx.RequestedType = nil
 
 	ptr, ok := variable.(*ir.InstGetElementPtr)
 	if !ok {
 		aptr, ok := variable.(*ir.InstAlloca)
 		if !ok {
-			ctx.vars[a.Left.Name] = val
+			ctx.vars[a.Left.Name] = &Variable{
+				Name:  a.Left.Name,
+				Type:  vType,
+				Value: val,
+			}
 		} else {
 			ctx.NewStore(val, aptr)
 		}
@@ -154,12 +181,12 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 		params = append(params, ir.NewParam(arg.Name, ctx.stringToType(arg.Type)))
 	}
 
-	fn := ctx.Module.NewFunc(f.Name, ctx.stringToType(f.ReturnType), params...)
+	fn := ctx.Module.NewFunc(f.Name.Name, ctx.stringToType(f.ReturnType), params...)
 	fn.Sig.Variadic = f.Variadic
 	fn.Sig.RetType = ctx.stringToType(f.ReturnType)
 	block := fn.NewBlock("")
 	nctx := NewContext(block, ctx.Compiler)
-	ctx.SymbolTable[f.Name] = fn
+	ctx.SymbolTable[f.Name.Name] = fn
 
 	for _, stmt := range f.Body {
 		err := nctx.compileStatement(stmt)
@@ -171,11 +198,11 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 		if ctx.stringToType(f.ReturnType).Equal(types.Void) {
 			nctx.NewRet(nil)
 		} else {
-			return "", nil, nil, posError(f.Pos, "Function `%s` does not return a value", f.Name)
+			return "", nil, nil, posError(f.Pos, "Function `%s` does not return a value", f.Name.Name)
 		}
 	}
 
-	return f.Name, ctx.stringToType(f.ReturnType), params, nil
+	return f.Name.Name, ctx.stringToType(f.ReturnType), params, nil
 }
 
 func (ctx *Context) compileClassDefinition(c *parser.ClassDefinition) (Name string, TypeDef *types.StructType, Methods []ir.Func, err error) {
@@ -183,14 +210,15 @@ func (ctx *Context) compileClassDefinition(c *parser.ClassDefinition) (Name stri
 	classType.SetName(c.Name)
 	ctx.structNames[classType] = c.Name
 	ctx.Module.NewTypeDef(c.Name, classType)
-
 	for _, s := range c.Body {
 		if s.FieldDefinition != nil {
 			classType.Fields = append(classType.Fields, ctx.stringToType(s.FieldDefinition.Type))
 			ctx.Compiler.StructFields[c.Name] = append(ctx.Compiler.StructFields[c.Name], s.FieldDefinition)
 		} else if s.FunctionDefinition != nil {
 			err := ctx.compileClassMethodDefinition(s.FunctionDefinition, c.Name, classType)
-			return "", nil, []ir.Func{}, err
+			if err != nil {
+				return "", nil, []ir.Func{}, err
+			}
 		}
 	}
 
@@ -204,7 +232,16 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 		params = append(params, ir.NewParam(arg.Name, ctx.stringToType(arg.Type)))
 	}
 
-	fn := ctx.Module.NewFunc(cname+"."+f.Name, ctx.stringToType(f.ReturnType), params...)
+	ms := "." + f.Name.Name
+	if f.Name.Op {
+		ms = ".op." + strings.Trim(f.Name.String, "\"")
+	} else if f.Name.Get {
+		ms = ".get." + strings.Trim(f.Name.String, "\"")
+	} else if f.Name.Set {
+		ms = ".set." + strings.Trim(f.Name.String, "\"")
+	}
+
+	fn := ctx.Module.NewFunc(cname+ms, ctx.stringToType(f.ReturnType), params...)
 	fn.Sig.Variadic = false
 	fn.Sig.RetType = ctx.stringToType(f.ReturnType)
 	block := fn.NewBlock("")
@@ -223,7 +260,7 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 		}
 	}
 
-	ctx.SymbolTable[cname+"."+f.Name] = fn
+	ctx.SymbolTable[cname+ms] = fn
 	return nil
 }
 
@@ -372,10 +409,12 @@ func (ctx *Context) compileWhile(w *parser.While) error {
 
 func (ctx *Context) compileReturn(r *parser.Return) error {
 	if r.Expression != nil {
+		ctx.RequestedType = ctx.Block.Parent.Sig.RetType
 		val, err := ctx.compileExpression(r.Expression)
 		if err != nil {
 			return posError(r.Pos, "Error compiling return expression: %s", err.Error())
 		}
+		ctx.RequestedType = nil
 		ctx.NewRet(val)
 	} else {
 		ctx.NewRet(nil)

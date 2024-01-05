@@ -55,3 +55,14 @@ export func f32ToString(value: f32): *i8 {
   sprintf(buffer, "%f", value);
   return buffer;
 }
+
+export class String {
+  string: *i8;
+	func constructor(str: *i8) {
+		this.string = str;
+	}
+
+  func op "+"(other: *String): *String {
+    return new String(concat(this.string, other));;
+  }
+}
