@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/fatih/color"
@@ -364,6 +365,9 @@ func writeHeader(f *os.File, comp *compiler.Compiler) error {
 	}
 
 	for _, fn := range comp.Module.Funcs {
+		if strings.Count(fn.Name(), ".") > 0 {
+			continue
+		}
 		_, err = f.WriteString(convertCffTypeToCType(fn.Sig.RetType) + " ")
 		if err != nil {
 			return err
@@ -409,6 +413,103 @@ func writeHeader(f *os.File, comp *compiler.Compiler) error {
 		}
 
 		_, err = f.WriteString(";\n")
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, c := range comp.Module.TypeDefs {
+		_, err = f.WriteString("class " + c.Name() + "\n{\nprivate:\n")
+		if err != nil {
+			return err
+		}
+
+		for _, field := range comp.StructFields[c.Name()] {
+			if !field.Private {
+				continue
+			}
+			_, err = f.WriteString(convertCffTypeToCType(comp.Context.StringToType(field.Type)) + " " + field.Name + ";\n")
+			if err != nil {
+				return err
+			}
+		}
+
+		_, err = f.WriteString("public:\n")
+		if err != nil {
+			return err
+		}
+
+		for _, field := range comp.StructFields[c.Name()] {
+			if field.Private {
+				continue
+			}
+			_, err = f.WriteString(convertCffTypeToCType(comp.Context.StringToType(field.Type)) + " " + field.Name + ";\n")
+			if err != nil {
+				return err
+			}
+		}
+
+		for _, fn := range comp.Module.Funcs {
+			var parts []string
+			if strings.Count(fn.Name(), ".") == 0 {
+				continue
+			} else {
+				parts = strings.Split(fn.Name(), ".")
+				if parts[0] != c.Name() {
+					continue
+				}
+			}
+			_, err = f.WriteString(convertCffTypeToCType(fn.Sig.RetType) + " ")
+			if err != nil {
+				return err
+			}
+
+			_, err = f.WriteString(parts[1])
+			if err != nil {
+				return err
+			}
+
+			_, err = f.WriteString("(")
+			if err != nil {
+				return err
+			}
+
+			for i, param := range fn.Sig.Params[1:] {
+				_, err = f.WriteString(convertCffTypeToCType(param))
+				if err != nil {
+					return err
+				}
+
+				_, err = f.WriteString(" ")
+				if err != nil {
+					return err
+				}
+
+				_, err = f.WriteString(fn.Params[i+1].Name())
+				if err != nil {
+					return err
+				}
+
+				if i != len(fn.Sig.Params)-2 {
+					_, err = f.WriteString(", ")
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			_, err = f.WriteString(")")
+			if err != nil {
+				return err
+			}
+
+			_, err = f.WriteString(";\n")
+			if err != nil {
+				return err
+			}
+		}
+
+		_, err = f.WriteString("};\n")
 		if err != nil {
 			return err
 		}

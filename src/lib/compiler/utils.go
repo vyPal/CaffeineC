@@ -13,7 +13,7 @@ func posError(pos lexer.Position, message string, args ...interface{}) error {
 	return cli.Exit(color.RedString("%s at %s:%d:%d", fmt.Sprintf(message, args...), pos.Filename, pos.Line, pos.Column), 1)
 }
 
-func (ctx *Context) stringToType(name string) types.Type {
+func (ctx *Context) StringToType(name string) types.Type {
 	switch name {
 	// Standard types
 	case "int":

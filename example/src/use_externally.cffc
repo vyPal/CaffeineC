@@ -6,3 +6,28 @@ export func testing(): i64 {
   printf("Hello, World!\n");
   return 0;
 }
+
+export class SomeClass {
+  private something: i64;
+  func constructor() {
+    this.something = 0;
+  }
+  func inc() {
+    this.something = this.something + 1;
+  }
+  func dec() {
+    this.something = this.something - 1;
+  }
+  func get(): i64 {
+    return this.something;
+  }
+  func set(newValue: i64) {
+    this.something = newValue;
+  }
+  func add(toAdd: i64) {
+    this.something = this.something + toAdd;
+  }
+  func sub(toSub: i64) {
+    this.something = this.something + toSub;
+  }
+}
