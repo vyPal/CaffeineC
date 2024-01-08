@@ -459,14 +459,24 @@ func writeHeader(f *os.File, comp *compiler.Compiler) error {
 					continue
 				}
 			}
-			_, err = f.WriteString(convertCffTypeToCType(fn.Sig.RetType) + " ")
-			if err != nil {
-				return err
-			}
 
-			_, err = f.WriteString(parts[1])
-			if err != nil {
-				return err
+			isConstructor := parts[1] == "constructor"
+
+			if !isConstructor {
+				_, err = f.WriteString(convertCffTypeToCType(fn.Sig.RetType) + " ")
+				if err != nil {
+					return err
+				}
+
+				_, err = f.WriteString(parts[1])
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err = f.WriteString(c.Name())
+				if err != nil {
+					return err
+				}
 			}
 
 			_, err = f.WriteString("(")
