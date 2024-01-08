@@ -12,7 +12,7 @@ class SomeClass
 private:
 long long something;
 public:
-void constructor();
+SomeClass();
 void inc();
 void dec();
 long long get();
