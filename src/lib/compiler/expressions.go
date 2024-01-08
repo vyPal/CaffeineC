@@ -362,7 +362,7 @@ func (ctx *Context) compileSubIdentifier(f *Variable, sub *parser.Identifier) (F
 		if field == nil {
 			return nil, nil, false, posError(sub.Pos, "Field %s not found in struct %s", sub.Name, elemtypename)
 		}
-		fieldPtr := ctx.NewGetElementPtr(ctx.stringToType(field.Type), f.Value, constant.NewInt(types.I32, int64(nfield)))
+		fieldPtr := ctx.NewGetElementPtr(ctx.StringToType(field.Type), f.Value, constant.NewInt(types.I32, int64(nfield)))
 		f.Value = fieldPtr
 		return ctx.compileSubIdentifier(f, sub.Sub)
 	}

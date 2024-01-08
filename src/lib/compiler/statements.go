@@ -78,11 +78,11 @@ func (ctx *Context) compileExternalFunction(v *parser.ExternalFunctionDefinition
 	if v.ReturnType == "" {
 		retType = types.Void
 	} else {
-		retType = ctx.stringToType(v.ReturnType)
+		retType = ctx.StringToType(v.ReturnType)
 	}
 	var args []*ir.Param
 	for _, arg := range v.Parameters {
-		args = append(args, ir.NewParam(arg.Name, ctx.stringToType(arg.Type)))
+		args = append(args, ir.NewParam(arg.Name, ctx.StringToType(arg.Type)))
 	}
 
 	fn := ctx.Module.NewFunc(v.Name, retType, args...)
@@ -90,13 +90,13 @@ func (ctx *Context) compileExternalFunction(v *parser.ExternalFunctionDefinition
 }
 
 func (ctx *Context) compileExternalVariable(v *parser.ExternalVariableDefinition) {
-	globalV := ctx.Module.NewGlobal(v.Name, ctx.stringToType(v.Type))
+	globalV := ctx.Module.NewGlobal(v.Name, ctx.StringToType(v.Type))
 	globalV.ExternallyInitialized = true
-	globalV.Init = constant.NewZeroInitializer(ctx.stringToType(v.Type))
+	globalV.Init = constant.NewZeroInitializer(ctx.StringToType(v.Type))
 	fmt.Println(globalV.Type())
 	ctx.vars[v.Name] = &Variable{
 		Name:  v.Name,
-		Type:  ctx.stringToType(v.Type),
+		Type:  ctx.StringToType(v.Type),
 		Value: globalV,
 	}
 }
@@ -104,18 +104,18 @@ func (ctx *Context) compileExternalVariable(v *parser.ExternalVariableDefinition
 func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Name string, Type types.Type, Value value.Value, Err error) {
 	// If there is no assignment, create an uninitialized variable
 	if v.Assignment == nil {
-		valType := ctx.stringToType(v.Type)
+		valType := ctx.StringToType(v.Type)
 		alloc := ctx.NewAlloca(valType)
 		ctx.NewStore(constant.NewZeroInitializer(valType), alloc)
 		ctx.vars[v.Name] = &Variable{
 			Name:  v.Name,
-			Type:  ctx.stringToType(v.Type),
+			Type:  ctx.StringToType(v.Type),
 			Value: alloc,
 		}
 		return v.Name, alloc.Type(), alloc, nil
 	}
 
-	ctx.RequestedType = ctx.stringToType(v.Type)
+	ctx.RequestedType = ctx.StringToType(v.Type)
 	val, err := ctx.compileExpression(v.Assignment)
 	if err != nil {
 		return "", nil, nil, err
@@ -126,7 +126,7 @@ func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Nam
 	if ok {
 		ctx.vars[v.Name] = &Variable{
 			Name:  v.Name,
-			Type:  ctx.stringToType(v.Type),
+			Type:  ctx.StringToType(v.Type),
 			Value: ptr,
 		}
 		return v.Name, ptr.Type(), ptr, nil
@@ -136,7 +136,7 @@ func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Nam
 	ctx.NewStore(val, alloc)
 	ctx.vars[v.Name] = &Variable{
 		Name:  v.Name,
-		Type:  ctx.stringToType(v.Type),
+		Type:  ctx.StringToType(v.Type),
 		Value: alloc,
 	}
 	return v.Name, alloc.Type(), alloc, nil
@@ -178,12 +178,12 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Name string, Value 
 func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Name string, ReturnType types.Type, Args []*ir.Param, err error) {
 	var params []*ir.Param
 	for _, arg := range f.Parameters {
-		params = append(params, ir.NewParam(arg.Name, ctx.stringToType(arg.Type)))
+		params = append(params, ir.NewParam(arg.Name, ctx.StringToType(arg.Type)))
 	}
 
-	fn := ctx.Module.NewFunc(f.Name.Name, ctx.stringToType(f.ReturnType), params...)
+	fn := ctx.Module.NewFunc(f.Name.Name, ctx.StringToType(f.ReturnType), params...)
 	fn.Sig.Variadic = f.Variadic
-	fn.Sig.RetType = ctx.stringToType(f.ReturnType)
+	fn.Sig.RetType = ctx.StringToType(f.ReturnType)
 	block := fn.NewBlock("")
 	nctx := NewContext(block, ctx.Compiler)
 	ctx.SymbolTable[f.Name.Name] = fn
@@ -195,14 +195,14 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 		}
 	}
 	if nctx.Term == nil {
-		if ctx.stringToType(f.ReturnType).Equal(types.Void) {
+		if ctx.StringToType(f.ReturnType).Equal(types.Void) {
 			nctx.NewRet(nil)
 		} else {
 			return "", nil, nil, posError(f.Pos, "Function `%s` does not return a value", f.Name.Name)
 		}
 	}
 
-	return f.Name.Name, ctx.stringToType(f.ReturnType), params, nil
+	return f.Name.Name, ctx.StringToType(f.ReturnType), params, nil
 }
 
 func (ctx *Context) compileClassDefinition(c *parser.ClassDefinition) (Name string, TypeDef *types.StructType, Methods []ir.Func, err error) {
@@ -212,7 +212,7 @@ func (ctx *Context) compileClassDefinition(c *parser.ClassDefinition) (Name stri
 	ctx.Module.NewTypeDef(c.Name, classType)
 	for _, s := range c.Body {
 		if s.FieldDefinition != nil {
-			classType.Fields = append(classType.Fields, ctx.stringToType(s.FieldDefinition.Type))
+			classType.Fields = append(classType.Fields, ctx.StringToType(s.FieldDefinition.Type))
 			ctx.Compiler.StructFields[c.Name] = append(ctx.Compiler.StructFields[c.Name], s.FieldDefinition)
 		} else if s.FunctionDefinition != nil {
 			err := ctx.compileClassMethodDefinition(s.FunctionDefinition, c.Name, classType)
@@ -229,7 +229,7 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 	var params []*ir.Param
 	params = append(params, ir.NewParam("this", types.NewPointer(ctype)))
 	for _, arg := range f.Parameters {
-		params = append(params, ir.NewParam(arg.Name, ctx.stringToType(arg.Type)))
+		params = append(params, ir.NewParam(arg.Name, ctx.StringToType(arg.Type)))
 	}
 
 	ms := "." + f.Name.Name
@@ -241,9 +241,9 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 		ms = ".set." + strings.Trim(f.Name.String, "\"")
 	}
 
-	fn := ctx.Module.NewFunc(cname+ms, ctx.stringToType(f.ReturnType), params...)
+	fn := ctx.Module.NewFunc(cname+ms, ctx.StringToType(f.ReturnType), params...)
 	fn.Sig.Variadic = false
-	fn.Sig.RetType = ctx.stringToType(f.ReturnType)
+	fn.Sig.RetType = ctx.StringToType(f.ReturnType)
 	block := fn.NewBlock("")
 	nctx := NewContext(block, ctx.Compiler)
 	for _, stmt := range f.Body {
@@ -253,7 +253,7 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 		}
 	}
 	if nctx.Term == nil {
-		if ctx.stringToType(f.ReturnType).Equal(types.Void) {
+		if ctx.StringToType(f.ReturnType).Equal(types.Void) {
 			nctx.NewRet(nil)
 		} else {
 			cli.Exit(color.RedString("Error: Method `%s` of class `%s` does not return a value", f.Name, cname), 1)
