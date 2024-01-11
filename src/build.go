@@ -412,6 +412,13 @@ func writeHeader(f *os.File, comp *compiler.Compiler) error {
 			}
 		}
 
+		if fn.Sig.Variadic {
+			_, err = f.WriteString(", ...")
+			if err != nil {
+				return err
+			}
+		}
+
 		_, err = f.WriteString(")")
 		if err != nil {
 			return err
