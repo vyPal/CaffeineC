@@ -1,6 +1,6 @@
 package external;
 
-extern vararg func printf(fmt: *i8): i32;
+extern vararg func printf(fmt: *u8): i32;
 
 export func testing(): i64 {
   printf("Hello, World!\n");
