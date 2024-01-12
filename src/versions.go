@@ -183,17 +183,7 @@ func update(c *cli.Context) error {
 			return nil
 		}
 
-		// Expand the ~ to the user's home directory
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			fmt.Println("Failed to get the user's home directory:", err)
-			return nil
-		}
-
-		baseDir := filepath.Join(homeDir, ".local", "bin")
-		if runtime.GOOS == "darwin" {
-			baseDir = filepath.Join("/usr", "local", "bin")
-		}
+		baseDir := filepath.Join("/usr", "local", "bin")
 
 		// Set the destination file path
 		dstFilePath := filepath.Join(baseDir, "CaffeineC")
