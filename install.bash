@@ -22,8 +22,6 @@ OS=$(uname -s | tr A-Z a-z)
 case $OS in
   linux)
     DOWNLOAD_URL="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC-Linux"
-    INSTALL_DIR="$HOME/.local/bin"
-    SHARE_DIR="$HOME/.local/share"
     source /etc/os-release
     case $ID in
       debian|ubuntu|mint)
@@ -51,8 +49,6 @@ case $OS in
 
   darwin)
     DOWNLOAD_URL="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC-macOS"
-    INSTALL_DIR="/usr/local/bin"
-    SHARE_DIR="/usr/local/share"
     PACKAGE_MANAGER="brew"
     ;;
 
@@ -64,6 +60,9 @@ esac
 
 # Check and install clang
 install_package "$PACKAGE_MANAGER" "clang" "llvm"
+
+INSTALL_DIR="/usr/local/bin"
+SHARE_DIR="/usr/local/lib"
 
 # Create the directory if it doesn't exist
 mkdir -p $INSTALL_DIR
