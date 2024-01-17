@@ -70,8 +70,9 @@ func init() {
 		Action: build,
 	},
 		&cli.Command{
-			Name:  "run",
-			Usage: "Run a CaffeineC file",
+			Name:     "run",
+			Category: "compile",
+			Usage:    "Run a CaffeineC file",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:    "config",
