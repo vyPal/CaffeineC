@@ -72,10 +72,10 @@ mkdir -p $SHARE_DIR
 latest_version=$(curl -sL https://github.com/vyPal/CaffeineC/releases/latest | grep -Eo 'tag/v[0-9\.]+' | head -n 1)
 
 echo "Downloading CaffeineC version $latest_version..."
-curl -sL $DOWNLOAD_URL -o $INSTALL_DIR/CaffeineC
+sudo curl -sL $DOWNLOAD_URL -o $INSTALL_DIR/CaffeineC
 
 # Make the binary executable
-chmod +x $INSTALL_DIR/CaffeineC
+sudo chmod +x $INSTALL_DIR/CaffeineC
 
 # Determine the current shell
 current_shell=$(basename "$SHELL")
@@ -101,7 +101,7 @@ if [ -n "$autocomplete_script_url" ]; then
   # Download the autocomplete script
   autocomplete_script_path="$SHARE_DIR/CaffeineC_autocomplete"
   echo "Downloading autocomplete script for $current_shell..."
-  curl -sL $autocomplete_script_url -o $autocomplete_script_path
+  sudo curl -sL $autocomplete_script_url -o $autocomplete_script_path
 
   touch $shell_config_file
 
