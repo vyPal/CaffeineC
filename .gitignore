@@ -25,6 +25,7 @@
 # vendor/
 
 .vscode
-tmp_compile
+
+example/debug
 
 !autocomplete/*
