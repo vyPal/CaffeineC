@@ -10,6 +10,7 @@ import (
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 	"github.com/urfave/cli/v2"
+	"github.com/vyPal/CaffeineC/lib/cache"
 	"github.com/vyPal/CaffeineC/lib/parser"
 )
 
@@ -98,6 +99,7 @@ type Compiler struct {
 	AST             *parser.Program
 	workingDir      string
 	RequiredImports []string
+	PackageCache    cache.PackageCache
 }
 
 func NewCompiler() *Compiler {
@@ -131,6 +133,10 @@ func (c *Compiler) Compile(program *parser.Program, workingDir string) (needsImp
 
 func (c *Compiler) ImportAll(path string, ctx *Context) error {
 	path = strings.Trim(path, "\"")
+	path, err := ResolveImportPath(path, c.PackageCache)
+	if err != nil {
+		return err
+	}
 	if !filepath.IsAbs(path) {
 		path = filepath.Clean(filepath.Join(c.workingDir, path))
 	}
@@ -186,6 +192,10 @@ func (c *Compiler) ImportAll(path string, ctx *Context) error {
 
 func (c *Compiler) ImportAs(path string, symbols map[string]string, ctx *Context) error {
 	path = strings.Trim(path, "\"")
+	path, err := ResolveImportPath(path, c.PackageCache)
+	if err != nil {
+		return err
+	}
 	if !filepath.IsAbs(path) {
 		path = filepath.Clean(filepath.Join(c.workingDir, path))
 	}

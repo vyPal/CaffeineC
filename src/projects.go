@@ -77,6 +77,11 @@ func init() {
 				},
 				Action: libInfo,
 			},
+			{
+				Name:   "update",
+				Usage:  "Updates a package",
+				Action: libUpdate,
+			},
 		},
 		Category: "project",
 		Action:   libInfo,
@@ -127,7 +132,7 @@ func install(c *cli.Context) error {
 			return err
 		}
 
-		pkg, err := pcache.GetPackage("", "", filepath.Join(strings.TrimPrefix(liburl, "https://"), version))
+		pkg, err := pcache.GetPackage("", version, strings.TrimPrefix(liburl, "https://"))
 		if err != nil {
 			return err
 		}
@@ -228,7 +233,7 @@ func InstallLibrary(pcache cache.PackageCache, liburl string) (conf project.CfCo
 
 	pkg := cache.Package{
 		Name:       conf.Name,
-		Version:    conf.Version,
+		Version:    version,
 		Identifier: strings.TrimPrefix(liburl, "https://"),
 		Path:       installDir,
 	}
@@ -309,6 +314,100 @@ func libInfo(c *cli.Context) error {
 				return err
 			}
 		}
+	}
+
+	fmt.Println("--------------------------------------------------")
+	fmt.Println("                  Package Details                 ")
+	fmt.Println("--------------------------------------------------")
+	fmt.Printf("Name        : %s\n", conf.Name)
+	fmt.Printf("Description : %s\n", conf.Description)
+	fmt.Printf("Version     : %s\n", conf.Version)
+	fmt.Printf("Main File   : %s\n", conf.Main)
+	fmt.Printf("Author      : %s\n", conf.Author)
+	fmt.Printf("License     : %s\n", conf.License)
+	fmt.Println("--------------------------------------------------")
+
+	return nil
+}
+
+func libUpdate(c *cli.Context) error {
+	liburl := c.Args().First()
+	conf, err := project.GetCfConf("")
+	if err != nil {
+		return err
+	}
+
+	pcache := cache.PackageCache{}
+	err = pcache.Init()
+	if err != nil {
+		return err
+	}
+
+	if liburl == "" {
+		for _, dep := range conf.Dependencies {
+			pkg, err := pcache.GetPackage(dep.Package, dep.Version, dep.Identifier)
+			if err != nil {
+				return err
+			}
+
+			if pkg == (cache.Package{}) {
+				color.Green("Package not found locally, cloning...")
+				conf, _, _, err = InstallLibrary(pcache, dep.Identifier)
+				if err != nil {
+					return err
+				}
+			} else {
+				color.Green("Package found locally, updating...")
+				conf, _, _, err = cache.UpdateLibrary(pcache, dep.Identifier)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		err = pcache.CacheScan(true)
+		if err != nil {
+			return err
+		}
+
+		liburl, version, err := PrepUrl(liburl)
+		if err != nil {
+			return err
+		}
+
+		pkg, err := pcache.GetPackage("", version, strings.TrimPrefix(liburl, "https://"))
+		if err != nil {
+			return err
+		}
+
+		var ident, ver string
+		if pkg == (cache.Package{}) {
+			color.Green("Package not found locally, cloning...")
+			conf, ident, ver, err = InstallLibrary(pcache, liburl)
+			if err != nil {
+				return err
+			}
+		} else {
+			color.Green("Package found locally, updating...")
+			conf, ident, ver, err = cache.UpdateLibrary(pcache, liburl)
+			if err != nil {
+				return err
+			}
+		}
+
+		dep := project.CFConfDependency{
+			Package:    conf.Name,
+			Version:    ver,
+			Identifier: ident,
+		}
+
+		conf.Dependencies = append(conf.Dependencies, dep)
+		err = conf.Save("cfconf.yaml", true)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("Updated package", conf.Name, "in the project.")
 	}
 
 	fmt.Println("--------------------------------------------------")
