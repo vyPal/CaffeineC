@@ -18,6 +18,7 @@ import (
 	"github.com/vyPal/CaffeineC/lib/analyzer"
 	"github.com/vyPal/CaffeineC/lib/compiler"
 	"github.com/vyPal/CaffeineC/lib/parser"
+	"github.com/vyPal/CaffeineC/lib/project"
 )
 
 func init() {
@@ -125,7 +126,7 @@ func build(c *cli.Context) error {
 		}
 	}
 
-	var conf CfConf
+	var conf project.CfConf
 
 	f := c.Args().First()
 	if f == "" {
@@ -133,7 +134,7 @@ func build(c *cli.Context) error {
 		if c.String("config") != "" {
 			confPath = c.String("config")
 		}
-		conf, err = GetCfConf(confPath)
+		conf, err = project.GetCfConf(confPath)
 		if err != nil {
 			return err
 		}
@@ -148,7 +149,7 @@ func build(c *cli.Context) error {
 	if os.IsNotExist(err) {
 		return cli.Exit(color.RedString("File does not exist: %s", f), 1)
 	} else if inf.IsDir() {
-		conf, err := GetCfConf(f)
+		conf, err := project.GetCfConf(f)
 		if err != nil {
 			return err
 		}
