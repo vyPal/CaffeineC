@@ -13,6 +13,7 @@ type CfConf struct {
 	Description  string             `yaml:"description"`
 	Version      string             `yaml:"version"`
 	Main         string             `yaml:"main"`
+	SourceDir    string             `yaml:"source"`
 	Dependencies []CFConfDependency `yaml:"dependencies"`
 	Author       string             `yaml:"author"`
 	License      string             `yaml:"license"`
@@ -29,6 +30,7 @@ func (c *CfConf) CreateDefault() {
 	c.Description = "A new CaffeineC project"
 	c.Version = "1.0.0"
 	c.Main = "src/main.cffc"
+	c.SourceDir = "src"
 	c.Author = "Anonymous"
 	c.License = "MIT"
 }
