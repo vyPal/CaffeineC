@@ -15,6 +15,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/llir/llvm/ir/types"
 	"github.com/urfave/cli/v2"
+	"github.com/vyPal/CaffeineC/lib/cache"
 	"github.com/vyPal/CaffeineC/lib/compiler"
 	"github.com/vyPal/CaffeineC/lib/parser"
 	"github.com/vyPal/CaffeineC/lib/project"
@@ -159,12 +160,16 @@ func build(c *cli.Context) error {
 		f = filepath.Join(f, conf.Main)
 	}
 
-	llData, req, err := parseAndCompile(f, tmpDir, c.Bool("debug"), c.Bool("header"))
+	pcache := cache.PackageCache{}
+	pcache.Init()
+	pcache.CacheScan(false)
+
+	llData, req, err := parseAndCompile(f, tmpDir, c.Bool("debug"), c.Bool("header"), pcache)
 	if err != nil {
 		return err
 	}
 
-	imports, err := processIncludes(c.StringSlice("include"), req, tmpDir, c.Int("opt-level"), c.Bool("debug"), c.Bool("header"))
+	imports, err := processIncludes(c.StringSlice("include"), req, tmpDir, c.Int("opt-level"), c.Bool("debug"), c.Bool("header"), pcache)
 	if err != nil {
 		return err
 	}
@@ -244,7 +249,7 @@ func run(c *cli.Context) error {
 	return nil
 }
 
-func parseAndCompile(path, tmpdir string, dump, header bool) (string, []string, error) {
+func parseAndCompile(path, tmpdir string, dump, header bool, pcache cache.PackageCache) (string, []string, error) {
 	ast := parser.ParseFile(path)
 	if dump {
 		cwd, err := os.Getwd()
@@ -279,6 +284,7 @@ func parseAndCompile(path, tmpdir string, dump, header bool) (string, []string, 
 	}
 
 	comp := compiler.NewCompiler()
+	comp.PackageCache = pcache
 	wDir, err := filepath.Abs(filepath.Dir(path))
 	if err != nil {
 		return "", []string{}, err
@@ -547,7 +553,7 @@ func writeHeader(f *os.File, comp *compiler.Compiler) error {
 	return nil
 }
 
-func processIncludes(includes []string, requirements []string, tmpDir string, opt int, dump, header bool) ([]string, error) {
+func processIncludes(includes []string, requirements []string, tmpDir string, opt int, dump, header bool, pcache cache.PackageCache) ([]string, error) {
 	var files []string
 	includes = append(includes, requirements...)
 
@@ -567,7 +573,7 @@ func processIncludes(includes []string, requirements []string, tmpDir string, op
 				}
 
 				if !info.IsDir() {
-					err = processFile(path, &files, tmpDir, opt, dump, header, &wg, errs)
+					err = processFile(path, &files, tmpDir, opt, dump, header, &wg, errs, pcache)
 					if err != nil {
 						return err
 					}
@@ -576,7 +582,7 @@ func processIncludes(includes []string, requirements []string, tmpDir string, op
 				return nil
 			})
 		} else {
-			err = processFile(include, &files, tmpDir, opt, dump, header, &wg, errs)
+			err = processFile(include, &files, tmpDir, opt, dump, header, &wg, errs, pcache)
 		}
 
 		if err != nil {
@@ -596,7 +602,7 @@ func processIncludes(includes []string, requirements []string, tmpDir string, op
 	return files, nil
 }
 
-func processFile(path string, files *[]string, tmpDir string, opt int, dump, header bool, wg *sync.WaitGroup, errs chan<- error) error {
+func processFile(path string, files *[]string, tmpDir string, opt int, dump, header bool, wg *sync.WaitGroup, errs chan<- error, pcache cache.PackageCache) error {
 	ext := filepath.Ext(path)
 	if ext == ".c" || ext == ".cpp" || ext == ".h" || ext == ".o" {
 		*files = append(*files, path)
@@ -604,14 +610,14 @@ func processFile(path string, files *[]string, tmpDir string, opt int, dump, hea
 		wg.Add(1)
 		go func(path string) {
 			defer wg.Done()
-			llFile, req, err := parseAndCompile(path, tmpDir, dump, header)
+			llFile, req, err := parseAndCompile(path, tmpDir, dump, header, pcache)
 			if err != nil {
 				errs <- err
 				return
 			}
 
 			if len(req) > 0 {
-				_, err := processIncludes([]string{}, req, tmpDir, opt, dump, header)
+				_, err := processIncludes([]string{}, req, tmpDir, opt, dump, header, pcache)
 				if err != nil {
 					errs <- err
 					return

@@ -4,14 +4,17 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
 
+	"github.com/fatih/color"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/vyPal/CaffeineC/lib/project"
-	"github.com/vyPal/CaffeineC/util"
 )
 
 type PackageCache struct {
@@ -74,10 +77,13 @@ func (p *PackageCache) DeepCacheScan() error {
 
 			identifier := strings.TrimPrefix(path, p.BaseDir)
 			identifier = strings.TrimPrefix(identifier, "/")
+			split := strings.Split(identifier, "/")
+			branch := split[len(split)-1]
+			identifier = strings.TrimSuffix(identifier, "/"+branch)
 
 			pkg := Package{
 				Name:       conf.Name,
-				Version:    conf.Version,
+				Version:    branch,
 				Identifier: identifier,
 				Path:       path,
 			}
@@ -146,8 +152,7 @@ func (p *PackageCache) CacheSave() error {
 
 func (p *PackageCache) GetPackage(name, version, identifier string) (Package, error) {
 	for _, pkg := range p.PkgList {
-		fmt.Printf("Name: %s, Version: %s, Ident: %s, SearchIdent: %s\n", pkg.Name, pkg.Version, pkg.Identifier, identifier)
-		if (pkg.Name == name || name == "") && pkg.Identifier == identifier {
+		if (pkg.Name == name || name == "") && (pkg.Identifier == identifier || pkg.Identifier == "github.com/"+identifier) {
 			if version == "" || version == "*" || version == pkg.Version {
 				return pkg, nil
 			}
@@ -160,22 +165,8 @@ func (p *PackageCache) GetPackage(name, version, identifier string) (Package, er
 
 func (p *PackageCache) HasPackage(name, version, identifier string) (bool, error) {
 	for _, pkg := range p.PkgList {
-		if pkg.Name == name && pkg.Identifier == identifier {
-			if version == "" || version == "*" {
-				return true, nil
-			}
-
-			sver, err := util.Parse(pkg.Version)
-			if err != nil {
-				return false, err
-			}
-
-			sat, err := sver.Satisfies(version)
-			if err != nil {
-				return false, err
-			}
-
-			if sat {
+		if (pkg.Name == name || name == "") && (pkg.Identifier == identifier || pkg.Identifier == "github.com/"+identifier) {
+			if version == "" || version == "*" || version == pkg.Version {
 				return true, nil
 			}
 			continue
@@ -183,4 +174,88 @@ func (p *PackageCache) HasPackage(name, version, identifier string) (bool, error
 	}
 
 	return false, nil
+}
+
+func (p *PackageCache) ResolvePackage(ident string) (found bool, pkg Package, fp string, err error) {
+	split := strings.Split(ident, "/")
+	for i := len(split); i > 0; i-- {
+		joined := strings.Join(split[:i], "/")
+		found, err = p.HasPackage("", "*", joined)
+		if err != nil {
+			return false, Package{}, "", err
+		}
+		if found {
+			fp = strings.Join(split[i:], "/")
+			pkg, err = p.GetPackage("", "*", joined)
+			if err != nil {
+				return false, Package{}, "", err
+			}
+			break
+		}
+	}
+	return found, pkg, fp, nil
+}
+
+func PrepUrl(liburl string) (u, ver string, e error) {
+	version := "main"
+	if strings.Contains(liburl, "@") {
+		split := strings.Split(liburl, "@")
+		liburl = split[0]
+		version = split[1]
+	} else {
+		color.Yellow("Branch name not specified, defaulting to 'main'")
+	}
+
+	parsedUrl, err := url.Parse(liburl)
+	if err != nil {
+		return "", "", err
+	}
+
+	if parsedUrl.Hostname() == "" {
+		liburl = "https://github.com/" + liburl
+	}
+
+	if !strings.HasPrefix(liburl, "http://") && !strings.HasPrefix(liburl, "https://") {
+		liburl = "https://" + liburl
+	}
+	return liburl, version, nil
+}
+
+func UpdateLibrary(pcache PackageCache, liburl string) (conf project.CfConf, ident, ver string, e error) {
+	liburl, version, err := PrepUrl(liburl)
+	if err != nil {
+		return project.CfConf{}, "", "", err
+	}
+
+	// Get the directory in the cache's BaseDir
+	updateDir := filepath.Join(pcache.BaseDir, strings.TrimPrefix(liburl, "https://"), version)
+
+	// Open the existing repository
+	repo, err := git.PlainOpen(updateDir)
+	if err != nil {
+		return project.CfConf{}, "", "", err
+	}
+
+	// Get the working directory for the repository
+	w, err := repo.Worktree()
+	if err != nil {
+		return project.CfConf{}, "", "", err
+	}
+
+	// Pull the latest changes from the origin
+	err = w.Pull(&git.PullOptions{
+		RemoteName:    "origin",
+		ReferenceName: plumbing.NewBranchReferenceName(version),
+	})
+	if err != nil && err != git.NoErrAlreadyUpToDate {
+		return project.CfConf{}, "", "", err
+	}
+
+	// Get the configuration file from the updated repository
+	conf, err = project.GetCfConf(updateDir)
+	if err != nil {
+		return project.CfConf{}, "", "", err
+	}
+
+	return conf, strings.TrimPrefix(liburl, "https://"), version, nil
 }
