@@ -1,7 +1,11 @@
-name: NewProject
-description: A new CaffeineC project
-version: 1.0.0
+name: std
+description: The CaffeineC standard library
+version: 1.0.2
 main: src/main.cffc
-dependencies: []
-author: Anonymous
-license: MIT
+source: src
+dependencies:
+- package: std
+  version: main
+  identifier: github.com/vyPal/cffc-std
+author: vyPal
+license: GPL-3.0

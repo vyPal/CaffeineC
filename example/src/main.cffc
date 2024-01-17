@@ -1,6 +1,6 @@
 package main;
 
-import "lib/std.cffc";
+import "vyPal/cffc-std/io";
 
 extern vararg func printf(fmt: *i8): i32;
 
