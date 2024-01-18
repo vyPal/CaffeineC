@@ -182,6 +182,15 @@ func (c *Compiler) ImportAll(path string, ctx *Context) error {
 						ctx.SymbolTable[s.Export.ClassDefinition.Name+"."+f.Name] = fn
 					}
 				}
+			} else if s.Export.External != nil {
+				if s.Export.External.Function != nil {
+					var params []*ir.Param
+					for _, p := range s.Export.External.Function.Parameters {
+						params = append(params, ir.NewParam(p.Name, ctx.StringToType(p.Type)))
+					}
+					fn := c.Module.NewFunc(s.Export.External.Function.Name, ctx.StringToType(s.Export.External.Function.ReturnType), params...)
+					ctx.SymbolTable[s.Export.External.Function.Name] = fn
+				}
 			} else {
 				continue
 			}
@@ -242,6 +251,15 @@ func (c *Compiler) ImportAs(path string, symbols map[string]string, ctx *Context
 					}
 					ctx.structNames[cStruct] = newname
 					ctx.Module.NewTypeDef(newname, cStruct)
+				}
+			} else if s.Export.External != nil {
+				if s.Export.External.Function != nil {
+					var params []*ir.Param
+					for _, p := range s.Export.External.Function.Parameters {
+						params = append(params, ir.NewParam(p.Name, ctx.StringToType(p.Type)))
+					}
+					fn := c.Module.NewFunc(s.Export.External.Function.Name, ctx.StringToType(s.Export.External.Function.ReturnType), params...)
+					ctx.SymbolTable[s.Export.External.Function.Name] = fn
 				}
 			} else {
 				continue
