@@ -2,9 +2,7 @@ package main;
 
 import "vyPal/cffc-std/io";
 
-extern vararg func printf(fmt: *i8): i32;
-
-func recursion(last: i64): i32 {
+func recursion(last: i64): i64 {
 	if (last > 0) {
 		printf("Remaining: %d\n", last-1);
 		return recursion(last-1);
