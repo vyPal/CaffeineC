@@ -305,6 +305,28 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 	}
 
 	if i.Sub == nil {
+		if ctx.RequestedType != nil {
+			typeString := ctx.TypeToString(ctx.RequestedType)
+			if call, ok := val.Value.(*ir.InstCall); ok {
+				if call.Type().Equal(ctx.RequestedType) {
+					return call, ctx.RequestedType, nil
+				}
+			} else if load, ok := val.Value.(*ir.InstLoad); ok {
+				if load.Type().Equal(ctx.RequestedType) {
+					return load, ctx.RequestedType, nil
+				}
+			} else if structType, ok := val.Type.(*types.StructType); ok {
+				method, ok := ctx.lookupFunction(structType.Name() + ".get." + typeString)
+				if ok {
+					result := ctx.NewCall(method, val.Value)
+					return result, result.Type(), nil
+				}
+			}
+			if val.Type.Equal(ctx.RequestedType) {
+				return val.Value, ctx.RequestedType, nil
+			}
+			return nil, nil, posError(i.Pos, "Cannot convert %s to %s", val.Type.Name(), typeString)
+		}
 		return val.Value, val.Type, nil
 	}
 
@@ -333,6 +355,27 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 		// Otherwise, load the field and continue
 		currentVal.Value = ctx.NewLoad(fieldType, fieldPtr)
 		currentSub = currentSub.Sub
+	}
+
+	// If we're here, we're returning the top-level struct
+	if ctx.RequestedType != nil {
+		typeString := ctx.TypeToString(ctx.RequestedType)
+		if call, ok := val.Value.(*ir.InstCall); ok {
+			if call.Type().Equal(ctx.RequestedType) {
+				return call, ctx.RequestedType, nil
+			}
+		} else if load, ok := val.Value.(*ir.InstLoad); ok {
+			if load.Type().Equal(ctx.RequestedType) {
+				return load, ctx.RequestedType, nil
+			}
+		} else if structType, ok := val.Type.(*types.StructType); ok {
+			method, ok := ctx.lookupFunction(structType.Name() + ".get." + typeString)
+			if ok {
+				result := ir.NewCall(method, val.Value)
+				return result, ctx.RequestedType, nil
+			}
+		}
+		return nil, nil, posError(i.Pos, "Cannot convert %s to %s", currentVal.Type.Name(), typeString)
 	}
 
 	// If we're here, we're returning the top-level struct

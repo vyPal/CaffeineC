@@ -1,0 +1,11 @@
+package main;
+
+export class String {
+  string: *i8;
+  func constructor(default: *i8) {
+    this.string = default;
+  }
+  func get "*i8"(): *i8 {
+    return this.string;
+  }
+}

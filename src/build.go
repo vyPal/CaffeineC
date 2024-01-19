@@ -103,6 +103,7 @@ func init() {
 }
 
 var isRun bool
+var outpath string
 
 func build(c *cli.Context) error {
 	if !isRun {
@@ -138,11 +139,13 @@ func build(c *cli.Context) error {
 		if c.String("config") != "" {
 			confPath = c.String("config")
 		}
+		confPath = strings.TrimSuffix(confPath, "cfconf.yaml")
 		conf, err = project.GetCfConf(confPath)
 		if err != nil {
 			return err
 		}
-		f = conf.Main
+		f = filepath.Join(confPath, conf.Main)
+		outName = filepath.Join(confPath, outName)
 	}
 
 	inf, err := os.Stat(f)
@@ -216,6 +219,10 @@ func build(c *cli.Context) error {
 		}
 	}
 
+	if isRun {
+		outpath = outName
+	}
+
 	return cerr
 }
 
@@ -226,11 +233,11 @@ func run(c *cli.Context) error {
 		return err
 	}
 
-	out := c.String("output")
-	if out == "" {
-		out = "output"
+	if !strings.Contains(outpath, "/") {
+		outpath = "./" + outpath
 	}
-	cmd := exec.Command("./" + out)
+
+	cmd := exec.Command(outpath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

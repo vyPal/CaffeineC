@@ -56,3 +56,31 @@ func (ctx *Context) StringToType(name string) types.Type {
 
 	return typ
 }
+
+func (ctx *Context) TypeToString(typ types.Type) string {
+	switch typ := typ.(type) {
+	case *types.VoidType:
+		return "void"
+	case *types.IntType:
+		return "i" + strconv.Itoa(int(typ.BitSize))
+	case *types.FloatType:
+		switch typ.Kind {
+		case types.FloatKindHalf:
+			return "f16"
+		case types.FloatKindFloat:
+			return "f32"
+		case types.FloatKindDouble:
+			return "f64"
+		case types.FloatKindFP128:
+			return "f128"
+		default:
+			panic("Unknown float type")
+		}
+	case *types.PointerType:
+		return "*" + ctx.TypeToString(typ.ElemType)
+	case *types.StructType:
+		return typ.Name()
+	default:
+		panic("Unknown type")
+	}
+}

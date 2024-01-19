@@ -1,6 +1,7 @@
 package main;
 
 import "vyPal/cffc-std/io";
+import "./typetests.cffc";
 
 func recursion(last: i64): i32 {
 	if (last > 0) {
@@ -12,6 +13,8 @@ func recursion(last: i64): i32 {
 
 func main(): i32 {
 	var inp: *i8 = input("Enter your name: ");
+	var test: String = new String("Hello, World!");
+	println(test);
 
 	println(concat("Hello, ", inp));
 

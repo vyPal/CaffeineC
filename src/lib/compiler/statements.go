@@ -149,7 +149,11 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Name string, Value 
 		return "", nil, err
 	}
 
-	ctx.RequestedType = vType
+	if ptr, ok := vType.(*types.PointerType); ok {
+		ctx.RequestedType = ptr.ElemType
+	} else {
+		ctx.RequestedType = vType
+	}
 	val, err := ctx.compileExpression(a.Right)
 	if err != nil {
 		return "", nil, err
@@ -169,7 +173,7 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Name string, Value 
 			ctx.NewStore(val, aptr)
 		}
 	} else {
-		ctx.Block.NewStore(val, ptr)
+		ctx.NewStore(val, ptr)
 	}
 
 	return a.Left.Name, val, nil
