@@ -1,7 +1,6 @@
 package compiler
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/fatih/color"
@@ -91,7 +90,6 @@ func (ctx *Context) compileExternalVariable(v *parser.ExternalVariableDefinition
 	globalV := ctx.Module.NewGlobal(v.Name, ctx.StringToType(v.Type))
 	globalV.ExternallyInitialized = true
 	globalV.Init = constant.NewZeroInitializer(ctx.StringToType(v.Type))
-	fmt.Println(globalV.Type())
 	ctx.vars[v.Name] = globalV
 }
 
