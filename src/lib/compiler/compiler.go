@@ -19,7 +19,6 @@ type Context struct {
 	*Compiler
 	parent      *Context
 	vars        map[string]value.Value
-	usedVars    map[string]bool
 	structNames map[*types.StructType]string
 	fc          *FlowControl
 }
@@ -35,7 +34,6 @@ func NewContext(b *ir.Block, comp *Compiler) *Context {
 		Compiler:    comp,
 		parent:      nil,
 		vars:        make(map[string]value.Value),
-		usedVars:    make(map[string]bool),
 		structNames: make(map[*types.StructType]string),
 		fc:          &FlowControl{},
 	}
@@ -59,8 +57,6 @@ func (c Context) lookupVariable(name string) value.Value {
 		return v
 	} else if c.parent != nil {
 		v := c.parent.lookupVariable(name)
-		// Mark the variable as used in the parent context
-		c.usedVars[name] = true
 		return v
 	} else {
 		cli.Exit(color.RedString("Error: Unable to find a variable named: %s", name), 1)
@@ -118,7 +114,6 @@ func (c *Compiler) Compile(program *parser.Program, workingDir string) (needsImp
 		Compiler:    c,
 		parent:      nil,
 		vars:        make(map[string]value.Value),
-		usedVars:    make(map[string]bool),
 		structNames: make(map[*types.StructType]string),
 		fc:          &FlowControl{},
 	}
