@@ -19,7 +19,6 @@ jobs:
         with:
           files: |
               src/**
-              .github/workflows/llc.yml
               .github/workflows/go.yml
   
   create_release:
