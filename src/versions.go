@@ -66,11 +66,8 @@ func checkUpdate(c *cli.Context) {
 		return
 	}
 
-	// Remove the 'v' prefix from the tag name
-	latestVersion := strings.TrimPrefix(release.TagName, "v")
-
-	if latestVersion != c.App.Version {
-		fmt.Printf("A new version is available: %s to update, run 'CaffeineC update'\n", latestVersion)
+	if release.TagName != c.App.Version {
+		fmt.Printf("A new version is available: %s to update, run 'CaffeineC update'\n", release.TagName)
 	}
 }
 
@@ -150,11 +147,8 @@ func update(c *cli.Context) error {
 		return nil
 	}
 
-	// Remove the 'v' prefix from the tag name
-	latestVersion := strings.TrimPrefix(release.TagName, "v")
-
-	if latestVersion != c.App.Version {
-		fmt.Printf("A new version is available: %s. Updating...\n", latestVersion)
+	if release.TagName != c.App.Version {
+		fmt.Printf("A new version is available: %s. Updating...\n", release.TagName)
 
 		osSuffix := "Linux"
 		if runtime.GOOS == "darwin" {

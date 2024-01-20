@@ -56,7 +56,7 @@ jobs:
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           title: "Release ${{ steps.semver.outputs.version_tag  }}"
-          automatic_release_tag: "${{ steps.semver.outputs.version_tag  }}"
+          automatic_release_tag: "${{ steps.semver.outputs.version  }}"
           prerelease: false
           draft: true
   

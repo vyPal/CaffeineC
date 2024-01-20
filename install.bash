@@ -69,7 +69,7 @@ mkdir -p $INSTALL_DIR
 mkdir -p $SHARE_DIR
 
 # Download and install your compiler binary
-latest_version=$(curl -sL https://github.com/vyPal/CaffeineC/releases/latest | grep -Eo 'tag/v[0-9\.]+' | head -n 1)
+latest_version=$(curl -sL https://github.com/vyPal/CaffeineC/releases/latest | grep -Eo 'tag/[0-9\.]+' | head -n 1)
 
 echo "Downloading CaffeineC version $latest_version..."
 sudo curl -sL $DOWNLOAD_URL -o $INSTALL_DIR/CaffeineC
