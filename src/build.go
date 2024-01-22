@@ -140,6 +140,7 @@ func build(c *cli.Context) error {
 			confPath = c.String("config")
 		}
 		confPath = strings.TrimSuffix(confPath, "cfconf.yaml")
+
 		conf, err = project.GetCfConf(confPath)
 		if err != nil {
 			return err
