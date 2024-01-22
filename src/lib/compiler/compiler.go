@@ -19,7 +19,6 @@ type Context struct {
 	*Compiler
 	parent        *Context
 	vars          map[string]*Variable
-	usedVars      map[string]bool
 	structNames   map[*types.StructType]string
 	fc            *FlowControl
 	RequestedType types.Type
@@ -41,7 +40,7 @@ func NewContext(b *ir.Block, comp *Compiler) *Context {
 		Block:       b,
 		Compiler:    comp,
 		parent:      nil,
-		vars:        make(map[string]value.Value),
+		vars:        make(map[string]*Variable),
 		structNames: make(map[*types.StructType]string),
 		fc:          &FlowControl{},
 	}
@@ -125,7 +124,7 @@ func (c *Compiler) Compile(program *parser.Program, workingDir string) (needsImp
 	c.Context = &Context{
 		Compiler:    c,
 		parent:      nil,
-		vars:        make(map[string]value.Value),
+		vars:        make(map[string]*Variable),
 		structNames: make(map[*types.StructType]string),
 		fc:          &FlowControl{},
 	}
@@ -198,15 +197,6 @@ func (c *Compiler) ImportAll(path string, ctx *Context) error {
 
 						ctx.SymbolTable[s.Export.ClassDefinition.Name+ms] = fn
 					}
-				}
-			} else if s.Export.External != nil {
-				if s.Export.External.Function != nil {
-					var params []*ir.Param
-					for _, p := range s.Export.External.Function.Parameters {
-						params = append(params, ir.NewParam(p.Name, ctx.StringToType(p.Type)))
-					}
-					fn := c.Module.NewFunc(s.Export.External.Function.Name, ctx.StringToType(s.Export.External.Function.ReturnType), params...)
-					ctx.SymbolTable[s.Export.External.Function.Name] = fn
 				}
 			} else if s.Export.External != nil {
 				if s.Export.External.Function != nil {
