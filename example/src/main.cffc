@@ -3,27 +3,11 @@ package main;
 import "vyPal/cffc-std/io";
 import "./typetests.cffc";
 
-func recursion(last: i64): i32 {
-	if (last > 0) {
-		printf("Remaining: %d\n", last-1);
-		return recursion(last-1);
-	}
-	return 0;
-}
-
 func main(): i32 {
-	var inp: *i8 = input("Enter your name: ");
 	var test: String = new String("Hello, World!");
-	println(test);
+	var test2: String = new String(" xD");
 
-	println(concat("Hello, ", inp));
-
-	for (var i: i64 = 0; i < 10; i = i + 1) {
-		printf("%d", i);
-	}
-	println("");
-
-	recursion(10);
+	println(test+test2);
 	
 	return 0;
 }

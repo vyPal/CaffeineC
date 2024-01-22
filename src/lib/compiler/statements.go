@@ -149,7 +149,14 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Name string, Value 
 		return "", nil, err
 	}
 
-	if ptr, ok := vType.(*types.PointerType); ok {
+	if ptr, ok := variable.(*ir.InstGetElementPtr); ok {
+		/*
+			fmt.Println("This now")
+			fmt.Println("vType: ", vType)
+			fmt.Println("ElemType: ", ptr.ElemType)
+		*/
+		ctx.RequestedType = ptr.ElemType
+	} else if ptr, ok := vType.(*types.PointerType); ok {
 		ctx.RequestedType = ptr.ElemType
 	} else {
 		ctx.RequestedType = vType

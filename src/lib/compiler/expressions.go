@@ -135,16 +135,9 @@ func (ctx *Context) compileFactor(f *parser.Factor) (value.Value, error) {
 	if f.Value != nil {
 		return ctx.compileValue(f.Value)
 	} else if f.Identifier != nil {
-		val, vType, err := ctx.compileIdentifier(f.Identifier, false)
+		val, _, err := ctx.compileIdentifier(f.Identifier, false)
 		if err != nil {
 			return nil, err
-		}
-		if f.GEP != nil {
-			gepExpr, err := ctx.compileExpression(f.GEP)
-			if err != nil {
-				return nil, err
-			}
-			return ctx.NewGetElementPtr(vType, val, gepExpr), nil
 		}
 		if v, ok := val.(*ir.InstAlloca); ok {
 			return ctx.NewLoad(v.Type().(*types.PointerType).ElemType, val), nil
@@ -154,6 +147,12 @@ func (ctx *Context) compileFactor(f *parser.Factor) (value.Value, error) {
 			return ctx.NewLoad(v.Type().(*types.PointerType).ElemType, val), nil
 		}
 		return val, nil
+	} else if f.BitCast != nil {
+		val, err := ctx.compileExpression(f.BitCast.Expr)
+		if err != nil {
+			return nil, err
+		}
+		return ctx.NewBitCast(val, ctx.StringToType(f.BitCast.Type)), nil
 	} else if f.ClassMethod != nil {
 		return ctx.compileClassMethod(f.ClassMethod)
 	} else if f.FunctionCall != nil {
@@ -227,7 +226,16 @@ func (ctx *Context) compileFunctionCall(fc *parser.FunctionCall) (value.Value, e
 func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 	if v.Float != nil {
 		if ctx.RequestedType != nil {
-			if ctx.RequestedType == types.Float {
+			if ptrType, ok := ctx.RequestedType.(*types.PointerType); ok {
+				// Create a new local variable of the float type
+				local := ctx.NewAlloca(ptrType.ElemType.(*types.FloatType))
+
+				// Store the float in the local variable
+				ctx.NewStore(constant.NewFloat(ptrType.ElemType.(*types.FloatType), *v.Float), local)
+
+				// Return a pointer to the local variable
+				return local, nil
+			} else if ctx.RequestedType == types.Float {
 				return constant.NewFloat(types.Float, *v.Float), nil
 			} else if ctx.RequestedType == types.Double {
 				return constant.NewFloat(types.Double, *v.Float), nil
@@ -238,8 +246,16 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 		return constant.NewFloat(types.Double, *v.Float), nil
 	} else if v.Int != nil {
 		if ctx.RequestedType != nil {
-			intType, ok := ctx.RequestedType.(*types.IntType)
-			if ok {
+			if ptrType, ok := ctx.RequestedType.(*types.PointerType); ok {
+				// Create a new local variable of the int type
+				local := ctx.NewAlloca(ptrType.ElemType.(*types.IntType))
+
+				// Store the int in the local variable
+				ctx.NewStore(constant.NewInt(ptrType.ElemType.(*types.IntType), *v.Int), local)
+
+				// Return a pointer to the local variable
+				return local, nil
+			} else if intType, ok := ctx.RequestedType.(*types.IntType); ok {
 				return constant.NewInt(intType, *v.Int), nil
 			} else {
 				return nil, posError(v.Pos, "Cannot convert int to %T", ctx.RequestedType)
@@ -305,6 +321,21 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 	}
 
 	if i.Sub == nil {
+		if i.GEP != nil {
+			// Load the value
+			loadedValue := ctx.NewLoad(val.Type, val.Value)
+
+			gepExpr, err := ctx.compileExpression(i.GEP)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			// Run GetElementPtr on the loaded value
+			v := ctx.NewGetElementPtr(loadedValue.Type(), loadedValue, gepExpr)
+			val.Value = v
+			val.Type = v.ElemType.(*types.PointerType)
+		}
+		/* TODO: Also move to top
 		if ctx.RequestedType != nil {
 			typeString := ctx.TypeToString(ctx.RequestedType)
 			if call, ok := val.Value.(*ir.InstCall); ok {
@@ -327,6 +358,7 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 			}
 			return nil, nil, posError(i.Pos, "Cannot convert %s to %s", val.Type.Name(), typeString)
 		}
+		*/
 		return val.Value, val.Type, nil
 	}
 
@@ -358,6 +390,7 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 	}
 
 	// If we're here, we're returning the top-level struct
+	/* TODO: Move to top-level expression
 	if ctx.RequestedType != nil {
 		typeString := ctx.TypeToString(ctx.RequestedType)
 		if call, ok := val.Value.(*ir.InstCall); ok {
@@ -377,6 +410,7 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 		}
 		return nil, nil, posError(i.Pos, "Cannot convert %s to %s", currentVal.Type.Name(), typeString)
 	}
+	*/
 
 	// If we're here, we're returning the top-level struct
 	return currentVal.Value, currentVal.Type, nil
@@ -408,6 +442,20 @@ func (ctx *Context) compileSubIdentifier(f *Variable, sub *parser.Identifier) (F
 
 		fieldPtr := ctx.NewGetElementPtr(ctx.StringToType(field.Type), f.Value, constant.NewInt(types.I32, int64(nfield)))
 		f.Value = fieldPtr
+		if sub.GEP != nil {
+			// Load the value
+			loadedValue := ctx.NewLoad(f.Type, f.Value)
+
+			gepExpr, err := ctx.compileExpression(sub.GEP)
+			if err != nil {
+				return nil, nil, false, err
+			}
+
+			// Run GetElementPtr on the loaded value
+			v := ctx.NewGetElementPtr(loadedValue.Type(), loadedValue, gepExpr)
+			f.Value = v
+			f.Type = v.ElemType.(*types.PointerType)
+		}
 		return ctx.compileSubIdentifier(f, sub.Sub)
 	}
 	return f.Type, f.Value, false, nil
