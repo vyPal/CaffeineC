@@ -47,14 +47,6 @@ func init() {
 				Aliases: []string{"i"},
 				Usage:   "Add a directory or file to the include path",
 			},
-			&cli.IntFlag{
-				Name: "opt-level",
-				Usage: "The optimization level to use. " +
-					"0 is no optimization, 3 is the most optimization." +
-					"Lower levels are faster to compile, higher levels are faster to run.",
-				Aliases: []string{"O"},
-				Value:   2,
-			},
 			&cli.BoolFlag{
 				Name:    "debug",
 				Usage:   "Save additional build files for debugging. ",
@@ -67,6 +59,12 @@ func init() {
 			&cli.BoolFlag{
 				Name:  "header",
 				Usage: "Generate .h files for each .cffc file.",
+			},
+			&cli.StringSliceFlag{
+				Name:    "clang-args",
+				Aliases: []string{"a"},
+				Usage: "Pass additional arguments to clang. " +
+					"Useful for passing flags like -O2 or -g.",
 			},
 		},
 		Action: build,
@@ -95,6 +93,12 @@ func init() {
 					Name:    "debug",
 					Usage:   "Save additional build files for debugging. ",
 					Aliases: []string{"d"},
+				},
+				&cli.StringSliceFlag{
+					Name:    "clang-args",
+					Aliases: []string{"a"},
+					Usage: "Pass additional arguments to clang. " +
+						"Useful for passing flags like -O2 or -g.",
 				},
 			},
 			Action: run,
@@ -173,7 +177,9 @@ func build(c *cli.Context) error {
 		return err
 	}
 
-	imports, err := processIncludes(c.StringSlice("include"), req, tmpDir, c.Int("opt-level"), false, c.Bool("header"), pcache)
+	compiledCache := make(map[string]bool)
+
+	imports, err := processIncludes(c.StringSlice("include"), req, tmpDir, c.Int("opt-level"), false, c.Bool("header"), pcache, compiledCache)
 	if err != nil {
 		return err
 	}
@@ -188,13 +194,19 @@ func build(c *cli.Context) error {
 
 	var stderr bytes.Buffer
 
-	extra := ""
+	extra := []string{}
 	if c.Bool("obj") {
-		extra = "-c"
+		extra = append(extra, "-c")
 	}
 
-	args := append([]string{"clang", extra, llData}, imports...)
-	args = append(args, "-o", outName)
+	args := append([]string{"clang", llData}, imports...)
+	args = append(args, extra...)
+	args = append(args, c.StringSlice("clang-args")...)
+
+	if !c.Bool("obj") {
+		args = append(args, "-o", outName)
+	}
+
 	cmd := exec.Command(args[0], args[1:]...)
 
 	cmd.Stderr = &stderr
@@ -563,7 +575,7 @@ func writeHeader(f *os.File, comp *compiler.Compiler) error {
 	return nil
 }
 
-func processIncludes(includes []string, requirements []string, tmpDir string, opt int, dump, header bool, pcache cache.PackageCache) ([]string, error) {
+func processIncludes(includes []string, requirements []string, tmpDir string, opt int, dump, header bool, pcache cache.PackageCache, compiledCache map[string]bool) ([]string, error) {
 	var files []string
 	includes = append(includes, requirements...)
 
@@ -583,7 +595,7 @@ func processIncludes(includes []string, requirements []string, tmpDir string, op
 				}
 
 				if !info.IsDir() {
-					err = processFile(path, &files, tmpDir, opt, dump, header, &wg, errs, pcache)
+					err = processFile(path, &files, tmpDir, opt, dump, header, &wg, errs, pcache, compiledCache)
 					if err != nil {
 						return err
 					}
@@ -592,7 +604,7 @@ func processIncludes(includes []string, requirements []string, tmpDir string, op
 				return nil
 			})
 		} else {
-			err = processFile(include, &files, tmpDir, opt, dump, header, &wg, errs, pcache)
+			err = processFile(include, &files, tmpDir, opt, dump, header, &wg, errs, pcache, compiledCache)
 		}
 
 		if err != nil {
@@ -612,11 +624,16 @@ func processIncludes(includes []string, requirements []string, tmpDir string, op
 	return files, nil
 }
 
-func processFile(path string, files *[]string, tmpDir string, opt int, dump, header bool, wg *sync.WaitGroup, errs chan<- error, pcache cache.PackageCache) error {
+func processFile(path string, files *[]string, tmpDir string, opt int, dump, header bool, wg *sync.WaitGroup, errs chan<- error, pcache cache.PackageCache, compiledCache map[string]bool) error {
 	ext := filepath.Ext(path)
 	if ext == ".c" || ext == ".cpp" || ext == ".h" || ext == ".o" {
 		*files = append(*files, path)
 	} else if ext == ".cffc" {
+		// Check if the file has already been compiled
+		if _, ok := compiledCache[path]; ok {
+			return nil
+		}
+
 		wg.Add(1)
 		go func(path string) {
 			defer wg.Done()
@@ -626,8 +643,11 @@ func processFile(path string, files *[]string, tmpDir string, opt int, dump, hea
 				return
 			}
 
+			// Add the file to the compiled cache
+			compiledCache[path] = true
+
 			if len(req) > 0 {
-				_, err := processIncludes([]string{}, req, tmpDir, opt, false, header, pcache)
+				_, err := processIncludes([]string{}, req, tmpDir, opt, false, header, pcache, compiledCache)
 				if err != nil {
 					errs <- err
 					return

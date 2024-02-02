@@ -139,14 +139,17 @@ func (c *Compiler) Compile(program *parser.Program, workingDir string) (needsImp
 
 func (c *Compiler) ImportAll(path string, ctx *Context) error {
 	path = strings.Trim(path, "\"")
-	path, err := ResolveImportPath(path, c.PackageCache)
+	path, importpath, err := ResolveImportPath(path, c.PackageCache)
 	if err != nil {
 		return err
 	}
 	if !filepath.IsAbs(path) {
 		path = filepath.Clean(filepath.Join(c.workingDir, path))
 	}
-	c.RequiredImports = append(c.RequiredImports, path)
+	if !filepath.IsAbs(importpath) {
+		importpath = filepath.Clean(filepath.Join(c.workingDir, importpath))
+	}
+	c.RequiredImports = append(c.RequiredImports, importpath)
 	info, err := os.Stat(path)
 	if err != nil {
 		return err
@@ -217,14 +220,17 @@ func (c *Compiler) ImportAll(path string, ctx *Context) error {
 
 func (c *Compiler) ImportAs(path string, symbols map[string]string, ctx *Context) error {
 	path = strings.Trim(path, "\"")
-	path, err := ResolveImportPath(path, c.PackageCache)
+	path, importpath, err := ResolveImportPath(path, c.PackageCache)
 	if err != nil {
 		return err
 	}
 	if !filepath.IsAbs(path) {
 		path = filepath.Clean(filepath.Join(c.workingDir, path))
 	}
-	c.RequiredImports = append(c.RequiredImports, path)
+	if !filepath.IsAbs(importpath) {
+		importpath = filepath.Clean(filepath.Join(c.workingDir, importpath))
+	}
+	c.RequiredImports = append(c.RequiredImports, importpath)
 	info, err := os.Stat(path)
 	if err != nil {
 		return err

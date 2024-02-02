@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/fatih/color"
@@ -110,7 +109,7 @@ func install(c *cli.Context) error {
 
 			if pkg == (cache.Package{}) {
 				color.Green("Package not found locally, cloning...")
-				conf, _, _, err = InstallLibrary(pcache, dep.Identifier)
+				conf, _, _, err = cache.InstallLibrary(pcache, dep.Identifier)
 				if err != nil {
 					return err
 				}
@@ -138,23 +137,24 @@ func install(c *cli.Context) error {
 		}
 
 		var ident, ver string
+		var cnf project.CfConf
 		if pkg == (cache.Package{}) {
 			color.Green("Package not found locally, cloning...")
-			conf, ident, ver, err = InstallLibrary(pcache, liburl)
+			cnf, ident, ver, err = cache.InstallLibrary(pcache, liburl)
 			if err != nil {
 				return err
 			}
 		} else {
 			ident = pkg.Identifier
 			ver = pkg.Version
-			conf, err = project.GetCfConf(pkg.Path)
+			cnf, err = project.GetCfConf(pkg.Path)
 			if err != nil {
 				return err
 			}
 		}
 
 		dep := project.CFConfDependency{
-			Package:    conf.Name,
+			Package:    cnf.Name,
 			Version:    ver,
 			Identifier: ident,
 		}
@@ -205,51 +205,6 @@ func PrepUrl(liburl string) (u, ver string, e error) {
 		liburl = "https://" + liburl
 	}
 	return liburl, version, nil
-}
-
-func InstallLibrary(pcache cache.PackageCache, liburl string) (conf project.CfConf, ident, ver string, e error) {
-	liburl, version, err := PrepUrl(liburl)
-	if err != nil {
-		return project.CfConf{}, "", "", err
-	}
-
-	// Create a directory in the cache's BaseDir
-	installDir := filepath.Join(pcache.BaseDir, strings.TrimPrefix(liburl, "https://"), version)
-	err = os.MkdirAll(installDir, 0700)
-	if err != nil {
-		return project.CfConf{}, "", "", err
-	}
-
-	// Clone the repository to the install directory
-	_, err = git.PlainClone(installDir, false, &git.CloneOptions{
-		URL:           liburl,
-		SingleBranch:  true,
-		Depth:         1,
-		ReferenceName: plumbing.NewBranchReferenceName(version),
-	})
-	if err != nil {
-		return project.CfConf{}, "", "", err
-	}
-
-	pkg := cache.Package{
-		Name:       conf.Name,
-		Version:    version,
-		Identifier: strings.TrimPrefix(liburl, "https://"),
-		Path:       installDir,
-	}
-	pcache.PkgList = append(pcache.PkgList, pkg)
-	err = pcache.CacheSave()
-	if err != nil {
-		return project.CfConf{}, "", "", err
-	}
-
-	// Get the configuration file from the cloned repository
-	conf, err = project.GetCfConf(installDir)
-	if err != nil {
-		return project.CfConf{}, "", "", err
-	}
-
-	return conf, strings.TrimPrefix(liburl, "https://"), version, nil
 }
 
 func libInfo(c *cli.Context) error {
@@ -352,7 +307,7 @@ func libUpdate(c *cli.Context) error {
 
 			if pkg == (cache.Package{}) {
 				color.Green("Package not found locally, cloning...")
-				conf, _, _, err = InstallLibrary(pcache, dep.Identifier)
+				conf, _, _, err = cache.InstallLibrary(pcache, dep.Identifier)
 				if err != nil {
 					return err
 				}
@@ -381,22 +336,23 @@ func libUpdate(c *cli.Context) error {
 		}
 
 		var ident, ver string
+		var cnf project.CfConf
 		if pkg == (cache.Package{}) {
 			color.Green("Package not found locally, cloning...")
-			conf, ident, ver, err = InstallLibrary(pcache, liburl)
+			cnf, ident, ver, err = cache.InstallLibrary(pcache, liburl)
 			if err != nil {
 				return err
 			}
 		} else {
 			color.Green("Package found locally, updating...")
-			conf, ident, ver, err = cache.UpdateLibrary(pcache, liburl)
+			cnf, ident, ver, err = cache.UpdateLibrary(pcache, liburl)
 			if err != nil {
 				return err
 			}
 		}
 
 		dep := project.CFConfDependency{
-			Package:    conf.Name,
+			Package:    cnf.Name,
 			Version:    ver,
 			Identifier: ident,
 		}
