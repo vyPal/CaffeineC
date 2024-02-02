@@ -7,7 +7,7 @@ func main(): i32 {
 	var test: String = new String("Hello, World!");
 	var test2: String = new String(" xD");
 
-	println(test+test2);
+	println((test+test2):*i8);
 	
 	return 0;
 }

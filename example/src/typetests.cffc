@@ -8,11 +8,11 @@ export class String {
     this.string = default;
   }
 
-  func op "+"(other: *i8): *i8 {
-    return concat(this.string, other);
-  }
-  
   func get "*i8"(): *i8 {
     return this.string;
+  }
+
+  func op "+"(other: *String): *String {
+    return new String(concat(this.string, other.string));;
   }
 }

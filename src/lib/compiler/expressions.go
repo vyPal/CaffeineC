@@ -26,7 +26,7 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 		}
 
 		switch leftType := left.(type) {
-		case *ir.InstLoad, *ir.InstCall:
+		case *ir.InstLoad, *ir.InstCall, *ir.InstAlloca:
 			if structType, ok := leftType.Type().(*types.PointerType); ok {
 				if _, ok := structType.ElemType.(*types.StructType); ok {
 					// Check if the class has a method with the name "classname.op.operator"
@@ -140,7 +140,14 @@ func (ctx *Context) compileFactor(f *parser.Factor) (value.Value, error) {
 			return nil, err
 		}
 		if v, ok := val.(*ir.InstAlloca); ok {
-			return ctx.NewLoad(v.Type().(*types.PointerType).ElemType, val), nil
+			elemType := v.Type().(*types.PointerType).ElemType
+			if _, isStruct := elemType.(*types.StructType); isStruct {
+				return val, nil
+			}
+			if _, isPointer := elemType.(*types.PointerType); isPointer {
+				return val, nil
+			}
+			return ctx.NewLoad(elemType, val), nil
 		} else if v, ok := val.(*ir.InstPhi); ok {
 			return ctx.NewLoad(v.Type().(*types.PointerType).ElemType, val), nil
 		} else if v, ok := val.(*ir.InstGetElementPtr); ok {
@@ -148,11 +155,7 @@ func (ctx *Context) compileFactor(f *parser.Factor) (value.Value, error) {
 		}
 		return val, nil
 	} else if f.BitCast != nil {
-		val, err := ctx.compileExpression(f.BitCast.Expr)
-		if err != nil {
-			return nil, err
-		}
-		return ctx.NewBitCast(val, ctx.StringToType(f.BitCast.Type)), nil
+		return ctx.compileBitCast(f.BitCast)
 	} else if f.ClassMethod != nil {
 		return ctx.compileClassMethod(f.ClassMethod)
 	} else if f.FunctionCall != nil {
@@ -164,6 +167,47 @@ func (ctx *Context) compileFactor(f *parser.Factor) (value.Value, error) {
 	} else {
 		return nil, posError(f.Pos, "Unknown factor type")
 	}
+}
+
+func (ctx *Context) compileBitCast(bc *parser.BitCast) (value.Value, error) {
+	val, err := ctx.compileExpression(bc.Expr)
+	if err != nil {
+		return nil, err
+	}
+
+	targetType := ctx.StringToType(bc.Type)
+
+	// If the value is already of the target type, just return it
+	if val.Type().Equal(targetType) {
+		return val, nil
+	}
+
+	// If the value is a struct type or a pointer to a struct type, try to find a conversion function
+	if structType, ok := val.Type().(*types.StructType); ok {
+		method, ok := ctx.lookupFunction(structType.Name() + ".get." + bc.Type)
+		if ok {
+			// If a conversion function is found, call it and return the result
+			result := ctx.NewCall(method, val)
+			return result, nil
+		}
+	} else if ptrType, ok := val.Type().(*types.PointerType); ok {
+		if structType, ok := ptrType.ElemType.(*types.StructType); ok {
+			method, ok := ctx.lookupFunction(structType.Name() + ".get." + bc.Type)
+			if ok {
+				// If a conversion function is found, call it and return the result
+				result := ctx.NewCall(method, val)
+				return result, nil
+			}
+		}
+	}
+
+	// If the value is not a custom type or there is no conversion function, perform a bitcast
+	bitcast := ctx.NewBitCast(val, targetType)
+	if bitcast.Type().Equal(targetType) {
+		return bitcast, nil
+	}
+
+	return nil, posError(bc.Pos, "Cannot convert %s to %s", val.Type().Name(), bc.Type)
 }
 
 func (ctx *Context) compileClassInitializer(ci *parser.ClassInitializer) (value.Value, error) {
@@ -359,7 +403,7 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 			return nil, nil, posError(i.Pos, "Cannot convert %s to %s", val.Type.Name(), typeString)
 		}
 		*/
-		return val.Value, val.Type, nil
+		return val.Value, val.Value.Type(), nil
 	}
 
 	// Iterate over the subs

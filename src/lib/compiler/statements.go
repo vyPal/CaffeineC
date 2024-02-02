@@ -115,6 +115,20 @@ func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Nam
 		return v.Name, alloc.Type(), alloc, nil
 	}
 
+	valType := ctx.StringToType(v.Type)
+	if _, isPointer := valType.(*types.PointerType); isPointer && v.Assignment != nil {
+		val, err := ctx.compileExpression(v.Assignment)
+		if err != nil {
+			return "", nil, nil, err
+		}
+		ctx.vars[v.Name] = &Variable{
+			Name:  v.Name,
+			Type:  valType,
+			Value: val,
+		}
+		return v.Name, valType, val, nil
+	}
+
 	ctx.RequestedType = ctx.StringToType(v.Type)
 	val, err := ctx.compileExpression(v.Assignment)
 	if err != nil {
@@ -257,6 +271,7 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 	fn.Sig.RetType = ctx.StringToType(f.ReturnType)
 	block := fn.NewBlock("")
 	nctx := NewContext(block, ctx.Compiler)
+	ctx.SymbolTable[cname+ms] = fn
 	for _, stmt := range f.Body {
 		err := nctx.compileStatement(stmt)
 		if err != nil {
@@ -271,7 +286,6 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 		}
 	}
 
-	ctx.SymbolTable[cname+ms] = fn
 	return nil
 }
 

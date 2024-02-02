@@ -173,7 +173,7 @@ func build(c *cli.Context) error {
 		return err
 	}
 
-	imports, err := processIncludes(c.StringSlice("include"), req, tmpDir, c.Int("opt-level"), c.Bool("debug"), c.Bool("header"), pcache)
+	imports, err := processIncludes(c.StringSlice("include"), req, tmpDir, c.Int("opt-level"), false, c.Bool("header"), pcache)
 	if err != nil {
 		return err
 	}
@@ -211,6 +211,15 @@ func build(c *cli.Context) error {
 		err = os.Mkdir("debug", 0755)
 		if !os.IsExist(err) {
 			return err
+		} else if os.IsExist(err) {
+			err = os.RemoveAll("debug")
+			if err != nil {
+				return err
+			}
+			err = os.Mkdir("debug", 0755)
+			if err != nil {
+				return err
+			}
 		}
 
 		cmd := exec.Command("sh", "-c", "mv "+tmpDir+"/* debug")
@@ -259,8 +268,8 @@ func parseAndCompile(path, tmpdir string, dump, header bool, pcache cache.Packag
 		}
 
 		relativePath, err := filepath.Rel(cwd, path)
-		if err != nil {
-			relativePath = path
+		if err != nil || filepath.IsAbs(relativePath) {
+			relativePath = filepath.Base(path)
 		}
 
 		fullPath := filepath.Join(tmpdir, "ast-"+relativePath+".json")
@@ -618,7 +627,7 @@ func processFile(path string, files *[]string, tmpDir string, opt int, dump, hea
 			}
 
 			if len(req) > 0 {
-				_, err := processIncludes([]string{}, req, tmpDir, opt, dump, header, pcache)
+				_, err := processIncludes([]string{}, req, tmpDir, opt, false, header, pcache)
 				if err != nil {
 					errs <- err
 					return
