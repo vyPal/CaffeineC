@@ -53,7 +53,7 @@ type ArgumentList struct {
 type ClassInitializer struct {
 	Pos       lexer.Position
 	ClassName string       `parser:"'new' @Ident"`
-	Args      ArgumentList `parser:"'(' @@ ')' ';'"`
+	Args      ArgumentList `parser:"'(' @@ ')'"`
 }
 
 type FunctionCall struct {

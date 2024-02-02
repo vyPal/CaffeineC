@@ -13,6 +13,6 @@ export class String {
   }
 
   func op "+"(other: *String): *String {
-    return new String(concat(this.string, other.string));;
+    return new String(concat(this.string, other.string));
   }
 }
