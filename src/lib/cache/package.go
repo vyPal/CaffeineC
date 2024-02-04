@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -20,6 +21,7 @@ import (
 type PackageCache struct {
 	BaseDir string
 	RootDir string
+	ObjDir  string
 	PkgList []Package
 }
 
@@ -28,6 +30,7 @@ type Package struct {
 	Version    string
 	Identifier string
 	Path       string
+	ObjDir     string
 }
 
 func (p *PackageCache) Init() error {
@@ -52,8 +55,15 @@ func (p *PackageCache) Init() error {
 		return err
 	}
 
+	objDir := path.Join(libDir, "obj")
+	err = os.Mkdir(objDir, 0700)
+	if err != nil && !os.IsExist(err) {
+		return err
+	}
+
 	p.RootDir = libDir
 	p.BaseDir = cacheDir
+	p.ObjDir = objDir
 	p.PkgList = make([]Package, 0)
 
 	return nil
@@ -81,11 +91,28 @@ func (p *PackageCache) DeepCacheScan() error {
 			branch := split[len(split)-1]
 			identifier = strings.TrimSuffix(identifier, "/"+branch)
 
+			objDir := filepath.Join(p.ObjDir, identifier)
+
+			if _, err := os.Stat(objDir); !os.IsNotExist(err) {
+				os.RemoveAll(objDir)
+			}
+
+			os.MkdirAll(objDir, 0755)
+
+			cmd := exec.Command("CaffeineC", "build", "--obj", path)
+			cmd.Dir = objDir
+			err = cmd.Run()
+			fmt.Println("Ran", cmd.String(), "command in", objDir, "with directory", path)
+			if err != nil {
+				return err
+			}
+
 			pkg := Package{
 				Name:       conf.Name,
 				Version:    branch,
 				Identifier: identifier,
 				Path:       path,
+				ObjDir:     objDir,
 			}
 
 			p.PkgList = append(p.PkgList, pkg)
@@ -103,7 +130,7 @@ func (p *PackageCache) DeepCacheScan() error {
 }
 
 func (p *PackageCache) CacheScan(deepOnFail bool) error {
-	cacheFile, err := os.Open(path.Join(p.BaseDir, "cache.bin"))
+	cacheFile, err := os.Open(path.Join(p.RootDir, "cache.bin"))
 	if err != nil {
 		if os.IsNotExist(err) {
 			if deepOnFail {
@@ -136,7 +163,7 @@ func (p *PackageCache) CacheScan(deepOnFail bool) error {
 }
 
 func (p *PackageCache) CacheSave() error {
-	cacheFile, err := os.Create(path.Join(p.BaseDir, "cache.bin"))
+	cacheFile, err := os.Create(path.Join(p.RootDir, "cache.bin"))
 	if err != nil {
 		return err
 	}
@@ -176,24 +203,30 @@ func (p *PackageCache) HasPackage(name, version, identifier string) (bool, error
 	return false, nil
 }
 
-func (p *PackageCache) ResolvePackage(ident string) (found bool, pkg Package, fp string, err error) {
+func (p *PackageCache) ResolvePackage(ident string) (found bool, pkg Package, fp string, objDir string, err error) {
 	split := strings.Split(ident, "/")
 	for i := len(split); i > 0; i-- {
 		joined := strings.Join(split[:i], "/")
 		found, err = p.HasPackage("", "*", joined)
 		if err != nil {
-			return false, Package{}, "", err
+			return false, Package{}, "", "", err
 		}
 		if found {
-			fp = strings.Join(split[i:], "/")
 			pkg, err = p.GetPackage("", "*", joined)
 			if err != nil {
-				return false, Package{}, "", err
+				return false, Package{}, "", "", err
 			}
+
+			if _, err := os.Stat(pkg.ObjDir); !os.IsNotExist(err) {
+				objDir = pkg.ObjDir
+			} else {
+				objDir = ""
+			}
+			fp = strings.Join(split[i:], "/")
 			break
 		}
 	}
-	return found, pkg, fp, nil
+	return found, pkg, fp, objDir, nil
 }
 
 func PrepUrl(liburl string) (u, ver string, e error) {
@@ -251,8 +284,90 @@ func UpdateLibrary(pcache PackageCache, liburl string) (conf project.CfConf, ide
 		return project.CfConf{}, "", "", err
 	}
 
+	objDir := filepath.Join(pcache.ObjDir, strings.TrimPrefix(liburl, "https://"), version)
+
+	// If the obj directory exists, clear it
+	if _, err := os.Stat(objDir); !os.IsNotExist(err) {
+		os.RemoveAll(objDir)
+	}
+
+	// Create the obj directory
+	os.MkdirAll(objDir, 0700)
+
+	// Run the CaffeineC build command
+	cmd := exec.Command("CaffeineC", "build", "--obj", objDir)
+	cmd.Dir = objDir
+	err = cmd.Run()
+	if err != nil {
+		return project.CfConf{}, "", "", err
+	}
+
 	// Get the configuration file from the updated repository
 	conf, err = project.GetCfConf(updateDir)
+	if err != nil {
+		return project.CfConf{}, "", "", err
+	}
+
+	return conf, strings.TrimPrefix(liburl, "https://"), version, nil
+}
+
+func InstallLibrary(pcache PackageCache, liburl string) (conf project.CfConf, ident, ver string, e error) {
+	liburl, version, err := PrepUrl(liburl)
+	if err != nil {
+		return project.CfConf{}, "", "", err
+	}
+
+	// Create a directory in the cache's BaseDir
+	installDir := filepath.Join(pcache.BaseDir, strings.TrimPrefix(liburl, "https://"), version)
+	err = os.MkdirAll(installDir, 0700)
+	if err != nil {
+		return project.CfConf{}, "", "", err
+	}
+
+	// Clone the repository to the install directory
+	_, err = git.PlainClone(installDir, false, &git.CloneOptions{
+		URL:           liburl,
+		SingleBranch:  true,
+		Depth:         1,
+		ReferenceName: plumbing.NewBranchReferenceName(version),
+	})
+	if err != nil {
+		return project.CfConf{}, "", "", err
+	}
+
+	objDir := filepath.Join(pcache.ObjDir, strings.TrimPrefix(liburl, "https://"), version)
+
+	// If the obj directory exists, clear it
+	if _, err := os.Stat(objDir); !os.IsNotExist(err) {
+		os.RemoveAll(objDir)
+	}
+
+	// Create the obj directory
+	os.MkdirAll(objDir, 0700)
+
+	// Run the CaffeineC build command
+	cmd := exec.Command("CaffeineC", "build", "--obj", objDir)
+	cmd.Dir = objDir
+	err = cmd.Run()
+	if err != nil {
+		return project.CfConf{}, "", "", err
+	}
+
+	pkg := Package{
+		Name:       conf.Name,
+		Version:    version,
+		Identifier: strings.TrimPrefix(liburl, "https://"),
+		Path:       installDir,
+		ObjDir:     objDir,
+	}
+	pcache.PkgList = append(pcache.PkgList, pkg)
+	err = pcache.CacheSave()
+	if err != nil {
+		return project.CfConf{}, "", "", err
+	}
+
+	// Get the configuration file from the cloned repository
+	conf, err = project.GetCfConf(installDir)
 	if err != nil {
 		return project.CfConf{}, "", "", err
 	}

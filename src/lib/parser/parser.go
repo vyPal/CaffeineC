@@ -4,10 +4,13 @@ import (
 	"os"
 
 	"github.com/alecthomas/participle/v2"
+	cflex "github.com/vyPal/CaffeineC/lib/lexer"
 )
 
 func ParseFile(filename string) *Program {
-	parser := participle.MustBuild[Program]()
+	parser := participle.MustBuild[Program](
+		participle.Lexer(cflex.TextScannerLexer),
+	)
 
 	file, err := os.ReadFile(filename)
 	if err != nil {

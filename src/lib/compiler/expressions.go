@@ -24,13 +24,54 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 		if err != nil {
 			return nil, err
 		}
-		switch right.Op {
-		case "+":
-			left = ctx.NewAdd(left, rightVal)
-		case "-":
-			left = ctx.NewSub(left, rightVal)
+
+		switch leftType := left.(type) {
+		case *ir.InstLoad, *ir.InstCall, *ir.InstAlloca:
+			if structType, ok := leftType.Type().(*types.PointerType); ok {
+				if _, ok := structType.ElemType.(*types.StructType); ok {
+					// Check if the class has a method with the name "classname.op.operator"
+					methodName := fmt.Sprintf("%s.op.%s", structType.ElemType.Name(), right.Op)
+					if method, ok := ctx.lookupFunction(methodName); ok {
+						// Call the method and use its result as the result
+						left = ctx.NewCall(method, left, rightVal)
+						continue
+					}
+				}
+			} else if _, ok := leftType.Type().(*types.StructType); ok {
+				// Check if the class has a method with the name "classname.op.operator"
+				methodName := fmt.Sprintf("%s.op.%s", leftType.Type().Name(), right.Op)
+				if method, ok := ctx.lookupFunction(methodName); ok {
+					// Call the method and use its result as the result
+					left = ctx.NewCall(method, left, rightVal)
+					continue
+				}
+			} else if _, ok := leftType.Type().(*types.ArrayType); ok {
+				// Check if the class has a method with the name "classname.op.operator"
+				methodName := fmt.Sprintf("%s.op.%s", leftType.Type().Name(), right.Op)
+				if method, ok := ctx.lookupFunction(methodName); ok {
+					// Call the method and use its result as the result
+					left = ctx.NewCall(method, left, rightVal)
+					continue
+				}
+			} else {
+				switch right.Op {
+				case "+":
+					left = ctx.NewAdd(left, rightVal)
+				case "-":
+					left = ctx.NewSub(left, rightVal)
+				default:
+					return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
+				}
+			}
 		default:
-			return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
+			switch right.Op {
+			case "+":
+				left = ctx.NewAdd(left, rightVal)
+			case "-":
+				left = ctx.NewSub(left, rightVal)
+			default:
+				return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
+			}
 		}
 	}
 	return left, nil
@@ -94,25 +135,27 @@ func (ctx *Context) compileFactor(f *parser.Factor) (value.Value, error) {
 	if f.Value != nil {
 		return ctx.compileValue(f.Value)
 	} else if f.Identifier != nil {
-		val, err := ctx.compileIdentifier(f.Identifier, false)
+		val, _, err := ctx.compileIdentifier(f.Identifier, false)
 		if err != nil {
 			return nil, err
 		}
-		if f.GEP != nil {
-			gepExpr, err := ctx.compileExpression(f.GEP)
-			if err != nil {
-				return nil, err
-			}
-			return ctx.NewGetElementPtr(val.Type().(*types.PointerType).ElemType, val, gepExpr), nil
-		}
 		if v, ok := val.(*ir.InstAlloca); ok {
-			return ctx.NewLoad(v.Type().(*types.PointerType).ElemType, val), nil
+			elemType := v.Type().(*types.PointerType).ElemType
+			if _, isStruct := elemType.(*types.StructType); isStruct {
+				return val, nil
+			}
+			if _, isPointer := elemType.(*types.PointerType); isPointer {
+				return val, nil
+			}
+			return ctx.NewLoad(elemType, val), nil
 		} else if v, ok := val.(*ir.InstPhi); ok {
 			return ctx.NewLoad(v.Type().(*types.PointerType).ElemType, val), nil
 		} else if v, ok := val.(*ir.InstGetElementPtr); ok {
 			return ctx.NewLoad(v.Type().(*types.PointerType).ElemType, val), nil
 		}
 		return val, nil
+	} else if f.BitCast != nil {
+		return ctx.compileBitCast(f.BitCast)
 	} else if f.ClassMethod != nil {
 		return ctx.compileClassMethod(f.ClassMethod)
 	} else if f.FunctionCall != nil {
@@ -124,6 +167,47 @@ func (ctx *Context) compileFactor(f *parser.Factor) (value.Value, error) {
 	} else {
 		return nil, posError(f.Pos, "Unknown factor type")
 	}
+}
+
+func (ctx *Context) compileBitCast(bc *parser.BitCast) (value.Value, error) {
+	val, err := ctx.compileExpression(bc.Expr)
+	if err != nil {
+		return nil, err
+	}
+
+	targetType := ctx.StringToType(bc.Type)
+
+	// If the value is already of the target type, just return it
+	if val.Type().Equal(targetType) {
+		return val, nil
+	}
+
+	// If the value is a struct type or a pointer to a struct type, try to find a conversion function
+	if structType, ok := val.Type().(*types.StructType); ok {
+		method, ok := ctx.lookupFunction(structType.Name() + ".get." + bc.Type)
+		if ok {
+			// If a conversion function is found, call it and return the result
+			result := ctx.NewCall(method, val)
+			return result, nil
+		}
+	} else if ptrType, ok := val.Type().(*types.PointerType); ok {
+		if structType, ok := ptrType.ElemType.(*types.StructType); ok {
+			method, ok := ctx.lookupFunction(structType.Name() + ".get." + bc.Type)
+			if ok {
+				// If a conversion function is found, call it and return the result
+				result := ctx.NewCall(method, val)
+				return result, nil
+			}
+		}
+	}
+
+	// If the value is not a custom type or there is no conversion function, perform a bitcast
+	bitcast := ctx.NewBitCast(val, targetType)
+	if bitcast.Type().Equal(targetType) {
+		return bitcast, nil
+	}
+
+	return nil, posError(bc.Pos, "Cannot convert %s to %s", val.Type().Name(), bc.Type)
 }
 
 func (ctx *Context) compileClassInitializer(ci *parser.ClassInitializer) (value.Value, error) {
@@ -168,10 +252,14 @@ func (ctx *Context) compileFunctionCall(fc *parser.FunctionCall) (value.Value, e
 	// Compile the arguments
 	compiledArgs := make([]value.Value, len(fc.Args.Arguments))
 	for i, arg := range fc.Args.Arguments {
+		if i < len(function.Sig.Params) {
+			ctx.RequestedType = function.Sig.Params[i]
+		}
 		expr, err := ctx.compileExpression(arg)
 		if err != nil {
 			return nil, err
 		}
+		ctx.RequestedType = nil
 		compiledArgs[i] = expr
 	}
 
@@ -181,8 +269,42 @@ func (ctx *Context) compileFunctionCall(fc *parser.FunctionCall) (value.Value, e
 
 func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 	if v.Float != nil {
+		if ctx.RequestedType != nil {
+			if ptrType, ok := ctx.RequestedType.(*types.PointerType); ok {
+				// Create a new local variable of the float type
+				local := ctx.NewAlloca(ptrType.ElemType.(*types.FloatType))
+
+				// Store the float in the local variable
+				ctx.NewStore(constant.NewFloat(ptrType.ElemType.(*types.FloatType), *v.Float), local)
+
+				// Return a pointer to the local variable
+				return local, nil
+			} else if ctx.RequestedType == types.Float {
+				return constant.NewFloat(types.Float, *v.Float), nil
+			} else if ctx.RequestedType == types.Double {
+				return constant.NewFloat(types.Double, *v.Float), nil
+			} else {
+				return nil, posError(v.Pos, "Cannot convert float to %s", ctx.RequestedType.Name())
+			}
+		}
 		return constant.NewFloat(types.Double, *v.Float), nil
 	} else if v.Int != nil {
+		if ctx.RequestedType != nil {
+			if ptrType, ok := ctx.RequestedType.(*types.PointerType); ok {
+				// Create a new local variable of the int type
+				local := ctx.NewAlloca(ptrType.ElemType.(*types.IntType))
+
+				// Store the int in the local variable
+				ctx.NewStore(constant.NewInt(ptrType.ElemType.(*types.IntType), *v.Int), local)
+
+				// Return a pointer to the local variable
+				return local, nil
+			} else if intType, ok := ctx.RequestedType.(*types.IntType); ok {
+				return constant.NewInt(intType, *v.Int), nil
+			} else {
+				return nil, posError(v.Pos, "Cannot convert int to %T", ctx.RequestedType)
+			}
+		}
 		return constant.NewInt(types.I64, *v.Int), nil
 	} else if v.Bool != nil {
 		var b int64 = 0
@@ -236,57 +358,121 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 	}
 }
 
-func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct bool) (value.Value, error) {
+func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct bool) (value.Value, types.Type, error) {
 	val := ctx.lookupVariable(i.Name)
 	if val == nil {
-		return nil, posError(i.Pos, "Variable %s not found", i.Name)
+		return nil, nil, posError(i.Pos, "Variable %s not found", i.Name)
 	}
 
 	if i.Sub == nil {
-		return val, nil
+		if i.GEP != nil {
+			// Load the value
+			loadedValue := ctx.NewLoad(val.Type, val.Value)
+
+			gepExpr, err := ctx.compileExpression(i.GEP)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			// Run GetElementPtr on the loaded value
+			v := ctx.NewGetElementPtr(loadedValue.Type(), loadedValue, gepExpr)
+			val.Value = v
+			val.Type = v.ElemType.(*types.PointerType)
+		}
+		/* TODO: Also move to top
+		if ctx.RequestedType != nil {
+			typeString := ctx.TypeToString(ctx.RequestedType)
+			if call, ok := val.Value.(*ir.InstCall); ok {
+				if call.Type().Equal(ctx.RequestedType) {
+					return call, ctx.RequestedType, nil
+				}
+			} else if load, ok := val.Value.(*ir.InstLoad); ok {
+				if load.Type().Equal(ctx.RequestedType) {
+					return load, ctx.RequestedType, nil
+				}
+			} else if structType, ok := val.Type.(*types.StructType); ok {
+				method, ok := ctx.lookupFunction(structType.Name() + ".get." + typeString)
+				if ok {
+					result := ctx.NewCall(method, val.Value)
+					return result, result.Type(), nil
+				}
+			}
+			if val.Type.Equal(ctx.RequestedType) {
+				return val.Value, ctx.RequestedType, nil
+			}
+			return nil, nil, posError(i.Pos, "Cannot convert %s to %s", val.Type.Name(), typeString)
+		}
+		*/
+		return val.Value, val.Value.Type(), nil
 	}
 
 	// Iterate over the subs
 	currentVal := val
 	currentSub := i.Sub
 	for currentSub != nil {
-		fieldType, fieldPtr, isMethod, err := ctx.compileSubIdentifier(currentVal.Type(), currentVal, currentSub)
+		fieldType, fieldPtr, isMethod, err := ctx.compileSubIdentifier(currentVal, currentSub)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if isMethod {
 			if returnTopLevelStruct {
-				return currentVal, nil
+				return currentVal.Value, currentVal.Type, nil
 			} else {
-				return nil, posError(i.Pos, "Cannot call method %s on %s", currentSub.Name, currentVal.Type().Name())
+				return nil, nil, posError(i.Pos, "Cannot call method %s on %s", currentSub.Name, currentVal.Type.Name())
 			}
 		}
 
 		if currentSub.Sub == nil && !returnTopLevelStruct {
 			// If this is the last sub and we're not returning the top-level struct,
 			// return the field pointer
-			return fieldPtr, nil
+			return fieldPtr, fieldPtr.Type(), nil
 		}
 
 		// Otherwise, load the field and continue
-		currentVal = ctx.NewLoad(fieldType, fieldPtr)
+		currentVal.Value = ctx.NewLoad(fieldType, fieldPtr)
 		currentSub = currentSub.Sub
 	}
 
 	// If we're here, we're returning the top-level struct
-	return currentVal, nil
+	/* TODO: Move to top-level expression
+	if ctx.RequestedType != nil {
+		typeString := ctx.TypeToString(ctx.RequestedType)
+		if call, ok := val.Value.(*ir.InstCall); ok {
+			if call.Type().Equal(ctx.RequestedType) {
+				return call, ctx.RequestedType, nil
+			}
+		} else if load, ok := val.Value.(*ir.InstLoad); ok {
+			if load.Type().Equal(ctx.RequestedType) {
+				return load, ctx.RequestedType, nil
+			}
+		} else if structType, ok := val.Type.(*types.StructType); ok {
+			method, ok := ctx.lookupFunction(structType.Name() + ".get." + typeString)
+			if ok {
+				result := ir.NewCall(method, val.Value)
+				return result, ctx.RequestedType, nil
+			}
+		}
+		return nil, nil, posError(i.Pos, "Cannot convert %s to %s", currentVal.Type.Name(), typeString)
+	}
+	*/
+
+	// If we're here, we're returning the top-level struct
+	return currentVal.Value, currentVal.Type, nil
 }
 
-func (ctx *Context) compileSubIdentifier(fieldType types.Type, pointer value.Value, sub *parser.Identifier) (FieldType types.Type, Pointer value.Value, IsMethod bool, err error) {
+func (ctx *Context) compileSubIdentifier(f *Variable, sub *parser.Identifier) (FieldType types.Type, Pointer value.Value, IsMethod bool, err error) {
 	if sub != nil {
-		_, isMethod := ctx.lookupMethod(fieldType, sub.Name)
+		_, isMethod := ctx.lookupMethod(f.Type, sub.Name)
 		if isMethod {
-			return fieldType, pointer, true, nil
+			return f.Type, f.Value, true, nil
 		}
 
 		var field *parser.FieldDefinition
 		var nfield int
-		elemtypename := pointer.Type().(*types.PointerType).ElemType.Name()
+		elemtypename := f.Value.Type().(*types.PointerType).ElemType.Name()
+		if elemtypename == "" {
+			elemtypename = f.Type.Name()
+		}
 		for f := range ctx.Compiler.StructFields[elemtypename] {
 			if ctx.Compiler.StructFields[elemtypename][f].Name == sub.Name {
 				field = ctx.Compiler.StructFields[elemtypename][f]
@@ -297,15 +483,31 @@ func (ctx *Context) compileSubIdentifier(fieldType types.Type, pointer value.Val
 		if field == nil {
 			return nil, nil, false, posError(sub.Pos, "Field %s not found in struct %s", sub.Name, elemtypename)
 		}
-		fieldPtr := ctx.NewGetElementPtr(ctx.StringToType(field.Type), pointer, constant.NewInt(types.I32, int64(nfield)))
-		return ctx.compileSubIdentifier(ctx.StringToType(field.Type), fieldPtr, sub.Sub)
+
+		fieldPtr := ctx.NewGetElementPtr(ctx.StringToType(field.Type), f.Value, constant.NewInt(types.I32, int64(nfield)))
+		f.Value = fieldPtr
+		if sub.GEP != nil {
+			// Load the value
+			loadedValue := ctx.NewLoad(f.Type, f.Value)
+
+			gepExpr, err := ctx.compileExpression(sub.GEP)
+			if err != nil {
+				return nil, nil, false, err
+			}
+
+			// Run GetElementPtr on the loaded value
+			v := ctx.NewGetElementPtr(loadedValue.Type(), loadedValue, gepExpr)
+			f.Value = v
+			f.Type = v.ElemType.(*types.PointerType)
+		}
+		return ctx.compileSubIdentifier(f, sub.Sub)
 	}
-	return fieldType, pointer, false, nil
+	return f.Type, f.Value, false, nil
 }
 
 func (ctx *Context) compileClassMethod(cm *parser.ClassMethod) (value.Value, error) {
 	// First, compile the class identifier to get the class instance
-	classInstance, err := ctx.compileIdentifier(cm.Identifier, true)
+	classInstance, _, err := ctx.compileIdentifier(cm.Identifier, true)
 	if err != nil {
 		return nil, err
 	}

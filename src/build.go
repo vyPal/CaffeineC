@@ -9,11 +9,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/fatih/color"
+	"github.com/llir/llvm/ir/types"
 	"github.com/urfave/cli/v2"
-	"github.com/vyPal/CaffeineC/lib/analyzer"
 	"github.com/vyPal/CaffeineC/lib/cache"
 	"github.com/vyPal/CaffeineC/lib/compiler"
 	"github.com/vyPal/CaffeineC/lib/parser"
@@ -46,14 +47,6 @@ func init() {
 				Aliases: []string{"i"},
 				Usage:   "Add a directory or file to the include path",
 			},
-			&cli.IntFlag{
-				Name: "opt-level",
-				Usage: "The optimization level to use. " +
-					"0 is no optimization, 3 is the most optimization." +
-					"Lower levels are faster to compile, higher levels are faster to run.",
-				Aliases: []string{"O"},
-				Value:   2,
-			},
 			&cli.BoolFlag{
 				Name:    "debug",
 				Usage:   "Save additional build files for debugging. ",
@@ -66,6 +59,12 @@ func init() {
 			&cli.BoolFlag{
 				Name:  "header",
 				Usage: "Generate .h files for each .cffc file.",
+			},
+			&cli.StringSliceFlag{
+				Name:    "clang-args",
+				Aliases: []string{"a"},
+				Usage: "Pass additional arguments to clang. " +
+					"Useful for passing flags like -O2 or -g.",
 			},
 		},
 		Action: build,
@@ -95,14 +94,25 @@ func init() {
 					Usage:   "Save additional build files for debugging. ",
 					Aliases: []string{"d"},
 				},
+				&cli.StringSliceFlag{
+					Name:    "clang-args",
+					Aliases: []string{"a"},
+					Usage: "Pass additional arguments to clang. " +
+						"Useful for passing flags like -O2 or -g.",
+				},
 			},
 			Action: run,
 		},
 	)
 }
 
+var isRun bool
+var outpath string
+
 func build(c *cli.Context) error {
-	go checkUpdate(c)
+	if !isRun {
+		go checkUpdate(c)
+	}
 	isWindows := runtime.GOOS == "windows"
 
 	if c.Bool("ebnf") {
@@ -133,11 +143,14 @@ func build(c *cli.Context) error {
 		if c.String("config") != "" {
 			confPath = c.String("config")
 		}
+		confPath = strings.TrimSuffix(confPath, "cfconf.yaml")
+
 		conf, err = project.GetCfConf(confPath)
 		if err != nil {
 			return err
 		}
-		f = conf.Main
+		f = filepath.Join(confPath, conf.Main)
+		outName = filepath.Join(confPath, outName)
 	}
 
 	inf, err := os.Stat(f)
@@ -164,7 +177,9 @@ func build(c *cli.Context) error {
 		return err
 	}
 
-	imports, err := processIncludes(c.StringSlice("include"), req, tmpDir, c.Int("opt-level"), c.Bool("debug"), c.Bool("header"), pcache)
+	compiledCache := make(map[string]bool)
+
+	imports, err := processIncludes(c.StringSlice("include"), req, tmpDir, c.Int("opt-level"), false, c.Bool("header"), pcache, compiledCache)
 	if err != nil {
 		return err
 	}
@@ -179,32 +194,42 @@ func build(c *cli.Context) error {
 
 	var stderr bytes.Buffer
 
-	extra := ""
+	extra := []string{}
 	if c.Bool("obj") {
-		extra = "-c"
+		extra = append(extra, "-c")
 	}
 
-	args := append([]string{"clang", extra, llData}, imports...)
-	args = append(args, "-o", outName)
+	args := append([]string{"clang", llData}, imports...)
+	args = append(args, extra...)
+	args = append(args, c.StringSlice("clang-args")...)
+
+	if !c.Bool("obj") {
+		args = append(args, "-o", outName)
+	}
+
 	cmd := exec.Command(args[0], args[1:]...)
 
 	cmd.Stderr = &stderr
 
 	err = cmd.Run()
+	var cerr error
 	if err != nil {
-		log.Print("stderr:", stderr.String())
-		log.Fatal(err)
+		log.Println("stderr:", stderr.String())
+		log.Println(err)
+		cerr = err
 	}
 
 	if c.Bool("debug") {
 		err = os.Mkdir("debug", 0755)
-		if err != nil {
-			if os.IsExist(err) {
-				err = os.RemoveAll("debug")
-				if err != nil {
-					return err
-				}
-			} else {
+		if !os.IsExist(err) {
+			return err
+		} else if os.IsExist(err) {
+			err = os.RemoveAll("debug")
+			if err != nil {
+				return err
+			}
+			err = os.Mkdir("debug", 0755)
+			if err != nil {
 				return err
 			}
 		}
@@ -216,20 +241,25 @@ func build(c *cli.Context) error {
 		}
 	}
 
-	return nil
+	if isRun {
+		outpath = outName
+	}
+
+	return cerr
 }
 
 func run(c *cli.Context) error {
+	isRun = true
 	err := build(c)
 	if err != nil {
 		return err
 	}
 
-	out := c.String("output")
-	if out == "" {
-		out = "output"
+	if !strings.Contains(outpath, "/") {
+		outpath = "./" + outpath
 	}
-	cmd := exec.Command("./" + out)
+
+	cmd := exec.Command(outpath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -250,8 +280,8 @@ func parseAndCompile(path, tmpdir string, dump, header bool, pcache cache.Packag
 		}
 
 		relativePath, err := filepath.Rel(cwd, path)
-		if err != nil {
-			relativePath = path
+		if err != nil || filepath.IsAbs(relativePath) {
+			relativePath = filepath.Base(path)
 		}
 
 		fullPath := filepath.Join(tmpdir, "ast-"+relativePath+".json")
@@ -274,7 +304,6 @@ func parseAndCompile(path, tmpdir string, dump, header bool, pcache cache.Packag
 			return "", []string{}, cli.Exit(color.RedString("Error encoding AST: %s", err), 1)
 		}
 	}
-	go analyzer.Analyze(ast) // Removing this makes the compiler ~13ms faster
 
 	comp := compiler.NewCompiler()
 	comp.PackageCache = pcache
@@ -305,13 +334,248 @@ func parseAndCompile(path, tmpdir string, dump, header bool, pcache cache.Packag
 		}
 		defer hf.Close()
 
-		compiler.WriteHeader(hf, comp)
+		writeHeader(hf, comp)
 	}
 
 	return f.Name(), req, nil
 }
 
-func processIncludes(includes []string, requirements []string, tmpDir string, opt int, dump, header bool, pcache cache.PackageCache) ([]string, error) {
+func convertCffTypeToCType(t types.Type) string {
+	switch typ := t.(type) {
+	case *types.IntType:
+		if typ.BitSize <= 8 {
+			return "char"
+		} else if typ.BitSize <= 16 {
+			return "short"
+		} else if typ.BitSize <= 32 {
+			return "long"
+		} else {
+			return "long long"
+		}
+	case *types.FloatType:
+		if typ.Kind == types.FloatKindFloat {
+			return "float"
+		} else if typ.Kind == types.FloatKindDouble {
+			return "double"
+		} else {
+			return "long double"
+		}
+	case *types.PointerType:
+		// Call the function recursively with the ElemType and append a star before it
+		return convertCffTypeToCType(typ.ElemType) + " *"
+	default:
+		return "void"
+	}
+}
+
+func writeHeader(f *os.File, comp *compiler.Compiler) error {
+	_, err := f.WriteString("/*\n")
+	if err != nil {
+		return err
+	}
+
+	_, err = f.WriteString(" * This file was automatically generated by CaffeineC.\n")
+	if err != nil {
+		return err
+	}
+
+	_, err = f.WriteString(" * Do not edit this file directly.\n")
+	if err != nil {
+		return err
+	}
+
+	_, err = f.WriteString(" */\n")
+	if err != nil {
+		return err
+	}
+
+	_, err = f.WriteString("#ifndef CAFFEINEC_H\n")
+	if err != nil {
+		return err
+	}
+
+	_, err = f.WriteString("#define CAFFEINEC_H\n")
+	if err != nil {
+		return err
+	}
+
+	for _, fn := range comp.Module.Funcs {
+		if strings.Count(fn.Name(), ".") > 0 {
+			continue
+		}
+		_, err = f.WriteString(convertCffTypeToCType(fn.Sig.RetType) + " ")
+		if err != nil {
+			return err
+		}
+
+		_, err = f.WriteString(fn.Name())
+		if err != nil {
+			return err
+		}
+
+		_, err = f.WriteString("(")
+		if err != nil {
+			return err
+		}
+
+		for i, param := range fn.Sig.Params {
+			_, err = f.WriteString(convertCffTypeToCType(param))
+			if err != nil {
+				return err
+			}
+
+			_, err = f.WriteString(" ")
+			if err != nil {
+				return err
+			}
+
+			_, err = f.WriteString(fn.Params[i].Name())
+			if err != nil {
+				return err
+			}
+
+			if i != len(fn.Sig.Params)-1 {
+				_, err = f.WriteString(", ")
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		if fn.Sig.Variadic {
+			_, err = f.WriteString(", ...")
+			if err != nil {
+				return err
+			}
+		}
+
+		_, err = f.WriteString(")")
+		if err != nil {
+			return err
+		}
+
+		_, err = f.WriteString(";\n")
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, c := range comp.Module.TypeDefs {
+		_, err = f.WriteString("class " + c.Name() + "\n{\nprivate:\n")
+		if err != nil {
+			return err
+		}
+
+		for _, field := range comp.StructFields[c.Name()] {
+			if !field.Private {
+				continue
+			}
+			_, err = f.WriteString(convertCffTypeToCType(comp.Context.StringToType(field.Type)) + " " + field.Name + ";\n")
+			if err != nil {
+				return err
+			}
+		}
+
+		_, err = f.WriteString("public:\n")
+		if err != nil {
+			return err
+		}
+
+		for _, field := range comp.StructFields[c.Name()] {
+			if field.Private {
+				continue
+			}
+			_, err = f.WriteString(convertCffTypeToCType(comp.Context.StringToType(field.Type)) + " " + field.Name + ";\n")
+			if err != nil {
+				return err
+			}
+		}
+
+		for _, fn := range comp.Module.Funcs {
+			var parts []string
+			if strings.Count(fn.Name(), ".") == 0 {
+				continue
+			} else {
+				parts = strings.Split(fn.Name(), ".")
+				if parts[0] != c.Name() {
+					continue
+				}
+			}
+
+			isConstructor := parts[1] == "constructor"
+
+			if !isConstructor {
+				_, err = f.WriteString(convertCffTypeToCType(fn.Sig.RetType) + " ")
+				if err != nil {
+					return err
+				}
+
+				_, err = f.WriteString(parts[1])
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err = f.WriteString(c.Name())
+				if err != nil {
+					return err
+				}
+			}
+
+			_, err = f.WriteString("(")
+			if err != nil {
+				return err
+			}
+
+			for i, param := range fn.Sig.Params[1:] {
+				_, err = f.WriteString(convertCffTypeToCType(param))
+				if err != nil {
+					return err
+				}
+
+				_, err = f.WriteString(" ")
+				if err != nil {
+					return err
+				}
+
+				_, err = f.WriteString(fn.Params[i+1].Name())
+				if err != nil {
+					return err
+				}
+
+				if i != len(fn.Sig.Params)-2 {
+					_, err = f.WriteString(", ")
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			_, err = f.WriteString(")")
+			if err != nil {
+				return err
+			}
+
+			_, err = f.WriteString(";\n")
+			if err != nil {
+				return err
+			}
+		}
+
+		_, err = f.WriteString("};\n")
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = f.WriteString("#endif\n")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func processIncludes(includes []string, requirements []string, tmpDir string, opt int, dump, header bool, pcache cache.PackageCache, compiledCache map[string]bool) ([]string, error) {
 	var files []string
 	includes = append(includes, requirements...)
 
@@ -331,7 +595,7 @@ func processIncludes(includes []string, requirements []string, tmpDir string, op
 				}
 
 				if !info.IsDir() {
-					err = processFile(path, &files, tmpDir, opt, dump, header, &wg, errs, pcache)
+					err = processFile(path, &files, tmpDir, opt, dump, header, &wg, errs, pcache, compiledCache)
 					if err != nil {
 						return err
 					}
@@ -340,7 +604,7 @@ func processIncludes(includes []string, requirements []string, tmpDir string, op
 				return nil
 			})
 		} else {
-			err = processFile(include, &files, tmpDir, opt, dump, header, &wg, errs, pcache)
+			err = processFile(include, &files, tmpDir, opt, dump, header, &wg, errs, pcache, compiledCache)
 		}
 
 		if err != nil {
@@ -360,11 +624,16 @@ func processIncludes(includes []string, requirements []string, tmpDir string, op
 	return files, nil
 }
 
-func processFile(path string, files *[]string, tmpDir string, opt int, dump, header bool, wg *sync.WaitGroup, errs chan<- error, pcache cache.PackageCache) error {
+func processFile(path string, files *[]string, tmpDir string, opt int, dump, header bool, wg *sync.WaitGroup, errs chan<- error, pcache cache.PackageCache, compiledCache map[string]bool) error {
 	ext := filepath.Ext(path)
 	if ext == ".c" || ext == ".cpp" || ext == ".h" || ext == ".o" {
 		*files = append(*files, path)
 	} else if ext == ".cffc" {
+		// Check if the file has already been compiled
+		if _, ok := compiledCache[path]; ok {
+			return nil
+		}
+
 		wg.Add(1)
 		go func(path string) {
 			defer wg.Done()
@@ -374,8 +643,11 @@ func processFile(path string, files *[]string, tmpDir string, opt int, dump, hea
 				return
 			}
 
+			// Add the file to the compiled cache
+			compiledCache[path] = true
+
 			if len(req) > 0 {
-				_, err := processIncludes([]string{}, req, tmpDir, opt, dump, header, pcache)
+				_, err := processIncludes([]string{}, req, tmpDir, opt, false, header, pcache, compiledCache)
 				if err != nil {
 					errs <- err
 					return

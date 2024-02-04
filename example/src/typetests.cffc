@@ -1,0 +1,18 @@
+package main;
+
+import "vyPal/cffc-std/io";
+
+export class String {
+  string: *i8;
+  func constructor(default: *i8) {
+    this.string = default;
+  }
+
+  func get "*i8"(): *i8 {
+    return this.string;
+  }
+
+  func op "+"(other: *String): *String {
+    return new String(concat(this.string, other.string));
+  }
+}

@@ -41,6 +41,7 @@ type Value struct {
 type Identifier struct {
 	Pos  lexer.Position
 	Name string      `parser:"@Ident"`
+	GEP  *Expression `parser:"('[' @@ ']')?"`
 	Sub  *Identifier `parser:"( '.' @@ )*"`
 }
 
@@ -52,7 +53,7 @@ type ArgumentList struct {
 type ClassInitializer struct {
 	Pos       lexer.Position
 	ClassName string       `parser:"'new' @Ident"`
-	Args      ArgumentList `parser:"'(' @@ ')' ';'"`
+	Args      ArgumentList `parser:"'(' @@ ')'"`
 }
 
 type FunctionCall struct {
@@ -64,12 +65,12 @@ type FunctionCall struct {
 type Factor struct {
 	Pos              lexer.Position
 	Value            *Value            `parser:"  @@"`
+	BitCast          *BitCast          `parser:"| (?= '(') @@?"`
 	ClassInitializer *ClassInitializer `parser:"| (?= 'new') @@"`
 	SubExpression    *Expression       `parser:"| '(' @@ ')'"`
 	FunctionCall     *FunctionCall     `parser:"| (?= Ident '(') @@"`
 	ClassMethod      *ClassMethod      `parser:"| (?= Ident ( '.' Ident)+ '(') @@"`
 	Identifier       *Identifier       `parser:"| @@"`
-	GEP              *Expression       `parser:"('[' @@ ']')?"`
 }
 
 type Term struct {
@@ -135,12 +136,21 @@ type ArgumentDefinition struct {
 	Type string `parser:"':' @('*'? Ident)"`
 }
 
+type FuncName struct {
+	Dummy  string `parser:"'func'"`
+	Op     bool   `parser:"@'op'?"`
+	Get    bool   `parser:"@'get'?"`
+	Set    bool   `parser:"@'set'?"`
+	Name   string `parser:"@Ident?"`
+	String string `parser:"@String?"`
+}
+
 type FunctionDefinition struct {
 	Pos        lexer.Position
 	Private    bool                  `parser:"@'private'?"`
 	Static     bool                  `parser:"@'static'?"`
 	Variadic   bool                  `parser:"@'vararg'?"`
-	Name       string                `parser:"'func' @Ident"`
+	Name       FuncName              `parser:"@@"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )? ')'"`
 	ReturnType string                `parser:"( ':' @('*'? Ident) )?"`
 	Body       []*Statement          `parser:"'{' @@* '}'"`
@@ -231,10 +241,16 @@ type Symbol struct {
 	Alias string `parser:"('as' @Ident)?"`
 }
 
+type BitCast struct {
+	Pos  lexer.Position
+	Expr *Expression `parser:"'(' @@ ')'"`
+	Type string      `parser:"':' @('*'? Ident)"`
+}
+
 type Statement struct {
 	Pos                lexer.Position
 	VariableDefinition *VariableDefinition `parser:"(?= 'const'? 'var' Ident) @@? (';' | '\\n')?"`
-	Assignment         *Assignment         `parser:"| (?= Ident ( '.' Ident)* '=') @@? (';' | '\\n')?"`
+	Assignment         *Assignment         `parser:"| (?= Ident ( '[' ~']' ']' )? ( '.' Ident ( '[' ~']' ']' )? )* '=') @@? (';' | '\\n')?"`
 	External           *ExternalDefinition `parser:"| (?= 'extern') @@? (';' | '\\n')?"`
 	FunctionDefinition *FunctionDefinition `parser:"| (?= 'private'? 'static'? 'func') @@?"`
 	ClassDefinition    *ClassDefinition    `parser:"| (?= 'class') @@?"`
