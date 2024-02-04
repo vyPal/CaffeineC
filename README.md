@@ -1,6 +1,7 @@
 # CaffeineC
 Idk why I'm doing this, so don't ask.
 ## Installing
+Auto-install script in bash: `curl https://raw.githubusercontent.com/vyPal/CaffeineC/master/install.bash | bash`
 Installation instructions can be found [here](https://github.com/vyPal/CaffeineC/wiki/Installation)
 
 ## Troubleshooting
