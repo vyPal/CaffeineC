@@ -19,32 +19,41 @@ install_package() {
 # Auto-detect the OS and package manager
 OS=$(uname -s | tr A-Z a-z)
 
+INSTALL_DIR="/usr/local/bin"
+SHARE_DIR="/usr/local/lib"
+
 case $OS in
   linux)
     DOWNLOAD_URL="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC-Linux"
-    source /etc/os-release
-    case $ID in
-      debian|ubuntu|mint)
-        PACKAGE_MANAGER="sudo apt-get"
-        ;;
+    if [ $(ps -ef|grep -c com.termux ) -gt 0 ]; then
+      PACKAGE_MANAGER="apt"
+      INSTALL_DIR="/data/data/com.termux/files/usr/bin"
+      SHARE_DIR="/data/data/com.termux/files/usr/lib"
+    else
+      source /etc/os-release
+      case $ID in
+        debian|ubuntu|mint)
+          PACKAGE_MANAGER="sudo apt-get"
+          ;;
 
-      fedora|rhel|centos)
-        PACKAGE_MANAGER="sudo yum"
-        ;;
+        fedora|rhel|centos)
+          PACKAGE_MANAGER="sudo yum"
+          ;;
 
-      opensuse*)
-        PACKAGE_MANAGER="sudo zypper"
-        ;;
+        opensuse*)
+          PACKAGE_MANAGER="sudo zypper"
+          ;;
 
-      arch)
-        PACKAGE_MANAGER="sudo pacman"
-        ;;
+        arch)
+          PACKAGE_MANAGER="sudo pacman"
+          ;;
 
-      *)
-        echo "Unsupported Linux distribution."
-        exit 1
-        ;;
-    esac
+        *)
+          echo "Unsupported Linux distribution."
+          exit 1
+          ;;
+      esac
+    fi
     ;;
 
   darwin)
