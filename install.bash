@@ -70,9 +70,6 @@ esac
 # Check and install clang
 install_package "$PACKAGE_MANAGER" "clang" "llvm"
 
-INSTALL_DIR="/usr/local/bin"
-SHARE_DIR="/usr/local/lib"
-
 # Create the directory if it doesn't exist
 mkdir -p $INSTALL_DIR
 mkdir -p $SHARE_DIR
