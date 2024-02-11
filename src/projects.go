@@ -109,7 +109,7 @@ func install(c *cli.Context) error {
 
 			if pkg == (cache.Package{}) {
 				color.Green("Package not found locally, cloning...")
-				conf, _, _, err = cache.InstallLibrary(pcache, dep.Identifier)
+				conf, _, _, err = cache.InstallLibrary(pcache, dep.Identifier, dep.Version)
 				if err != nil {
 					return err
 				}
@@ -140,7 +140,7 @@ func install(c *cli.Context) error {
 		var cnf project.CfConf
 		if pkg == (cache.Package{}) {
 			color.Green("Package not found locally, cloning...")
-			cnf, ident, ver, err = cache.InstallLibrary(pcache, liburl)
+			cnf, ident, ver, err = cache.InstallLibrary(pcache, liburl, version)
 			if err != nil {
 				return err
 			}
@@ -307,13 +307,13 @@ func libUpdate(c *cli.Context) error {
 
 			if pkg == (cache.Package{}) {
 				color.Green("Package not found locally, cloning...")
-				conf, _, _, err = cache.InstallLibrary(pcache, dep.Identifier)
+				conf, _, _, err = cache.InstallLibrary(pcache, dep.Identifier, dep.Version)
 				if err != nil {
 					return err
 				}
 			} else {
 				color.Green("Package found locally, updating...")
-				conf, _, _, err = cache.UpdateLibrary(pcache, dep.Identifier)
+				conf, _, _, err = cache.UpdateLibrary(pcache, dep.Identifier, dep.Version)
 				if err != nil {
 					return err
 				}
@@ -339,13 +339,13 @@ func libUpdate(c *cli.Context) error {
 		var cnf project.CfConf
 		if pkg == (cache.Package{}) {
 			color.Green("Package not found locally, cloning...")
-			cnf, ident, ver, err = cache.InstallLibrary(pcache, liburl)
+			cnf, ident, ver, err = cache.InstallLibrary(pcache, liburl, version)
 			if err != nil {
 				return err
 			}
 		} else {
 			color.Green("Package found locally, updating...")
-			cnf, ident, ver, err = cache.UpdateLibrary(pcache, liburl)
+			cnf, ident, ver, err = cache.UpdateLibrary(pcache, liburl, version)
 			if err != nil {
 				return err
 			}

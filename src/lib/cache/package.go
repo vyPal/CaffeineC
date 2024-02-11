@@ -4,7 +4,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"os/exec"
 	"path"
@@ -12,7 +11,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/fatih/color"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/vyPal/CaffeineC/lib/project"
@@ -229,37 +227,7 @@ func (p *PackageCache) ResolvePackage(ident string) (found bool, pkg Package, fp
 	return found, pkg, fp, objDir, nil
 }
 
-func PrepUrl(liburl string) (u, ver string, e error) {
-	version := "main"
-	if strings.Contains(liburl, "@") {
-		split := strings.Split(liburl, "@")
-		liburl = split[0]
-		version = split[1]
-	} else {
-		color.Yellow("Branch name not specified, defaulting to 'main'")
-	}
-
-	parsedUrl, err := url.Parse(liburl)
-	if err != nil {
-		return "", "", err
-	}
-
-	if parsedUrl.Hostname() == "" {
-		liburl = "https://github.com/" + liburl
-	}
-
-	if !strings.HasPrefix(liburl, "http://") && !strings.HasPrefix(liburl, "https://") {
-		liburl = "https://" + liburl
-	}
-	return liburl, version, nil
-}
-
-func UpdateLibrary(pcache PackageCache, liburl string) (conf project.CfConf, ident, ver string, e error) {
-	liburl, version, err := PrepUrl(liburl)
-	if err != nil {
-		return project.CfConf{}, "", "", err
-	}
-
+func UpdateLibrary(pcache PackageCache, liburl string, version string) (conf project.CfConf, ident, ver string, e error) {
 	// Get the directory in the cache's BaseDir
 	updateDir := filepath.Join(pcache.BaseDir, strings.TrimPrefix(liburl, "https://"), version)
 
@@ -311,15 +279,10 @@ func UpdateLibrary(pcache PackageCache, liburl string) (conf project.CfConf, ide
 	return conf, strings.TrimPrefix(liburl, "https://"), version, nil
 }
 
-func InstallLibrary(pcache PackageCache, liburl string) (conf project.CfConf, ident, ver string, e error) {
-	liburl, version, err := PrepUrl(liburl)
-	if err != nil {
-		return project.CfConf{}, "", "", err
-	}
-
+func InstallLibrary(pcache PackageCache, liburl string, version string) (conf project.CfConf, ident, ver string, e error) {
 	// Create a directory in the cache's BaseDir
 	installDir := filepath.Join(pcache.BaseDir, strings.TrimPrefix(liburl, "https://"), version)
-	err = os.MkdirAll(installDir, 0700)
+	err := os.MkdirAll(installDir, 0700)
 	if err != nil {
 		return project.CfConf{}, "", "", err
 	}
