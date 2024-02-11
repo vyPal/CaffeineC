@@ -71,6 +71,17 @@ case $OS in
     ;;
 esac
 
+# Determine architecture and append the appropriate suffix
+ARCH=$(uname -m)
+if [ "$ARCH" = "x86_64" ]; then
+  DOWNLOAD_URL="${DOWNLOAD_URL}-amd64"
+elif [ "$ARCH" = "aarch64" ]; then
+  DOWNLOAD_URL="${DOWNLOAD_URL}-arm64"
+else
+  echo "Unsupported architecture."
+  exit 1
+fi
+
 # Check and install clang
 install_package "$PACKAGE_MANAGER" "clang" "llvm"
 

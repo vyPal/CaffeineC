@@ -12,7 +12,17 @@ if (!(Get-Command clang -ErrorAction SilentlyContinue)) {
 
 # Download and install CaffeineC.exe
 $latest_version = Invoke-RestMethod -Uri "https://api.github.com/repos/vyPal/CaffeineC/releases/latest" | Select-Object -ExpandProperty tag_name
-$download_url = "https://github.com/vyPal/CaffeineC/releases/download/$latest_version/CaffeineC.exe"
+$architecture = $env:PROCESSOR_ARCHITECTURE
+if ($architecture -eq "AMD64") {
+  $arch_suffix = "-amd64"
+} elseif ($architecture -eq "ARM64") {
+  $arch_suffix = "-arm64"
+} else {
+  Write-Host "Unsupported architecture."
+  exit 1
+}
+
+$download_url = "https://github.com/vyPal/CaffeineC/releases/download/$latest_version/CaffeineC${arch_suffix}.exe"
 $install_dir = "$env:USERPROFILE\AppData\Local\Programs\CaffeineC"
 
 # Create the directory if it doesn't exist
