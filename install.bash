@@ -22,13 +22,17 @@ OS=$(uname -s | tr A-Z a-z)
 INSTALL_DIR="/usr/local/bin"
 SHARE_DIR="/usr/local/lib"
 
+USE_SUDO=1
+
 case $OS in
   linux)
     DOWNLOAD_URL="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC-Linux"
-    if [ $(ps -ef|grep -c com.termux ) -gt 0 ]; then
+    if [ $(ps -ef|grep -c com.termux ) -gt 1 ]; then
+      echo "Termux detected."
       PACKAGE_MANAGER="apt"
       INSTALL_DIR="/data/data/com.termux/files/usr/bin"
       SHARE_DIR="/data/data/com.termux/files/usr/lib"
+      USE_SUDO=0
     else
       source /etc/os-release
       case $ID in
@@ -78,10 +82,13 @@ mkdir -p $SHARE_DIR
 latest_version=$(curl -sL https://github.com/vyPal/CaffeineC/releases/latest | grep -Eo 'tag/[0-9\.]+' | head -n 1)
 
 echo "Downloading CaffeineC version $latest_version..."
-sudo curl -sL $DOWNLOAD_URL -o $INSTALL_DIR/CaffeineC
-
-# Make the binary executable
-sudo chmod +x $INSTALL_DIR/CaffeineC
+if [ $USE_SUDO -eq 1 ]; then
+  sudo curl -sL $DOWNLOAD_URL -o $INSTALL_DIR/CaffeineC
+  sudo chmod +x $INSTALL_DIR/CaffeineC
+else
+  curl -sL $DOWNLOAD_URL -o $INSTALL_DIR/CaffeineC
+  chmod +x $INSTALL_DIR/CaffeineC
+fi
 
 # Determine the current shell
 current_shell=$(basename "$SHELL")
@@ -107,7 +114,11 @@ if [ -n "$autocomplete_script_url" ]; then
   # Download the autocomplete script
   autocomplete_script_path="$SHARE_DIR/CaffeineC_autocomplete"
   echo "Downloading autocomplete script for $current_shell..."
-  sudo curl -sL $autocomplete_script_url -o $autocomplete_script_path
+  if [ $USE_SUDO -eq 1 ]; then
+    sudo curl -sL $autocomplete_script_url -o $autocomplete_script_path
+  else
+    curl -sL $autocomplete_script_url -o $autocomplete_script_path
+  fi
 
   touch $shell_config_file
 
