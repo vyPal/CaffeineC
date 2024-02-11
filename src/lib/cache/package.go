@@ -295,7 +295,7 @@ func UpdateLibrary(pcache PackageCache, liburl string) (conf project.CfConf, ide
 	os.MkdirAll(objDir, 0700)
 
 	// Run the CaffeineC build command
-	cmd := exec.Command("CaffeineC", "build", "--obj", objDir)
+	cmd := exec.Command("CaffeineC", "build", "--obj")
 	cmd.Dir = objDir
 	err = cmd.Run()
 	if err != nil {
@@ -346,7 +346,7 @@ func InstallLibrary(pcache PackageCache, liburl string) (conf project.CfConf, id
 	os.MkdirAll(objDir, 0700)
 
 	// Run the CaffeineC build command
-	cmd := exec.Command("CaffeineC", "build", "--obj", objDir)
+	cmd := exec.Command("CaffeineC", "build", "--obj")
 	cmd.Dir = objDir
 	err = cmd.Run()
 	if err != nil {
