@@ -12,7 +12,7 @@ jobs:
       run_build: ${{ steps.verify-changed-files.outputs.any_changed }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Verify Changed files
         uses: tj-actions/changed-files@v41
         id: verify-changed-files
@@ -30,7 +30,7 @@ jobs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       new_version: ${{ steps.semver.outputs.version }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: paulhatch/semantic-version@v5.0.2
@@ -56,7 +56,7 @@ jobs:
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           title: "Release ${{ steps.semver.outputs.version_tag  }}"
-          automatic_release_tag: "${{ steps.semver.outputs.version  }}"
+          automatic_release_tag: "${{ steps.semver.outputs.version_tag  }}"
           prerelease: false
           draft: true
   
@@ -67,7 +67,7 @@ jobs:
     if: needs.check_changes.outputs.run_build == 'true'
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Update version
         run: |
@@ -100,7 +100,7 @@ jobs:
         go-version: ${{ matrix.go }}
 
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Update version
       run: |
