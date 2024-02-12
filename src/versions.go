@@ -52,6 +52,7 @@ type Release struct {
 	TagName string `json:"tag_name"`
 }
 
+/*
 func checkUpdate(c *cli.Context) {
 	resp, err := http.Get("https://api.github.com/repos/vyPal/CaffeineC/releases/latest")
 	if err != nil {
@@ -70,6 +71,7 @@ func checkUpdate(c *cli.Context) {
 		fmt.Printf("A new version is available: %s to update, run 'CaffeineC update'\n", release.TagName)
 	}
 }
+*/
 
 func autocomplete(c *cli.Context) error {
 	shell := filepath.Base(os.Getenv("SHELL"))

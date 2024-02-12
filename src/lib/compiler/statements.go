@@ -85,6 +85,8 @@ func (ctx *Context) compileExternalFunction(v *parser.ExternalFunctionDefinition
 		args = append(args, ir.NewParam(arg.Name, ctx.StringToType(arg.Type)))
 	}
 
+	v.Name = strings.Trim(v.Name, "\"")
+
 	fn := ctx.Module.NewFunc(v.Name, retType, args...)
 	fn.Sig.Variadic = v.Variadic
 }

@@ -1,13 +1,10 @@
 package main;
 
-import "vyPal/cffc-std/io";
-import "./typetests.cffc";
+extern func printf(format: *i8): i32;
 
 func main(): i32 {
-	var test: String = new String("Hello, World!");
-	var test2: String = new String(" xD");
-
-	println((test+test2):*i8);
-	
+	var a: f32 = 3.14;
+	var b: f64 = 2.71;
+	printf("3.14 + 2.71 = %f\n", (a + b): f64);
 	return 0;
 }

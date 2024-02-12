@@ -3,6 +3,7 @@ package compiler
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/llir/llvm/ir"
@@ -23,6 +24,10 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 		rightVal, err := ctx.compileComparison(right.Expression)
 		if err != nil {
 			return nil, err
+		}
+
+		if !left.Type().Equal(rightVal.Type()) {
+			return nil, posError(right.Pos, "Type mismatch: %s and %s", left.Type(), rightVal.Type())
 		}
 
 		switch leftType := left.(type) {
@@ -54,6 +59,77 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 					continue
 				}
 			} else {
+				switch rightVal.Type() {
+				case types.Float:
+					if !leftType.Type().Equal(types.Float) {
+						leftFloat := ctx.NewSIToFP(left, rightVal.Type())
+						left = leftFloat
+					}
+
+					switch right.Op {
+					case "+":
+						left = ctx.NewFAdd(left, rightVal)
+					case "-":
+						left = ctx.NewFSub(left, rightVal)
+					default:
+						return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
+					}
+				case types.Double:
+					if !leftType.Type().Equal(types.Double) {
+						leftFloat := ctx.NewSIToFP(left, rightVal.Type())
+						left = leftFloat
+					}
+
+					switch right.Op {
+					case "+":
+						left = ctx.NewFAdd(left, rightVal)
+					case "-":
+						left = ctx.NewFSub(left, rightVal)
+					default:
+						return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
+					}
+				default:
+					switch right.Op {
+					case "+":
+						left = ctx.NewAdd(left, rightVal)
+					case "-":
+						left = ctx.NewSub(left, rightVal)
+					default:
+						return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
+					}
+				}
+			}
+		default:
+			switch rightVal.Type() {
+			case types.Float:
+				if !leftType.Type().Equal(types.Float) {
+					leftFloat := ctx.NewSIToFP(left, rightVal.Type())
+					left = leftFloat
+				}
+
+				switch right.Op {
+				case "+":
+					left = ctx.NewFAdd(left, rightVal)
+				case "-":
+					left = ctx.NewFSub(left, rightVal)
+				default:
+					return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
+				}
+			case types.Double:
+				if !leftType.Type().Equal(types.Double) {
+					leftFloat := ctx.NewSIToFP(left, rightVal.Type())
+					left = leftFloat
+				}
+
+				switch right.Op {
+				case "+":
+					left = ctx.NewFAdd(left, rightVal)
+				case "-":
+					left = ctx.NewFSub(left, rightVal)
+				default:
+					return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
+				}
+			default:
 				switch right.Op {
 				case "+":
 					left = ctx.NewAdd(left, rightVal)
@@ -62,15 +138,6 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 				default:
 					return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
 				}
-			}
-		default:
-			switch right.Op {
-			case "+":
-				left = ctx.NewAdd(left, rightVal)
-			case "-":
-				left = ctx.NewSub(left, rightVal)
-			default:
-				return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
 			}
 		}
 	}
@@ -87,6 +154,26 @@ func (ctx *Context) compileComparison(c *parser.Comparison) (value.Value, error)
 		if err != nil {
 			return nil, err
 		}
+
+		if !left.Type().Equal(rightVal.Type()) {
+			return nil, posError(right.Pos, "Type mismatch: %s and %s", left.Type(), rightVal.Type())
+		}
+
+		switch leftType := left.(type) {
+		case *ir.InstLoad, *ir.InstCall, *ir.InstAlloca:
+			if structType, ok := leftType.Type().(*types.PointerType); ok {
+				if _, ok := structType.ElemType.(*types.StructType); ok {
+					// Check if the class has a method with the name "classname.op.operator"
+					methodName := fmt.Sprintf("%s.op.%s", structType.ElemType.Name(), right.Op)
+					if method, ok := ctx.lookupFunction(methodName); ok {
+						// Call the method and use its result as the result
+						left = ctx.NewCall(method, left, rightVal)
+						continue
+					}
+				}
+			}
+		}
+
 		switch right.Op {
 		case "==":
 			left = ctx.NewICmp(enum.IPredEQ, left, rightVal)
@@ -117,6 +204,26 @@ func (ctx *Context) compileTerm(t *parser.Term) (value.Value, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		if !left.Type().Equal(rightVal.Type()) {
+			return nil, posError(right.Pos, "Type mismatch: %s and %s", left.Type(), rightVal.Type())
+		}
+
+		switch leftType := left.(type) {
+		case *ir.InstLoad, *ir.InstCall, *ir.InstAlloca:
+			if structType, ok := leftType.Type().(*types.PointerType); ok {
+				if _, ok := structType.ElemType.(*types.StructType); ok {
+					// Check if the class has a method with the name "classname.op.operator"
+					methodName := fmt.Sprintf("%s.op.%s", structType.ElemType.Name(), right.Op)
+					if method, ok := ctx.lookupFunction(methodName); ok {
+						// Call the method and use its result as the result
+						left = ctx.NewCall(method, left, rightVal)
+						continue
+					}
+				}
+			}
+		}
+
 		switch right.Op {
 		case "*":
 			left = ctx.NewMul(left, rightVal)
@@ -182,6 +289,18 @@ func (ctx *Context) compileBitCast(bc *parser.BitCast) (value.Value, error) {
 		return val, nil
 	}
 
+	// Predefined bitcasts
+	switch targetType {
+	case types.Double:
+		if val.Type().Equal(types.Float) {
+			val = ctx.NewFPExt(val, types.Double)
+		}
+	case types.Float:
+		if val.Type().Equal(types.Double) {
+			val = ctx.NewFPTrunc(val, types.Float)
+		}
+	}
+
 	// If the value is a struct type or a pointer to a struct type, try to find a conversion function
 	if structType, ok := val.Type().(*types.StructType); ok {
 		method, ok := ctx.lookupFunction(structType.Name() + ".get." + bc.Type)
@@ -244,6 +363,7 @@ func (ctx *Context) compileClassInitializer(ci *parser.ClassInitializer) (value.
 
 func (ctx *Context) compileFunctionCall(fc *parser.FunctionCall) (value.Value, error) {
 	// Lookup the function
+	fc.FunctionName = strings.Trim(fc.FunctionName, "\"")
 	function, exists := ctx.lookupFunction(fc.FunctionName)
 	if !exists {
 		return nil, posError(fc.Pos, "Function %s not found", fc.FunctionName)

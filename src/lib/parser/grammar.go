@@ -58,17 +58,17 @@ type ClassInitializer struct {
 
 type FunctionCall struct {
 	Pos          lexer.Position
-	FunctionName string       `parser:"@Ident"`
+	FunctionName string       `parser:"@( Ident | String )"`
 	Args         ArgumentList `parser:"'(' @@ ')'"`
 }
 
 type Factor struct {
 	Pos              lexer.Position
-	Value            *Value            `parser:"  @@"`
+	FunctionCall     *FunctionCall     `parser:"  (?= ( Ident | String ) '(') @@"`
+	Value            *Value            `parser:"| @@"`
 	BitCast          *BitCast          `parser:"| (?= '(') @@?"`
 	ClassInitializer *ClassInitializer `parser:"| (?= 'new') @@"`
 	SubExpression    *Expression       `parser:"| '(' @@ ')'"`
-	FunctionCall     *FunctionCall     `parser:"| (?= Ident '(') @@"`
 	ClassMethod      *ClassMethod      `parser:"| (?= Ident ( '.' Ident)+ '(') @@"`
 	Identifier       *Identifier       `parser:"| @@"`
 }
@@ -216,7 +216,7 @@ type ExternalVariableDefinition struct {
 type ExternalFunctionDefinition struct {
 	Pos        lexer.Position
 	Variadic   bool                  `parser:"'extern' @'vararg'?"`
-	Name       string                `parser:"'func' @Ident"`
+	Name       string                `parser:"'func' @( Ident | String )"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )? ')'"`
 	ReturnType string                `parser:"( ':' @('*'? Ident) )?"`
 }
