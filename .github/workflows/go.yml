@@ -84,17 +84,17 @@ jobs:
           git push
 
   build:
-      name: Build
-      runs-on: ${{ matrix.os }}
-      needs: [check_changes, create_release, update_version]
-      if: needs.check_changes.outputs.run_build == 'true'
-      strategy:
-        matrix:
-          os: [ubuntu-latest, windows-latest, macos-latest]
-          go: [1.21.3]
-          arch: [amd64, arm64]
+    name: Build
+    runs-on: ${{ matrix.os }}
+    needs: [check_changes, create_release, update_version]
+    if: needs.check_changes.outputs.run_build == 'true'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        go: [1.21.3]
+        arch: [amd64, arm64]
 
-      steps:
+    steps:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -114,7 +114,14 @@ jobs:
         env:
           GOARCH: ${{ matrix.arch }}
         run: go build -v ./src
-      
+
+      - name: Build for Android arm64 (Special Case)
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
+        env:
+          GOOS: android
+          GOARCH: arm64
+        run: go build -v -o CaffeineC-Android-arm64 ./src
+
       - name: upload artifact
         uses: actions/upload-release-asset@v1.0.1
         env:
@@ -123,6 +130,17 @@ jobs:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
           asset_path: ${{ runner.os == 'Windows' && './CaffeineC.exe' || './CaffeineC' }}
           asset_name: "CaffeineC-${{ runner.os }}-${{ matrix.arch }}${{ runner.os == 'Windows' && '.exe' || '' }}"
+          asset_content_type: application/octet-stream
+
+      - name: Upload artifact for Android arm64 (Special Case)
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: CaffeineC-Android-arm64
+          asset_name: "CaffeineC-Android-arm64"
           asset_content_type: application/octet-stream
 
   finalize_release:

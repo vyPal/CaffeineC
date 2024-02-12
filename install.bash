@@ -28,7 +28,7 @@ case $OS in
   linux)
     DOWNLOAD_URL="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC-Linux"
     if [ $(ps -ef|grep -c com.termux ) -gt 1 ]; then
-      echo "Termux detected."
+      DOWNLOAD_URL="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC-Android"
       PACKAGE_MANAGER="apt"
       INSTALL_DIR="/data/data/com.termux/files/usr/bin"
       SHARE_DIR="/data/data/com.termux/files/usr/lib"
