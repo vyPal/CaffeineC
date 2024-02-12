@@ -36,7 +36,7 @@ case $OS in
     else
       source /etc/os-release
       case $ID in
-        debian|ubuntu|mint)
+        debian|ubuntu|linuxmint)
           PACKAGE_MANAGER="sudo apt-get"
           ;;
 
