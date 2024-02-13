@@ -31,6 +31,7 @@ if (!(Test-Path -Path $install_dir)) {
 }
 
 # Download the binary
+Write-Output "Trying to download from $download_url to $install_dir\CaffeineC.exe"
 Invoke-WebRequest -Uri $download_url -OutFile "$install_dir\CaffeineC.exe"
 
 $env:Path += ";$install_dir"
