@@ -2,9 +2,21 @@ package main;
 
 import "vyPal/cffc-std/io";
 
+extern func rand(): i32;
+extern func srand(seed: i32): void;
+extern func time(seed: i32): i32;
+
+func randInt(min: i32, max: i32): i32 {
+	var maxmin: i32 = max - min + 1;
+	return min + rand() % maxmin;
+}
+
 func main(): i32 {
-	var a: f32 = 3.14;
-	var b: f32 = 2.71;
-	printf("3.14 + 2.71 = %f\n", (a + b): f64);
+	println("Print 10 random numbers between 1 and 10:");
+	srand(time(null));
+	for (var i: i64 = 0; i < 9; i = i + 1) {
+		printf("%i, ", randInt(1, 10));
+	}
+	printf("%i\n", randInt(1, 10));
 	return 0;
 }
