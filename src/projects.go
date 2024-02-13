@@ -159,10 +159,20 @@ func install(c *cli.Context) error {
 			Identifier: ident,
 		}
 
-		conf.Dependencies = append(conf.Dependencies, dep)
-		err = conf.Save("cfconf.yaml", true)
-		if err != nil {
-			return err
+		found := false
+		for _, dependency := range conf.Dependencies {
+			if dependency == dep {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			conf.Dependencies = append(conf.Dependencies, dep)
+			err = conf.Save("cfconf.yaml", true)
+			if err != nil {
+				return err
+			}
 		}
 
 		fmt.Println("Added package", conf.Name, "to the project.")
