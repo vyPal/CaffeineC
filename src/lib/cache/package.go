@@ -263,7 +263,7 @@ func UpdateLibrary(pcache PackageCache, liburl string, version string) (conf pro
 	os.MkdirAll(objDir, 0700)
 
 	// Run the CaffeineC build command
-	cmd := exec.Command("CaffeineC", "build", "--obj")
+	cmd := exec.Command("CaffeineC", "build", "--obj", "-c", updateDir)
 	cmd.Dir = objDir
 	err = cmd.Run()
 	if err != nil {

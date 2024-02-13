@@ -100,6 +100,8 @@ func install(c *cli.Context) error {
 		return err
 	}
 
+	var cnf project.CfConf
+
 	if liburl == "" {
 		for _, dep := range conf.Dependencies {
 			pkg, err := pcache.GetPackage(dep.Package, dep.Version, dep.Identifier)
@@ -137,7 +139,6 @@ func install(c *cli.Context) error {
 		}
 
 		var ident, ver string
-		var cnf project.CfConf
 		if pkg == (cache.Package{}) {
 			color.Green("Package not found locally, cloning...")
 			cnf, ident, ver, err = cache.InstallLibrary(pcache, liburl, version)
@@ -175,18 +176,18 @@ func install(c *cli.Context) error {
 			}
 		}
 
-		fmt.Println("Added package", conf.Name, "to the project.")
+		fmt.Println("Added package", cnf.Name, "to the project.")
 	}
 
 	fmt.Println("--------------------------------------------------")
 	fmt.Println("                  Package Details                 ")
 	fmt.Println("--------------------------------------------------")
-	fmt.Printf("Name        : %s\n", conf.Name)
-	fmt.Printf("Description : %s\n", conf.Description)
-	fmt.Printf("Version     : %s\n", conf.Version)
-	fmt.Printf("Main File   : %s\n", conf.Main)
-	fmt.Printf("Author      : %s\n", conf.Author)
-	fmt.Printf("License     : %s\n", conf.License)
+	fmt.Printf("Name        : %s\n", cnf.Name)
+	fmt.Printf("Description : %s\n", cnf.Description)
+	fmt.Printf("Version     : %s\n", cnf.Version)
+	fmt.Printf("Main File   : %s\n", cnf.Main)
+	fmt.Printf("Author      : %s\n", cnf.Author)
+	fmt.Printf("License     : %s\n", cnf.License)
 	fmt.Println("--------------------------------------------------")
 
 	return nil
@@ -308,6 +309,8 @@ func libUpdate(c *cli.Context) error {
 		return err
 	}
 
+	var cnf project.CfConf
+
 	if liburl == "" {
 		for _, dep := range conf.Dependencies {
 			pkg, err := pcache.GetPackage(dep.Package, dep.Version, dep.Identifier)
@@ -317,13 +320,13 @@ func libUpdate(c *cli.Context) error {
 
 			if pkg == (cache.Package{}) {
 				color.Green("Package not found locally, cloning...")
-				conf, _, _, err = cache.InstallLibrary(pcache, dep.Identifier, dep.Version)
+				cnf, _, _, err = cache.InstallLibrary(pcache, dep.Identifier, dep.Version)
 				if err != nil {
 					return err
 				}
 			} else {
 				color.Green("Package found locally, updating...")
-				conf, _, _, err = cache.UpdateLibrary(pcache, dep.Identifier, dep.Version)
+				cnf, _, _, err = cache.UpdateLibrary(pcache, dep.Identifier, dep.Version)
 				if err != nil {
 					return err
 				}
@@ -346,7 +349,6 @@ func libUpdate(c *cli.Context) error {
 		}
 
 		var ident, ver string
-		var cnf project.CfConf
 		if pkg == (cache.Package{}) {
 			color.Green("Package not found locally, cloning...")
 			cnf, ident, ver, err = cache.InstallLibrary(pcache, liburl, version)
@@ -373,18 +375,18 @@ func libUpdate(c *cli.Context) error {
 			return err
 		}
 
-		fmt.Println("Updated package", conf.Name, "in the project.")
+		fmt.Println("Updated package", cnf.Name, "in the project.")
 	}
 
 	fmt.Println("--------------------------------------------------")
 	fmt.Println("                  Package Details                 ")
 	fmt.Println("--------------------------------------------------")
-	fmt.Printf("Name        : %s\n", conf.Name)
-	fmt.Printf("Description : %s\n", conf.Description)
-	fmt.Printf("Version     : %s\n", conf.Version)
-	fmt.Printf("Main File   : %s\n", conf.Main)
-	fmt.Printf("Author      : %s\n", conf.Author)
-	fmt.Printf("License     : %s\n", conf.License)
+	fmt.Printf("Name        : %s\n", cnf.Name)
+	fmt.Printf("Description : %s\n", cnf.Description)
+	fmt.Printf("Version     : %s\n", cnf.Version)
+	fmt.Printf("Main File   : %s\n", cnf.Main)
+	fmt.Printf("Author      : %s\n", cnf.Author)
+	fmt.Printf("License     : %s\n", cnf.License)
 	fmt.Println("--------------------------------------------------")
 
 	return nil

@@ -186,8 +186,11 @@ func build(c *cli.Context) error {
 	}
 
 	cmd := exec.Command(args[0], args[1:]...)
-
 	cmd.Stderr = &stderr
+
+	if c.Bool("debug") {
+		fmt.Println("Running", cmd.String())
+	}
 
 	err = cmd.Run()
 	var cerr error
@@ -620,7 +623,7 @@ func processFile(path string, files *[]string, tmpDir string, opt int, dump, hea
 			compiledCache[path] = true
 			reqs := []string{}
 			if len(req) > 0 {
-				reqs, err = processIncludes(req, tmpDir, opt, false, header, pcache, compiledCache)
+				reqs, err = processIncludes(req, tmpDir, opt, dump, header, pcache, compiledCache)
 				if err != nil {
 					errs <- err
 					return

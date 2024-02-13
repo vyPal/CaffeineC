@@ -31,10 +31,10 @@ func (d *Duration) Capture(values []string) error {
 type Value struct {
 	Pos      lexer.Position
 	Float    *float64  `parser:"  @Float"`
-	Int      *int64    `parser:"| @Int"`
+	Duration *Duration `parser:"| @Int @('h' | 'm' | 's' | 'ms' | 'us' | 'ns')"`
+	Int      *int64    `parser:"| @('-'? Int)"`
 	Bool     *Bool     `parser:"| @('true' | 'false')"`
 	String   *string   `parser:"| @String"`
-	Duration *Duration `parser:"| @Int @('h' | 'm' | 's' | 'ms' | 'us' | 'ns')"`
 	Null     bool      `parser:"| @'null'"`
 }
 
@@ -64,8 +64,8 @@ type FunctionCall struct {
 
 type Factor struct {
 	Pos              lexer.Position
-	FunctionCall     *FunctionCall     `parser:"  (?= ( Ident | String ) '(') @@"`
-	Value            *Value            `parser:"| @@"`
+	Value            *Value            `parser:"  @@"`
+	FunctionCall     *FunctionCall     `parser:"| (?= ( Ident | String ) '(') @@"`
 	BitCast          *BitCast          `parser:"| (?= '(') @@?"`
 	ClassInitializer *ClassInitializer `parser:"| (?= 'new') @@"`
 	SubExpression    *Expression       `parser:"| '(' @@ ')'"`

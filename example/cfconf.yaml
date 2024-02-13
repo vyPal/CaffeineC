@@ -7,5 +7,20 @@ dependencies:
 - package: std
   version: main
   identifier: github.com/vyPal/cffc-std
+- package: std
+  version: main
+  identifier: github.com/vyPal/cffc-std
+- package: std
+  version: main
+  identifier: github.com/vyPal/cffc-std
+- package: std
+  version: main
+  identifier: github.com/vyPal/cffc-std
+- package: std
+  version: main
+  identifier: github.com/vyPal/cffc-std
+- package: std
+  version: main
+  identifier: github.com/vyPal/cffc-std
 author: vyPal
 license: GPL-3.0
