@@ -263,8 +263,8 @@ type Statement struct {
 	FromImportMultiple *FromImportMultiple `parser:"| (?= 'from' String 'import' '{') @@?"`
 	FromImport         *FromImport         `parser:"| (?= 'from' String 'import') @@?"`
 	Export             *Statement          `parser:"| 'export' @@? (';' | '\\n')?"`
-	Break              *string             `parser:"| 'break' (';' | '\\n')?"`
-	Continue           *string             `parser:"| 'continue' (';' | '\\n')?"`
+	Break              *string             `parser:"| @('break' (';' | '\\n')?)"`
+	Continue           *string             `parser:"| @('continue' (';' | '\\n')?)"`
 	Comment            *string             `parser:"| @Comment"`
 	Expression         *Expression         `parser:"| @@ ';'"`
 }

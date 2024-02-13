@@ -1,15 +1,38 @@
 package main;
 
 import "vyPal/cffc-std/io";
-import "vyPal/cffc-std/rand";
+
+extern func strcmp(a: *i8, b: *i8): i64;
 
 func main(): i32 {
-	println("Print 10 random numbers between 1 and 10:");
-	randInit();
-	var neco: i64 = 1;
-	for (var i: i64 = 0; i < 9; i = i + 1) {
-		printf("%i, ", randInt(1, 10));
+	printf("Mysli si cislo od 1 do 100\n");
+	printf("Ja ti ho uhadnu za 7 pokusu\n");
+	printf("Pokud jsem uhadl, napis 'ano', pokud ne, napis 'vice' nebo 'mene'\n");
+	var min:i64 = 1;
+	var max:i64 = 100;
+	var guess:i64 = 50;
+	var answer:*i8 = "ne";
+	var attempts:i64 = 0;
+	while (strcmp(answer, "ano") != 0) {
+		printf("Hadam, ze je cislo %i\n", guess);
+		printf("Je to spravne?\n");
+		answer = input();
+		if (strcmp(answer, "ano") == 0) {
+			println("Vyhral jsem!");
+			break;
+		}
+		if (strcmp(answer, "vice") == 0) {
+			min = guess + 1;
+		} else {
+			max = guess - 1;
+		}
+		guess = min + max;
+		guess = guess / 2;
+		attempts = attempts + 1;
+		if (attempts == 7) {
+			println("Nepodarilo se mi uhadnout číslo");
+			break;
+		}
 	}
-	printf("%i\n", randInt(1, 10));
 	return 0;
 }

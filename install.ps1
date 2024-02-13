@@ -22,7 +22,7 @@ if ($architecture -eq "AMD64") {
   exit 1
 }
 
-$download_url = "https://github.com/vyPal/CaffeineC/releases/download/$latest_version/CaffeineC${arch_suffix}.exe"
+$download_url = "https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC-Windows${arch_suffix}.exe"
 $install_dir = "$env:USERPROFILE\AppData\Local\Programs\CaffeineC"
 
 # Create the directory if it doesn't exist
