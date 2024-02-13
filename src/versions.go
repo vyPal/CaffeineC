@@ -155,10 +155,12 @@ func update(c *cli.Context) error {
 		osSuffix := "Linux"
 		if runtime.GOOS == "darwin" {
 			osSuffix = "macOS"
+		} else if runtime.GOOS == "android" {
+			osSuffix = "Android"
 		}
 
 		// Download the new binary
-		resp, err = http.Get("https://github.com/vyPal/CaffeineC/releases/download/" + release.TagName + "/CaffeineC-" + osSuffix)
+		resp, err = http.Get("https://github.com/vyPal/CaffeineC/releases/download/" + release.TagName + "/CaffeineC-" + osSuffix + "-" + runtime.GOARCH)
 		if err != nil {
 			fmt.Println("Failed to download the new version:", err)
 			return nil
