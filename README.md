@@ -2,12 +2,16 @@
 Idk why I'm doing this, so don't ask.
 ## Installing
 Auto-install script in bash: `curl https://raw.githubusercontent.com/vyPal/CaffeineC/master/install.bash | bash`
-Installation instructions can be found [here](https://github.com/vyPal/CaffeineC/wiki/Installation)
+Installation instructions can be found [here](https://c.vypal.me/getting-started/installing-the-compiler)
 
 ## Troubleshooting
-This has really only been tested on linux.
-
-Make sure every command is being executed in the project's root directory.
+I really only test this on linux, if there is some issue you cant fix, try removing all directories created by CaffeineC.
+On linux you can use these commands:
+```bash
+rm -r ~/.local/lib/CaffeineC/*
+rm /usr/local/bin/CaffeineC
+rm /usr/local/lib/CaffeineC_autocomplete
+```
 
 ## Documentation
-Documentation has been moved to [the wiki](https://github.com/vyPal/CaffeineC/wiki).
+Documentation has been moved to [the wiki](https://c.vypal.me/getting-started/creating-a-new-project).
