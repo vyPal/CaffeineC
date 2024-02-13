@@ -15,7 +15,7 @@ func main() {
 		EnableBashCompletion:   true,
 		Suggest:                true,
 		UseShortOptionHandling: true,
-		Version:                "2.2.2",
+		Version:                "2.2.3",
 		Commands:               commands,
 	}
 
