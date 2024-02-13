@@ -166,6 +166,7 @@ func (c *Compiler) ImportAll(path string, ctx *Context) error {
 					params = append(params, ir.NewParam(p.Name, ctx.StringToType(p.Type)))
 				}
 				fn := c.Module.NewFunc(s.Export.FunctionDefinition.Name.Name, ctx.StringToType(s.Export.FunctionDefinition.ReturnType), params...)
+				fn.Sig.Variadic = s.Export.FunctionDefinition.Variadic
 				ctx.SymbolTable[s.Export.FunctionDefinition.Name.Name] = fn
 
 			} else if s.Export.ClassDefinition != nil {
@@ -195,7 +196,7 @@ func (c *Compiler) ImportAll(path string, ctx *Context) error {
 						}
 
 						fn := ctx.Module.NewFunc(s.Export.ClassDefinition.Name+ms, ctx.StringToType(f.ReturnType), params...)
-						fn.Sig.Variadic = false
+						fn.Sig.Variadic = st.FunctionDefinition.Variadic
 						fn.Sig.RetType = ctx.StringToType(f.ReturnType)
 
 						ctx.SymbolTable[s.Export.ClassDefinition.Name+ms] = fn
@@ -208,6 +209,7 @@ func (c *Compiler) ImportAll(path string, ctx *Context) error {
 						params = append(params, ir.NewParam(p.Name, ctx.StringToType(p.Type)))
 					}
 					fn := c.Module.NewFunc(s.Export.External.Function.Name, ctx.StringToType(s.Export.External.Function.ReturnType), params...)
+					fn.Sig.Variadic = s.Export.External.Function.Variadic
 					ctx.SymbolTable[s.Export.External.Function.Name] = fn
 				}
 			} else {

@@ -1,10 +1,10 @@
 package main;
 
-extern func printf(format: *i8): i32;
+import "vyPal/cffc-std/io";
 
 func main(): i32 {
 	var a: f32 = 3.14;
-	var b: f64 = 2.71;
+	var b: f32 = 2.71;
 	printf("3.14 + 2.71 = %f\n", (a + b): f64);
 	return 0;
 }
