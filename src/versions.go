@@ -7,12 +7,12 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/user"
 	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
 
-	"github.com/fatih/color"
 	"github.com/urfave/cli/v2"
 )
 
@@ -133,9 +133,6 @@ func autocomplete(c *cli.Context) error {
 }
 
 func update(c *cli.Context) error {
-	if runtime.GOOS == "windows" {
-		return cli.Exit(color.RedString("Windows automatic updates are not supported at this time."), 1)
-	}
 	resp, err := http.Get("https://api.github.com/repos/vyPal/CaffeineC/releases/latest")
 	if err != nil {
 		fmt.Println("Failed to fetch the latest release:", err)
@@ -153,14 +150,25 @@ func update(c *cli.Context) error {
 		fmt.Printf("A new version is available: %s. Updating...\n", release.TagName)
 
 		osSuffix := "Linux"
+		baseDir := filepath.Join("/usr", "local", "bin")
+		osEnd := ""
 		if runtime.GOOS == "darwin" {
 			osSuffix = "macOS"
 		} else if runtime.GOOS == "android" {
 			osSuffix = "Android"
+		} else if runtime.GOOS == "windows" {
+			user, err := user.Current()
+			if err != nil {
+				fmt.Println("Failed to get the current user:", err)
+				return nil
+			}
+			baseDir = filepath.Join(user.HomeDir, "AppData", "Local", "Programs", "CaffeineC")
+			osSuffix = "Windows"
+			osEnd = "exe"
 		}
 
 		// Download the new binary
-		resp, err = http.Get("https://github.com/vyPal/CaffeineC/releases/download/" + release.TagName + "/CaffeineC-" + osSuffix + "-" + runtime.GOARCH)
+		resp, err = http.Get("https://github.com/vyPal/CaffeineC/releases/download/" + release.TagName + "/CaffeineC-" + osSuffix + "-" + runtime.GOARCH + osEnd)
 		if err != nil {
 			fmt.Println("Failed to download the new version:", err)
 			return nil
@@ -168,7 +176,7 @@ func update(c *cli.Context) error {
 		defer resp.Body.Close()
 
 		// Write the new binary to a temporary file
-		tmpFile, err := os.CreateTemp("", "CaffeineC")
+		tmpFile, err := os.CreateTemp("", "CaffeineC"+osEnd)
 		if err != nil {
 			fmt.Println("Failed to create a temporary file:", err)
 			return nil
@@ -181,10 +189,8 @@ func update(c *cli.Context) error {
 			return nil
 		}
 
-		baseDir := filepath.Join("/usr", "local", "bin")
-
 		// Set the destination file path
-		dstFilePath := filepath.Join(baseDir, "CaffeineC")
+		dstFilePath := filepath.Join(baseDir, "CaffeineC"+osEnd)
 
 		// Rename the old file
 		oldFilePath := dstFilePath + ".old"
