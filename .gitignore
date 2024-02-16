@@ -27,5 +27,6 @@
 .vscode
 
 example/debug
+testing
 
 !autocomplete/*

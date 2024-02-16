@@ -478,7 +478,7 @@ func initProject(c *cli.Context) error {
 
 	fmt.Println("----------------------------------------")
 	fmt.Println("Project initialized successfully!")
-	fmt.Println("Run 'cd", rootDir, "&& caffeinec build' to build the project.'")
+	fmt.Println("Run 'cd", rootDir, "&& CaffeineC build' to build the project.'")
 	fmt.Println("----------------------------------------")
 
 	return nil

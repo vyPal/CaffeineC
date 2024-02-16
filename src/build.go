@@ -215,7 +215,7 @@ func build(c *cli.Context) error {
 			}
 		}
 
-		cmd := exec.Command("sh", "-c", "mv "+tmpDir+"/* debug")
+		cmd = exec.Command("sh", "-c", "mv "+tmpDir+"/* debug/")
 		err = cmd.Run()
 		if err != nil {
 			return err

@@ -486,43 +486,15 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 
 	if i.Sub == nil {
 		if i.GEP != nil {
-			// Load the value
-			loadedValue := ctx.NewLoad(val.Type, val.Value)
-
 			gepExpr, err := ctx.compileExpression(i.GEP)
 			if err != nil {
 				return nil, nil, err
 			}
 
 			// Run GetElementPtr on the loaded value
-			v := ctx.NewGetElementPtr(loadedValue.Type(), loadedValue, gepExpr)
-			val.Value = v
-			val.Type = v.ElemType.(*types.PointerType)
+			v := ctx.NewGetElementPtr(val.Type.(*types.PointerType).ElemType, val.Value, gepExpr)
+			return v, v.Type(), nil
 		}
-		/* TODO: Also move to top
-		if ctx.RequestedType != nil {
-			typeString := ctx.TypeToString(ctx.RequestedType)
-			if call, ok := val.Value.(*ir.InstCall); ok {
-				if call.Type().Equal(ctx.RequestedType) {
-					return call, ctx.RequestedType, nil
-				}
-			} else if load, ok := val.Value.(*ir.InstLoad); ok {
-				if load.Type().Equal(ctx.RequestedType) {
-					return load, ctx.RequestedType, nil
-				}
-			} else if structType, ok := val.Type.(*types.StructType); ok {
-				method, ok := ctx.lookupFunction(structType.Name() + ".get." + typeString)
-				if ok {
-					result := ctx.NewCall(method, val.Value)
-					return result, result.Type(), nil
-				}
-			}
-			if val.Type.Equal(ctx.RequestedType) {
-				return val.Value, ctx.RequestedType, nil
-			}
-			return nil, nil, posError(i.Pos, "Cannot convert %s to %s", val.Type.Name(), typeString)
-		}
-		*/
 		return val.Value, val.Value.Type(), nil
 	}
 
@@ -552,29 +524,6 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 		currentVal.Value = ctx.NewLoad(fieldType, fieldPtr)
 		currentSub = currentSub.Sub
 	}
-
-	// If we're here, we're returning the top-level struct
-	/* TODO: Move to top-level expression
-	if ctx.RequestedType != nil {
-		typeString := ctx.TypeToString(ctx.RequestedType)
-		if call, ok := val.Value.(*ir.InstCall); ok {
-			if call.Type().Equal(ctx.RequestedType) {
-				return call, ctx.RequestedType, nil
-			}
-		} else if load, ok := val.Value.(*ir.InstLoad); ok {
-			if load.Type().Equal(ctx.RequestedType) {
-				return load, ctx.RequestedType, nil
-			}
-		} else if structType, ok := val.Type.(*types.StructType); ok {
-			method, ok := ctx.lookupFunction(structType.Name() + ".get." + typeString)
-			if ok {
-				result := ir.NewCall(method, val.Value)
-				return result, ctx.RequestedType, nil
-			}
-		}
-		return nil, nil, posError(i.Pos, "Cannot convert %s to %s", currentVal.Type.Name(), typeString)
-	}
-	*/
 
 	// If we're here, we're returning the top-level struct
 	return currentVal.Value, currentVal.Type, nil
@@ -607,8 +556,6 @@ func (ctx *Context) compileSubIdentifier(f *Variable, sub *parser.Identifier) (F
 		fieldPtr := ctx.NewGetElementPtr(ctx.StringToType(field.Type), f.Value, constant.NewInt(types.I32, int64(nfield)))
 		f.Value = fieldPtr
 		if sub.GEP != nil {
-			// Load the value
-			loadedValue := ctx.NewLoad(f.Type, f.Value)
 
 			gepExpr, err := ctx.compileExpression(sub.GEP)
 			if err != nil {
@@ -616,9 +563,8 @@ func (ctx *Context) compileSubIdentifier(f *Variable, sub *parser.Identifier) (F
 			}
 
 			// Run GetElementPtr on the loaded value
-			v := ctx.NewGetElementPtr(loadedValue.Type(), loadedValue, gepExpr)
-			f.Value = v
-			f.Type = v.ElemType.(*types.PointerType)
+			v := ctx.NewGetElementPtr(f.Type.(*types.PointerType).ElemType, f.Value, gepExpr)
+			return ctx.compileSubIdentifier(&Variable{Value: v, Type: v.Type()}, sub.Sub)
 		}
 		return ctx.compileSubIdentifier(f, sub.Sub)
 	}
