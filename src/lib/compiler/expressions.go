@@ -301,6 +301,18 @@ func (ctx *Context) compileBitCast(bc *parser.BitCast) (value.Value, error) {
 		}
 	}
 
+	if valType, ok := val.Type().(*types.IntType); ok {
+		if targetType, ok := targetType.(*types.IntType); ok {
+			if valType.BitSize < targetType.BitSize {
+				// Extend if valType is smaller than targetType
+				val = ctx.NewSExt(val, targetType)
+			} else if valType.BitSize > targetType.BitSize {
+				// Truncate if valType is larger than targetType
+				val = ctx.NewTrunc(val, targetType)
+			}
+		}
+	}
+
 	// If the value is a struct type or a pointer to a struct type, try to find a conversion function
 	if structType, ok := val.Type().(*types.StructType); ok {
 		method, ok := ctx.lookupFunction(structType.Name() + ".get." + bc.Type)
@@ -572,16 +584,29 @@ func (ctx *Context) compileSubIdentifier(f *Variable, sub *parser.Identifier) (F
 }
 
 func (ctx *Context) compileClassMethod(cm *parser.ClassMethod) (value.Value, error) {
-	// First, compile the class identifier to get the class instance
+	var methodName string
+	var currentSub *parser.Identifier
+	var prevSub *parser.Identifier
+
+	// Go through the recursive list of identifier.sub
+	for currentSub = cm.Identifier.Sub; currentSub != nil; currentSub = currentSub.Sub {
+		methodName = currentSub.Name
+		if currentSub.Sub != nil {
+			prevSub = currentSub
+		}
+	}
+
+	// Remove the last sub from cm.Identifier
+	if prevSub != nil {
+		prevSub.Sub = nil
+	} else {
+		cm.Identifier.Sub = nil
+	}
+
+	// Compile the class identifier to get the class instance
 	classInstance, _, err := ctx.compileIdentifier(cm.Identifier, true)
 	if err != nil {
 		return nil, err
-	}
-
-	var methodName string
-	var currentSub *parser.Identifier
-	for currentSub = cm.Identifier.Sub; currentSub != nil; currentSub = currentSub.Sub {
-		methodName = currentSub.Name
 	}
 
 	// Then, compile the method call on the class instance
@@ -625,7 +650,7 @@ func (ctx *Context) lookupMethod(parentType types.Type, methodName string) (valu
 	}
 
 	// Check if the struct type is a named type
-	structName, ok := ctx.structNames[structType]
+	structName, ok := ctx.Context.structNames[structType]
 	if !ok {
 		return nil, false
 	}
