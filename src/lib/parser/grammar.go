@@ -119,7 +119,7 @@ type VariableDefinition struct {
 	Pos        lexer.Position
 	Constant   bool        `parser:"'const'?"`
 	Name       string      `parser:"'var' @Ident"`
-	Type       string      `parser:"':' @('*'? Ident)"`
+	Type       string      `parser:"':' @('*'* Ident)"`
 	Assignment *Expression `parser:"( '=' @@ )?"`
 }
 
@@ -127,13 +127,13 @@ type FieldDefinition struct {
 	Pos     lexer.Position
 	Private bool   `parser:"@'private'?"`
 	Name    string `parser:"@Ident"`
-	Type    string `parser:"':' @('*'? Ident) ';'"`
+	Type    string `parser:"':' @('*'* Ident) ';'"`
 }
 
 type ArgumentDefinition struct {
 	Pos  lexer.Position
 	Name string `parser:"@Ident"`
-	Type string `parser:"':' @('*'? Ident)"`
+	Type string `parser:"':' @('*'* Ident)"`
 }
 
 type FuncName struct {
@@ -152,7 +152,7 @@ type FunctionDefinition struct {
 	Variadic   bool                  `parser:"@'vararg'?"`
 	Name       FuncName              `parser:"@@"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )? ')'"`
-	ReturnType string                `parser:"( ':' @('*'? Ident) )?"`
+	ReturnType string                `parser:"( ':' @('*'* Ident) )?"`
 	Body       []*Statement          `parser:"'{' @@* '}'"`
 }
 
@@ -210,7 +210,7 @@ type ExternalDefinition struct {
 type ExternalVariableDefinition struct {
 	Pos  lexer.Position
 	Name string `parser:"'extern' 'var' @Ident"`
-	Type string `parser:"':' @('*'? Ident)"`
+	Type string `parser:"':' @('*'* Ident)"`
 }
 
 type ExternalFunctionDefinition struct {
@@ -218,7 +218,7 @@ type ExternalFunctionDefinition struct {
 	Variadic   bool                  `parser:"'extern' @'vararg'?"`
 	Name       string                `parser:"'func' @( Ident | String )"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )? ')'"`
-	ReturnType string                `parser:"( ':' @('*'? Ident) )?"`
+	ReturnType string                `parser:"( ':' @('*'* Ident) )?"`
 }
 
 type Import struct {
@@ -244,7 +244,7 @@ type Symbol struct {
 type BitCast struct {
 	Pos  lexer.Position
 	Expr *Expression `parser:"'(' @@ ')'"`
-	Type string      `parser:"':' @('*'? Ident)"`
+	Type string      `parser:"':' @('*'* Ident)"`
 }
 
 type Statement struct {
@@ -258,7 +258,7 @@ type Statement struct {
 	For                *For                `parser:"| (?= 'for') @@?"`
 	While              *While              `parser:"| (?= 'while') @@?"`
 	Return             *Return             `parser:"| (?= 'return') @@?"`
-	FieldDefinition    *FieldDefinition    `parser:"| (?= 'private'? Ident ':' '*'? Ident) @@?"`
+	FieldDefinition    *FieldDefinition    `parser:"| (?= 'private'? Ident ':' '*'* Ident) @@?"`
 	Import             *Import             `parser:"| (?= 'import') @@?"`
 	FromImportMultiple *FromImportMultiple `parser:"| (?= 'from' String 'import' '{') @@?"`
 	FromImport         *FromImport         `parser:"| (?= 'from' String 'import') @@?"`
