@@ -498,10 +498,12 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 
 	if i.Sub == nil {
 		if i.GEP != nil {
+			ctx.RequestedType = types.I32
 			gepExpr, err := ctx.compileExpression(i.GEP)
 			if err != nil {
 				return nil, nil, err
 			}
+			ctx.RequestedType = nil
 
 			// Run GetElementPtr on the loaded value
 			v := ctx.NewGetElementPtr(val.Type.(*types.PointerType).ElemType, val.Value, gepExpr)
@@ -568,11 +570,12 @@ func (ctx *Context) compileSubIdentifier(f *Variable, sub *parser.Identifier) (F
 		fieldPtr := ctx.NewGetElementPtr(ctx.StringToType(field.Type), f.Value, constant.NewInt(types.I32, int64(nfield)))
 		f.Value = fieldPtr
 		if sub.GEP != nil {
-
+			ctx.RequestedType = types.I32
 			gepExpr, err := ctx.compileExpression(sub.GEP)
 			if err != nil {
 				return nil, nil, false, err
 			}
+			ctx.RequestedType = nil
 
 			// Run GetElementPtr on the loaded value
 			v := ctx.NewGetElementPtr(f.Type.(*types.PointerType).ElemType, f.Value, gepExpr)
