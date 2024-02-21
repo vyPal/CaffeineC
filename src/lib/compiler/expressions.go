@@ -21,6 +21,7 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 		return nil, err
 	}
 	for _, right := range e.Right {
+		ctx.RequestedType = left.Type()
 		rightVal, err := ctx.compileComparison(right.Expression)
 		if err != nil {
 			return nil, err
@@ -141,6 +142,7 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 			}
 		}
 	}
+	ctx.RequestedType = nil
 	return left, nil
 }
 
@@ -150,6 +152,7 @@ func (ctx *Context) compileComparison(c *parser.Comparison) (value.Value, error)
 		return nil, err
 	}
 	for _, right := range c.Right {
+		ctx.RequestedType = left.Type()
 		rightVal, err := ctx.compileTerm(right.Comparison)
 		if err != nil {
 			return nil, err
@@ -191,6 +194,7 @@ func (ctx *Context) compileComparison(c *parser.Comparison) (value.Value, error)
 			return nil, posError(right.Pos, "Unknown comparison operator: %s", right.Op)
 		}
 	}
+	ctx.RequestedType = nil
 	return left, nil
 }
 
@@ -200,6 +204,7 @@ func (ctx *Context) compileTerm(t *parser.Term) (value.Value, error) {
 		return nil, err
 	}
 	for _, right := range t.Right {
+		ctx.RequestedType = left.Type()
 		rightVal, err := ctx.compileFactor(right.Term)
 		if err != nil {
 			return nil, err
@@ -235,6 +240,7 @@ func (ctx *Context) compileTerm(t *parser.Term) (value.Value, error) {
 			return nil, posError(right.Pos, "Unknown term operator: %s", right.Op)
 		}
 	}
+	ctx.RequestedType = nil
 	return left, nil
 }
 
