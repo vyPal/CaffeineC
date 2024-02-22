@@ -1,5 +1,9 @@
 # CaffeineC
 Idk why I'm doing this, so don't ask.
+
+Time spent working on this project: 
+
+[![wakatime](https://wakatime.com/badge/github/vyPal/CaffeineC.svg)](https://wakatime.com/badge/github/vyPal/CaffeineC)
 ## Installing
 Auto-install script in bash: `curl https://raw.githubusercontent.com/vyPal/CaffeineC/master/install.bash | bash`
 Installation instructions can be found [here](https://c.vypal.me/getting-started/installing-the-compiler)
