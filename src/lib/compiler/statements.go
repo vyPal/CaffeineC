@@ -314,7 +314,9 @@ func (ctx *Context) compileIf(i *parser.If) error {
 			return err
 		}
 	}
-	thenBlock.NewBr(mergeBlock)
+	if thenBlock.Term == nil {
+		thenBlock.NewBr(mergeBlock)
+	}
 
 	// Compile the else if parts
 	for _, elseif := range i.ElseIf {
@@ -332,7 +334,9 @@ func (ctx *Context) compileIf(i *parser.If) error {
 				return err
 			}
 		}
-		thenBlock.NewBr(mergeBlock)
+		if thenBlock.Term == nil {
+			thenBlock.NewBr(mergeBlock)
+		}
 		elseBlock = newElseBlock
 	}
 
@@ -346,7 +350,9 @@ func (ctx *Context) compileIf(i *parser.If) error {
 			}
 		}
 	}
-	elseBlock.NewBr(mergeBlock)
+	if elseBlock.Term == nil {
+		elseBlock.NewBr(mergeBlock)
+	}
 
 	// Continue with the merge block
 	ctx.Block = mergeBlock
