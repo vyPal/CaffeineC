@@ -178,7 +178,7 @@ type If struct {
 
 type ElseIf struct {
 	Pos       lexer.Position
-	Condition *Expression  `parser:"'else' 'if' '(' @@ ')'"`
+	Condition *Expression  `parser:"'(' @@ ')'"`
 	Body      []*Statement `parser:"'{' @@* '}'"`
 }
 
