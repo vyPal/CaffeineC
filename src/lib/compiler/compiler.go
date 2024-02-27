@@ -63,7 +63,8 @@ func (c Context) lookupVariable(name string) *Variable {
 				}
 			}
 		}
-	} else if v, ok := c.vars[name]; ok {
+	}
+	if v, ok := c.vars[name]; ok {
 		return v
 	} else if c.parent != nil {
 		v := c.parent.lookupVariable(name)
