@@ -175,51 +175,29 @@ func (p *PackageCache) CacheSave() error {
 	return nil
 }
 
-func (p *PackageCache) GetPackage(name, version, identifier string) (Package, error) {
+func (p *PackageCache) FindPackage(name, version, identifier string) (Package, bool, error) {
 	for _, pkg := range p.PkgList {
 		if (pkg.Name == name || name == "") && (pkg.Identifier == identifier || pkg.Identifier == "github.com/"+identifier) {
 			if version == "" || version == "*" || version == pkg.Version {
-				return pkg, nil
+				return pkg, true, nil
 			}
 			continue
 		}
 	}
 
-	return Package{}, nil
-}
-
-func (p *PackageCache) HasPackage(name, version, identifier string) (bool, error) {
-	for _, pkg := range p.PkgList {
-		if (pkg.Name == name || name == "") && (pkg.Identifier == identifier || pkg.Identifier == "github.com/"+identifier) {
-			if version == "" || version == "*" || version == pkg.Version {
-				return true, nil
-			}
-			continue
-		}
-	}
-
-	return false, nil
+	return Package{}, false, nil
 }
 
 func (p *PackageCache) ResolvePackage(ident string) (found bool, pkg Package, fp string, objDir string, err error) {
 	split := strings.Split(ident, "/")
 	for i := len(split); i > 0; i-- {
 		joined := strings.Join(split[:i], "/")
-		found, err = p.HasPackage("", "*", joined)
+		pkg, found, err = p.FindPackage("", "*", joined)
 		if err != nil {
 			return false, Package{}, "", "", err
 		}
 		if found {
-			pkg, err = p.GetPackage("", "*", joined)
-			if err != nil {
-				return false, Package{}, "", "", err
-			}
-
-			if _, err := os.Stat(pkg.ObjDir); !os.IsNotExist(err) {
-				objDir = pkg.ObjDir
-			} else {
-				objDir = ""
-			}
+			objDir = pkg.ObjDir
 			fp = strings.Join(split[i:], "/")
 			break
 		}

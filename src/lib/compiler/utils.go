@@ -16,31 +16,31 @@ func posError(pos lexer.Position, message string, args ...interface{}) error {
 }
 
 func (ctx *Context) StringToType(name string) types.Type {
-	// Count the number of leading '*'
 	pointerCount := strings.Count(name, "*")
-	// Remove the leading '*'
 	name = strings.TrimLeft(name, "*")
 
 	var typ types.Type
-	switch {
-	case name == "void", name == "":
-		typ = types.Void
-	case strings.HasPrefix(name, "i"), strings.HasPrefix(name, "u"):
+	if strings.HasPrefix(name, "i") || strings.HasPrefix(name, "u") {
 		size, _ := strconv.Atoi(name[1:])
 		typ = types.NewInt(uint64(size))
-	case name == "f16":
-		typ = types.Half
-	case name == "f32":
-		typ = types.Float
-	case name == "f64":
-		typ = types.Double
-	case name == "f128":
-		typ = types.FP128
-	default:
-		for _, t := range ctx.Module.TypeDefs {
-			if t.Name() == name {
-				typ = t
-				break
+	} else {
+		switch name {
+		case "void", "":
+			typ = types.Void
+		case "f16":
+			typ = types.Half
+		case "f32":
+			typ = types.Float
+		case "f64":
+			typ = types.Double
+		case "f128":
+			typ = types.FP128
+		default:
+			for _, t := range ctx.Module.TypeDefs {
+				if t.Name() == name {
+					typ = t
+					break
+				}
 			}
 		}
 	}

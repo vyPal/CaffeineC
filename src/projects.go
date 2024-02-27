@@ -104,12 +104,12 @@ func install(c *cli.Context) error {
 
 	if liburl == "" {
 		for _, dep := range conf.Dependencies {
-			pkg, err := pcache.GetPackage(dep.Package, dep.Version, dep.Identifier)
+			pkg, found, err := pcache.FindPackage(dep.Package, dep.Version, dep.Identifier)
 			if err != nil {
 				return err
 			}
 
-			if pkg == (cache.Package{}) {
+			if !found {
 				color.Green("Package not found locally, cloning...")
 				conf, _, _, err = cache.InstallLibrary(pcache, dep.Identifier, dep.Version)
 				if err != nil {
@@ -133,13 +133,13 @@ func install(c *cli.Context) error {
 			return err
 		}
 
-		pkg, err := pcache.GetPackage("", version, strings.TrimPrefix(liburl, "https://"))
+		pkg, f, err := pcache.FindPackage("", version, strings.TrimPrefix(liburl, "https://"))
 		if err != nil {
 			return err
 		}
 
 		var ident, ver string
-		if pkg == (cache.Package{}) {
+		if !f {
 			color.Green("Package not found locally, cloning...")
 			cnf, ident, ver, err = cache.InstallLibrary(pcache, liburl, version)
 			if err != nil {
@@ -239,12 +239,12 @@ func libInfo(c *cli.Context) error {
 			return err
 		}
 
-		pkg, err := pcache.GetPackage("", "", liburl)
+		pkg, found, err := pcache.FindPackage("", "", liburl)
 		if err != nil {
 			return err
 		}
 
-		if pkg == (cache.Package{}) {
+		if !found {
 			color.Green("Package not found locally, cloning...")
 			liburl, version, err := PrepUrl(liburl)
 			if err != nil {
@@ -313,12 +313,12 @@ func libUpdate(c *cli.Context) error {
 
 	if liburl == "" {
 		for _, dep := range conf.Dependencies {
-			pkg, err := pcache.GetPackage(dep.Package, dep.Version, dep.Identifier)
+			_, found, err := pcache.FindPackage(dep.Package, dep.Version, dep.Identifier)
 			if err != nil {
 				return err
 			}
 
-			if pkg == (cache.Package{}) {
+			if !found {
 				color.Green("Package not found locally, cloning...")
 				cnf, _, _, err = cache.InstallLibrary(pcache, dep.Identifier, dep.Version)
 				if err != nil {
@@ -343,13 +343,13 @@ func libUpdate(c *cli.Context) error {
 			return err
 		}
 
-		pkg, err := pcache.GetPackage("", version, strings.TrimPrefix(liburl, "https://"))
+		_, found, err := pcache.FindPackage("", version, strings.TrimPrefix(liburl, "https://"))
 		if err != nil {
 			return err
 		}
 
 		var ident, ver string
-		if pkg == (cache.Package{}) {
+		if !found {
 			color.Green("Package not found locally, cloning...")
 			cnf, ident, ver, err = cache.InstallLibrary(pcache, liburl, version)
 			if err != nil {

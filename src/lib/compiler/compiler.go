@@ -63,26 +63,26 @@ func (c Context) lookupVariable(name string) *Variable {
 				}
 			}
 		}
-	}
-	if v, ok := c.vars[name]; ok {
+	} else if v, ok := c.vars[name]; ok {
 		return v
 	} else if c.parent != nil {
 		v := c.parent.lookupVariable(name)
 		return v
 	} else {
 		cli.Exit(color.RedString("Error: Unable to find a variable named: %s", name), 1)
-		return nil
 	}
+	return nil
 }
 
 func (c *Context) lookupFunction(name string) (*ir.Func, bool) {
 	fn, ok := c.Compiler.SymbolTable[name]
 	if ok {
 		return fn.(*ir.Func), true
-	}
-	for _, f := range c.Module.Funcs {
-		if f.Name() == name {
-			return f, true
+	} else {
+		for _, f := range c.Module.Funcs {
+			if f.Name() == name {
+				return f, true
+			}
 		}
 	}
 
@@ -118,7 +118,7 @@ func NewCompiler() *Compiler {
 	}
 }
 
-func (c *Compiler) Compile(program *parser.Program, workingDir string) (needsImports []string, err error) {
+func (c *Compiler) Init(program *parser.Program, workingDir string) {
 	c.AST = program
 	c.workingDir = workingDir
 	c.Context = &Context{
@@ -128,13 +128,50 @@ func (c *Compiler) Compile(program *parser.Program, workingDir string) (needsImp
 		structNames: make(map[*types.StructType]string),
 		fc:          &FlowControl{},
 	}
-	for _, s := range program.Statements {
+}
+
+func (c *Compiler) Compile() (err error) {
+	for _, s := range c.AST.Statements {
 		err := c.Context.compileStatement(s)
 		if err != nil {
-			return []string{}, err
+			return err
 		}
 	}
-	return c.RequiredImports, nil
+	return nil
+}
+
+func (c *Compiler) FindImports() error {
+	for i := len(c.AST.Statements) - 1; i >= 0; i-- {
+		s := c.AST.Statements[i]
+		if s.Import != nil {
+			err := c.ImportAll(s.Import.Package, c.Context)
+			if err != nil {
+				return err
+			}
+			c.AST.Statements = append(c.AST.Statements[:i], c.AST.Statements[i+1:]...)
+		} else if s.FromImport != nil {
+			symbols := map[string]string{strings.Trim(s.FromImport.Symbol, "\""): strings.Trim(s.FromImport.Symbol, "\"")}
+			err := c.ImportAs(s.FromImport.Package, symbols, c.Context)
+			if err != nil {
+				return err
+			}
+			c.AST.Statements = append(c.AST.Statements[:i], c.AST.Statements[i+1:]...)
+		} else if s.FromImportMultiple != nil {
+			symbols := map[string]string{}
+			for _, symbol := range s.FromImportMultiple.Symbols {
+				if symbol.Alias == "" {
+					symbol.Alias = symbol.Name
+				}
+				symbols[strings.Trim(symbol.Name, "\"")] = strings.Trim(symbol.Alias, "\"")
+			}
+			err := c.ImportAs(s.FromImportMultiple.Package, symbols, c.Context)
+			if err != nil {
+				return err
+			}
+			c.AST.Statements = append(c.AST.Statements[:i], c.AST.Statements[i+1:]...)
+		}
+	}
+	return nil
 }
 
 func (c *Compiler) ImportAll(path string, ctx *Context) error {
@@ -203,15 +240,13 @@ func (c *Compiler) ImportAll(path string, ctx *Context) error {
 					}
 				}
 			} else if s.Export.External != nil {
-				if s.Export.External.Function != nil {
-					var params []*ir.Param
-					for _, p := range s.Export.External.Function.Parameters {
-						params = append(params, ir.NewParam(p.Name, ctx.StringToType(p.Type)))
-					}
-					fn := c.Module.NewFunc(s.Export.External.Function.Name, ctx.StringToType(s.Export.External.Function.ReturnType), params...)
-					fn.Sig.Variadic = s.Export.External.Function.Variadic
-					ctx.SymbolTable[s.Export.External.Function.Name] = fn
+				var params []*ir.Param
+				for _, p := range s.Export.External.Parameters {
+					params = append(params, ir.NewParam(p.Name, ctx.StringToType(p.Type)))
 				}
+				fn := c.Module.NewFunc(s.Export.External.Name, ctx.StringToType(s.Export.External.ReturnType), params...)
+				fn.Sig.Variadic = s.Export.External.Variadic
+				ctx.SymbolTable[s.Export.External.Name] = fn
 			} else {
 				continue
 			}
@@ -291,14 +326,12 @@ func (c *Compiler) ImportAs(path string, symbols map[string]string, ctx *Context
 					ctx.Module.NewTypeDef(newname, cStruct)
 				}
 			} else if s.Export.External != nil {
-				if s.Export.External.Function != nil {
-					var params []*ir.Param
-					for _, p := range s.Export.External.Function.Parameters {
-						params = append(params, ir.NewParam(p.Name, ctx.StringToType(p.Type)))
-					}
-					fn := c.Module.NewFunc(s.Export.External.Function.Name, ctx.StringToType(s.Export.External.Function.ReturnType), params...)
-					ctx.SymbolTable[s.Export.External.Function.Name] = fn
+				var params []*ir.Param
+				for _, p := range s.Export.External.Parameters {
+					params = append(params, ir.NewParam(p.Name, ctx.StringToType(p.Type)))
 				}
+				fn := c.Module.NewFunc(s.Export.External.Name, ctx.StringToType(s.Export.External.ReturnType), params...)
+				ctx.SymbolTable[s.Export.External.Name] = fn
 			} else {
 				continue
 			}

@@ -43,62 +43,6 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 						continue
 					}
 				}
-			} else if _, ok := leftType.Type().(*types.StructType); ok {
-				// Check if the class has a method with the name "classname.op.operator"
-				methodName := fmt.Sprintf("%s.op.%s", leftType.Type().Name(), right.Op)
-				if method, ok := ctx.lookupFunction(methodName); ok {
-					// Call the method and use its result as the result
-					left = ctx.NewCall(method, left, rightVal)
-					continue
-				}
-			} else if _, ok := leftType.Type().(*types.ArrayType); ok {
-				// Check if the class has a method with the name "classname.op.operator"
-				methodName := fmt.Sprintf("%s.op.%s", leftType.Type().Name(), right.Op)
-				if method, ok := ctx.lookupFunction(methodName); ok {
-					// Call the method and use its result as the result
-					left = ctx.NewCall(method, left, rightVal)
-					continue
-				}
-			} else {
-				switch rightVal.Type() {
-				case types.Float:
-					if !leftType.Type().Equal(types.Float) {
-						leftFloat := ctx.NewSIToFP(left, rightVal.Type())
-						left = leftFloat
-					}
-
-					switch right.Op {
-					case "+":
-						left = ctx.NewFAdd(left, rightVal)
-					case "-":
-						left = ctx.NewFSub(left, rightVal)
-					default:
-						return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
-					}
-				case types.Double:
-					if !leftType.Type().Equal(types.Double) {
-						leftFloat := ctx.NewSIToFP(left, rightVal.Type())
-						left = leftFloat
-					}
-
-					switch right.Op {
-					case "+":
-						left = ctx.NewFAdd(left, rightVal)
-					case "-":
-						left = ctx.NewFSub(left, rightVal)
-					default:
-						return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
-					}
-				default:
-					switch right.Op {
-					case "+":
-						left = ctx.NewAdd(left, rightVal)
-					case "-":
-						left = ctx.NewSub(left, rightVal)
-					default:
-						return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
-					}
-				}
 			}
 		default:
 			switch rightVal.Type() {

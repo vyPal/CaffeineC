@@ -7,10 +7,12 @@ import (
 	cflex "github.com/vyPal/CaffeineC/lib/lexer"
 )
 
+var parser *participle.Parser[Program]
+
 func ParseFile(filename string) *Program {
-	parser := participle.MustBuild[Program](
-		participle.Lexer(cflex.TextScannerLexer),
-	)
+	if parser == nil {
+		parser = participle.MustBuild[Program](participle.Lexer(cflex.DefaultDefinition))
+	}
 
 	file, err := os.ReadFile(filename)
 	if err != nil {
@@ -25,11 +27,16 @@ func ParseFile(filename string) *Program {
 }
 
 func Parser() *participle.Parser[Program] {
-	return participle.MustBuild[Program]()
+	if parser == nil {
+		parser = participle.MustBuild[Program](participle.Lexer(cflex.DefaultDefinition))
+	}
+	return parser
 }
 
 func ParseString(code string) *Program {
-	parser := participle.MustBuild[Program]()
+	if parser == nil {
+		parser = participle.MustBuild[Program](participle.Lexer(cflex.DefaultDefinition))
+	}
 
 	ast, err := parser.ParseString("", code)
 	if err != nil {

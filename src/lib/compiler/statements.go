@@ -1,7 +1,6 @@
 package compiler
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/fatih/color"
@@ -44,25 +43,25 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 	} else if s.FieldDefinition != nil {
 		return posError(s.FieldDefinition.Pos, "Field definitions are not allowed outside of classes")
 	} else if s.External != nil {
-		if s.External.Function != nil {
-			ctx.compileExternalFunction(s.External.Function)
-		} else if s.External.Variable != nil {
-			ctx.compileExternalVariable(s.External.Variable)
-		}
+		ctx.compileExternalFunction(s.External)
 	} else if s.Import != nil {
-		return ctx.Compiler.ImportAll(s.Import.Package, ctx)
+		//return ctx.Compiler.ImportAll(s.Import.Package, ctx)
 	} else if s.FromImport != nil {
-		symbols := map[string]string{strings.Trim(s.FromImport.Symbol, "\""): strings.Trim(s.FromImport.Symbol, "\"")}
-		ctx.Compiler.ImportAs(s.FromImport.Package, symbols, ctx)
+		/*
+			symbols := map[string]string{strings.Trim(s.FromImport.Symbol, "\""): strings.Trim(s.FromImport.Symbol, "\"")}
+			ctx.Compiler.ImportAs(s.FromImport.Package, symbols, ctx)
+		*/
 	} else if s.FromImportMultiple != nil {
-		symbols := map[string]string{}
-		for _, symbol := range s.FromImportMultiple.Symbols {
-			if symbol.Alias == "" {
-				symbol.Alias = symbol.Name
+		/*
+			symbols := map[string]string{}
+			for _, symbol := range s.FromImportMultiple.Symbols {
+				if symbol.Alias == "" {
+					symbol.Alias = symbol.Name
+				}
+				symbols[strings.Trim(symbol.Name, "\"")] = strings.Trim(symbol.Alias, "\"")
 			}
-			symbols[strings.Trim(symbol.Name, "\"")] = strings.Trim(symbol.Alias, "\"")
-		}
-		ctx.Compiler.ImportAs(s.FromImportMultiple.Package, symbols, ctx)
+			ctx.Compiler.ImportAs(s.FromImportMultiple.Package, symbols, ctx)
+		*/
 	} else if s.Export != nil {
 		return ctx.compileStatement(s.Export)
 	} else if s.Comment != nil {
@@ -91,33 +90,20 @@ func (ctx *Context) compileExternalFunction(v *parser.ExternalFunctionDefinition
 	fn.Sig.Variadic = v.Variadic
 }
 
-func (ctx *Context) compileExternalVariable(v *parser.ExternalVariableDefinition) {
-	globalV := ctx.Module.NewGlobal(v.Name, ctx.StringToType(v.Type))
-	globalV.ExternallyInitialized = true
-	globalV.Init = constant.NewZeroInitializer(ctx.StringToType(v.Type))
-	fmt.Println(globalV.Type())
-	ctx.vars[v.Name] = &Variable{
-		Name:  v.Name,
-		Type:  ctx.StringToType(v.Type),
-		Value: globalV,
-	}
-}
-
 func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Name string, Type types.Type, Value value.Value, Err error) {
 	// If there is no assignment, create an uninitialized variable
+	valType := ctx.StringToType(v.Type)
 	if v.Assignment == nil {
-		valType := ctx.StringToType(v.Type)
 		alloc := ctx.NewAlloca(valType)
 		ctx.NewStore(constant.NewZeroInitializer(valType), alloc)
 		ctx.vars[v.Name] = &Variable{
 			Name:  v.Name,
-			Type:  ctx.StringToType(v.Type),
+			Type:  valType,
 			Value: alloc,
 		}
 		return v.Name, alloc.Type(), alloc, nil
 	}
 
-	valType := ctx.StringToType(v.Type)
 	if _, isPointer := valType.(*types.PointerType); isPointer && v.Assignment != nil {
 		val, err := ctx.compileExpression(v.Assignment)
 		if err != nil {
@@ -131,7 +117,7 @@ func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Nam
 		return v.Name, valType, val, nil
 	}
 
-	ctx.RequestedType = ctx.StringToType(v.Type)
+	ctx.RequestedType = valType
 	val, err := ctx.compileExpression(v.Assignment)
 	if err != nil {
 		return "", nil, nil, err
@@ -142,7 +128,7 @@ func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Nam
 	if ok {
 		ctx.vars[v.Name] = &Variable{
 			Name:  v.Name,
-			Type:  ctx.StringToType(v.Type),
+			Type:  valType,
 			Value: ptr,
 		}
 		return v.Name, ptr.Type(), ptr, nil
@@ -152,7 +138,7 @@ func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Nam
 	ctx.NewStore(val, alloc)
 	ctx.vars[v.Name] = &Variable{
 		Name:  v.Name,
-		Type:  ctx.StringToType(v.Type),
+		Type:  valType,
 		Value: alloc,
 	}
 	return v.Name, alloc.Type(), alloc, nil
@@ -208,9 +194,10 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 		params = append(params, ir.NewParam(arg.Name, ctx.StringToType(arg.Type)))
 	}
 
-	fn := ctx.Module.NewFunc(f.Name.Name, ctx.StringToType(f.ReturnType), params...)
+	retType := ctx.StringToType(f.ReturnType)
+
+	fn := ctx.Module.NewFunc(f.Name.Name, retType, params...)
 	fn.Sig.Variadic = f.Variadic
-	fn.Sig.RetType = ctx.StringToType(f.ReturnType)
 	block := fn.NewBlock("")
 	nctx := NewContext(block, ctx.Compiler)
 	ctx.SymbolTable[f.Name.Name] = fn
@@ -222,14 +209,14 @@ func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Nam
 		}
 	}
 	if nctx.Term == nil {
-		if ctx.StringToType(f.ReturnType).Equal(types.Void) {
+		if retType.Equal(types.Void) {
 			nctx.NewRet(nil)
 		} else {
 			return "", nil, nil, posError(f.Pos, "Function `%s` does not return a value", f.Name.Name)
 		}
 	}
 
-	return f.Name.Name, ctx.StringToType(f.ReturnType), params, nil
+	return f.Name.Name, retType, params, nil
 }
 
 func (ctx *Context) compileClassDefinition(c *parser.ClassDefinition) (Name string, TypeDef *types.StructType, Methods []ir.Func, err error) {
@@ -259,18 +246,20 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 		params = append(params, ir.NewParam(arg.Name, ctx.StringToType(arg.Type)))
 	}
 
+	trimmed := strings.Trim(f.Name.String, "\"")
 	ms := "." + f.Name.Name
 	if f.Name.Op {
-		ms = ".op." + strings.Trim(f.Name.String, "\"")
+		ms = ".op." + trimmed
 	} else if f.Name.Get {
-		ms = ".get." + strings.Trim(f.Name.String, "\"")
+		ms = ".get." + trimmed
 	} else if f.Name.Set {
-		ms = ".set." + strings.Trim(f.Name.String, "\"")
+		ms = ".set." + trimmed
 	}
 
-	fn := ctx.Module.NewFunc(cname+ms, ctx.StringToType(f.ReturnType), params...)
+	retType := ctx.StringToType(f.ReturnType)
+
+	fn := ctx.Module.NewFunc(cname+ms, retType, params...)
 	fn.Sig.Variadic = false
-	fn.Sig.RetType = ctx.StringToType(f.ReturnType)
 	block := fn.NewBlock("")
 	nctx := NewContext(block, ctx.Compiler)
 	ctx.SymbolTable[cname+ms] = fn
@@ -281,7 +270,7 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 		}
 	}
 	if nctx.Term == nil {
-		if ctx.StringToType(f.ReturnType).Equal(types.Void) {
+		if retType.Equal(types.Void) {
 			nctx.NewRet(nil)
 		} else {
 			cli.Exit(color.RedString("Error: Method `%s` of class `%s` does not return a value", f.Name, cname), 1)

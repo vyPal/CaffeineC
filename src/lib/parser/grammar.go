@@ -52,7 +52,7 @@ type ArgumentList struct {
 
 type ClassInitializer struct {
 	Pos       lexer.Position
-	ClassName string       `parser:"'new' @Ident"`
+	ClassName string       `parser:"@Ident"`
 	Args      ArgumentList `parser:"'(' @@ ')'"`
 }
 
@@ -66,8 +66,8 @@ type Factor struct {
 	Pos              lexer.Position
 	Value            *Value            `parser:"  @@"`
 	FunctionCall     *FunctionCall     `parser:"| (?= ( Ident | String ) '(') @@"`
-	BitCast          *BitCast          `parser:"| (?= '(') @@?"`
-	ClassInitializer *ClassInitializer `parser:"| (?= 'new') @@"`
+	BitCast          *BitCast          `parser:"| '(' @@?"`
+	ClassInitializer *ClassInitializer `parser:"| 'new' @@"`
 	SubExpression    *Expression       `parser:"| '(' @@ ')'"`
 	ClassMethod      *ClassMethod      `parser:"| (?= Ident ( '.' Ident)+ '(') @@"`
 	Identifier       *Identifier       `parser:"| @@"`
@@ -158,7 +158,7 @@ type FunctionDefinition struct {
 
 type ClassDefinition struct {
 	Pos  lexer.Position
-	Name string       `parser:"'class' @Ident"`
+	Name string       `parser:"@Ident"`
 	Body []*Statement `parser:"'{' @@* '}'"`
 }
 
@@ -170,7 +170,7 @@ type ClassMethod struct {
 
 type If struct {
 	Pos       lexer.Position
-	Condition *Expression  `parser:"'if' '(' @@ ')'"`
+	Condition *Expression  `parser:"'(' @@ ')'"`
 	Body      []*Statement `parser:"'{' @@* '}'"`
 	ElseIf    []*ElseIf    `parser:"( 'else' 'if' @@ )*"`
 	Else      []*Statement `parser:"( 'else' '{' @@* '}' )?"`
@@ -184,7 +184,7 @@ type ElseIf struct {
 
 type For struct {
 	Pos         lexer.Position
-	Initializer *Statement   `parser:"'for' '(' @@"`
+	Initializer *Statement   `parser:"'(' @@"`
 	Condition   *Expression  `parser:"@@ ';'"`
 	Increment   *Statement   `parser:"@@ ')'"`
 	Body        []*Statement `parser:"'{' @@* '}'"`
@@ -192,37 +192,25 @@ type For struct {
 
 type While struct {
 	Pos       lexer.Position
-	Condition *Expression  `parser:"'while' '(' @@ ')'"`
+	Condition *Expression  `parser:"'(' @@ ')'"`
 	Body      []*Statement `parser:"'{' @@* '}'"`
 }
 
 type Return struct {
 	Pos        lexer.Position
-	Expression *Expression `parser:"'return' @@? ';'"`
-}
-
-type ExternalDefinition struct {
-	Pos      lexer.Position
-	Function *ExternalFunctionDefinition `parser:"(?= 'extern' 'vararg'? 'func')@@?"`
-	Variable *ExternalVariableDefinition `parser:"| (?= 'extern' 'var')@@?"`
-}
-
-type ExternalVariableDefinition struct {
-	Pos  lexer.Position
-	Name string `parser:"'extern' 'var' @Ident"`
-	Type string `parser:"':' @('*'* Ident)"`
+	Expression *Expression `parser:"@@? ';'"`
 }
 
 type ExternalFunctionDefinition struct {
 	Pos        lexer.Position
-	Variadic   bool                  `parser:"'extern' @'vararg'?"`
+	Variadic   bool                  `parser:"@'vararg'?"`
 	Name       string                `parser:"'func' @( Ident | String )"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )? ')'"`
 	ReturnType string                `parser:"( ':' @('*'* Ident) )?"`
 }
 
 type Import struct {
-	Package string `parser:"'import' @String ';'"`
+	Package string `parser:"@String ';'"`
 }
 
 type FromImport struct {
@@ -243,30 +231,30 @@ type Symbol struct {
 
 type BitCast struct {
 	Pos  lexer.Position
-	Expr *Expression `parser:"'(' @@ ')'"`
+	Expr *Expression `parser:"@@ ')'"`
 	Type string      `parser:"':' @('*'* Ident)"`
 }
 
 type Statement struct {
 	Pos                lexer.Position
-	VariableDefinition *VariableDefinition `parser:"(?= 'const'? 'var' Ident) @@? (';' | '\\n')?"`
-	Assignment         *Assignment         `parser:"| (?= Ident ( '[' ~']' ']' )? ( '.' Ident ( '[' ~']' ']' )? )* '=') @@? (';' | '\\n')?"`
-	External           *ExternalDefinition `parser:"| (?= 'extern') @@? (';' | '\\n')?"`
-	FunctionDefinition *FunctionDefinition `parser:"| (?= 'private'? 'static'? 'func') @@?"`
-	ClassDefinition    *ClassDefinition    `parser:"| (?= 'class') @@?"`
-	If                 *If                 `parser:"| (?= 'if') @@?"`
-	For                *For                `parser:"| (?= 'for') @@?"`
-	While              *While              `parser:"| (?= 'while') @@?"`
-	Return             *Return             `parser:"| (?= 'return') @@?"`
-	FieldDefinition    *FieldDefinition    `parser:"| (?= 'private'? Ident ':' '*'* Ident) @@?"`
-	Import             *Import             `parser:"| (?= 'import') @@?"`
-	FromImportMultiple *FromImportMultiple `parser:"| (?= 'from' String 'import' '{') @@?"`
-	FromImport         *FromImport         `parser:"| (?= 'from' String 'import') @@?"`
-	Export             *Statement          `parser:"| 'export' @@? (';' | '\\n')?"`
-	Break              *string             `parser:"| @('break' (';' | '\\n')?)"`
-	Continue           *string             `parser:"| @('continue' (';' | '\\n')?)"`
-	Comment            *string             `parser:"| @Comment"`
-	Expression         *Expression         `parser:"| @@ ';'"`
+	VariableDefinition *VariableDefinition         `parser:"(?= 'const'? 'var' Ident) @@? (';' | '\\n')?"`
+	Assignment         *Assignment                 `parser:"| (?= Ident ( '[' ~']' ']' )? ( '.' Ident ( '[' ~']' ']' )? )* '=') @@? (';' | '\\n')?"`
+	External           *ExternalFunctionDefinition `parser:"| 'extern' @@ ';'"`
+	Export             *Statement                  `parser:"| 'export' @@"`
+	FunctionDefinition *FunctionDefinition         `parser:"| (?= 'private'? 'static'? 'func') @@?"`
+	ClassDefinition    *ClassDefinition            `parser:"| 'class' @@?"`
+	If                 *If                         `parser:"| 'if' @@?"`
+	For                *For                        `parser:"| 'for' @@?"`
+	While              *While                      `parser:"| 'while' @@?"`
+	Return             *Return                     `parser:"| 'return' @@?"`
+	FieldDefinition    *FieldDefinition            `parser:"| (?= 'private'? Ident ':' '*'* Ident) @@?"`
+	Import             *Import                     `parser:"| 'import' @@?"`
+	FromImportMultiple *FromImportMultiple         `parser:"| (?= 'from' String 'import' '{') @@?"`
+	FromImport         *FromImport                 `parser:"| (?= 'from' String 'import') @@?"`
+	Break              *string                     `parser:"| @('break' (';' | '\\n')?)"`
+	Continue           *string                     `parser:"| @('continue' (';' | '\\n')?)"`
+	Comment            *string                     `parser:"| @Comment"`
+	Expression         *Expression                 `parser:"| @@ ';'"`
 }
 
 type Program struct {
