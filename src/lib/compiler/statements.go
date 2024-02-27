@@ -32,7 +32,7 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 	} else if s.While != nil {
 		return ctx.compileWhile(s.While)
 	} else if s.Return != nil {
-		ctx.compileReturn(s.Return)
+		return ctx.compileReturn(s.Return)
 	} else if s.Break != nil {
 		ctx.NewBr(ctx.fc.Leave)
 	} else if s.Continue != nil {
