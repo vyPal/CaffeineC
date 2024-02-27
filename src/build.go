@@ -223,7 +223,7 @@ func run(c *cli.Context) error {
 		outpath = "./" + outpath
 	}
 
-	cmd := exec.Command(outpath, c.Args().Slice()...)
+	cmd := exec.Command(outpath, c.Args().Tail()...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
