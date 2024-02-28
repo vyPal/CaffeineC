@@ -59,6 +59,24 @@ func init() {
 				Usage: "Pass additional arguments to clang. " +
 					"Useful for passing flags like -O2 or -g.",
 			},
+			&cli.StringSliceFlag{
+				Name:    "llc-args",
+				Aliases: []string{"l"},
+				Usage: "Pass additional arguments to llc. " +
+					"Useful for passing flags like -O2 or -g.",
+			},
+			&cli.StringSliceFlag{
+				Name:    "gcc-args",
+				Aliases: []string{"g"},
+				Usage: "Pass additional arguments to gcc. " +
+					"Useful for passing flags like -O2 or -g.",
+			},
+			&cli.BoolFlag{
+				Name: "use-gcc",
+				Usage: "Use gcc instead of clang for linking. " +
+					"Useful for linking with C++ code. ",
+				Aliases: []string{"G"},
+			},
 		},
 		Action: build,
 	},
@@ -92,6 +110,24 @@ func init() {
 					Aliases: []string{"a"},
 					Usage: "Pass additional arguments to clang. " +
 						"Useful for passing flags like -O2 or -g.",
+				},
+				&cli.StringSliceFlag{
+					Name:    "llc-args",
+					Aliases: []string{"l"},
+					Usage: "Pass additional arguments to llc. " +
+						"Useful for passing flags like -O2 or -g.",
+				},
+				&cli.StringSliceFlag{
+					Name:    "gcc-args",
+					Aliases: []string{"g"},
+					Usage: "Pass additional arguments to gcc. " +
+						"Useful for passing flags like -O2 or -g.",
+				},
+				&cli.BoolFlag{
+					Name: "use-gcc",
+					Usage: "Use gcc instead of clang for linking. " +
+						"Useful for linking with C++ code. ",
+					Aliases: []string{"G"},
 				},
 			},
 			Action: run,
@@ -151,7 +187,7 @@ func build(c *cli.Context) error {
 	header = c.Bool("header")
 	debug = c.Bool("debug")
 
-	imports, err := processIncludes(append([]string{f}, c.StringSlice("include")...))
+	llFiles, imports, err := processIncludes(append([]string{f}, c.StringSlice("include")...))
 	if err != nil {
 		return err
 	}
@@ -171,21 +207,55 @@ func build(c *cli.Context) error {
 		extra = append(extra, "-c")
 	}
 
-	args := append([]string{"clang"}, imports...)
-	args = append(args, extra...)
-	args = append(args, c.StringSlice("clang-args")...)
+	if c.Bool("use-gcc") {
+		for _, file := range llFiles {
+			llcArgs := append([]string{"-filetype=obj", "-o", strings.TrimSuffix(file, ".ll") + ".o", file}, c.StringSlice("llc-args")...)
+			llcCmd := exec.Command("llc", llcArgs...)
+			llcCmd.Stderr = &stderr
 
-	if !c.Bool("obj") {
-		args = append(args, "-o", outpath)
-	}
+			err = llcCmd.Run()
+			if err != nil {
+				log.Println("stderr:", stderr.String())
+				log.Println(err)
+				return err
+			}
+			imports = append(imports, strings.TrimSuffix(file, ".ll")+".o")
+		}
 
-	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Stderr = &stderr
+		gccArgs := append([]string{"-o", outpath}, imports...)
+		gccArgs = append(gccArgs, extra...)
+		gccArgs = append(gccArgs, c.StringSlice("gcc-args")...)
 
-	err = cmd.Run()
-	if err != nil {
-		log.Println("stderr:", stderr.String())
-		log.Println(err)
+		if !c.Bool("obj") {
+			gccArgs = append(gccArgs, "-o", outpath)
+		}
+
+		gccCmd := exec.Command("gcc", gccArgs...)
+		gccCmd.Stderr = &stderr
+
+		err = gccCmd.Run()
+		if err != nil {
+			log.Println("stderr:", stderr.String())
+			log.Println(err)
+		}
+	} else {
+		args := append([]string{"clang"}, imports...)
+		args = append(args, llFiles...)
+		args = append(args, extra...)
+		args = append(args, c.StringSlice("clang-args")...)
+
+		if !c.Bool("obj") {
+			args = append(args, "-o", outpath)
+		}
+
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Stderr = &stderr
+
+		err = cmd.Run()
+		if err != nil {
+			log.Println("stderr:", stderr.String())
+			log.Println(err)
+		}
 	}
 
 	if debug {
@@ -203,7 +273,7 @@ func build(c *cli.Context) error {
 			}
 		}
 
-		cmd = exec.Command("sh", "-c", "mv "+tmpDir+"/* debug/")
+		cmd := exec.Command("sh", "-c", "mv "+tmpDir+"/* debug/")
 		err = cmd.Run()
 		if err != nil {
 			return err
@@ -235,7 +305,7 @@ func run(c *cli.Context) error {
 	return nil
 }
 
-func parseAndCompile(path string, wg *sync.WaitGroup, errs chan<- error, files *[]string) (string, error) {
+func parseAndCompile(path string, wg *sync.WaitGroup, errs chan<- error, files *[]string, llfiles *[]string) (string, error) {
 	ast := parser.ParseFile(path)
 	if debug {
 		cwd, err := os.Getwd()
@@ -285,7 +355,7 @@ func parseAndCompile(path string, wg *sync.WaitGroup, errs chan<- error, files *
 		if compiledCache[req] {
 			continue
 		}
-		err := processFile(req, files, wg, errs)
+		err := processFile(req, files, llfiles, wg, errs)
 		if err != nil {
 			return "", err
 		}
@@ -319,16 +389,17 @@ func parseAndCompile(path string, wg *sync.WaitGroup, errs chan<- error, files *
 	return f.Name(), nil
 }
 
-func processIncludes(includes []string) ([]string, error) {
+func processIncludes(includes []string) ([]string, []string, error) {
 	var files []string
+	var llfiles []string
 
 	var wg sync.WaitGroup
 	errs := make(chan error, 1)
 
 	for _, include := range includes {
-		err := processFile(include, &files, &wg, errs)
+		err := processFile(include, &files, &llfiles, &wg, errs)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -338,13 +409,13 @@ func processIncludes(includes []string) ([]string, error) {
 	}()
 
 	if err, ok := <-errs; ok {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return files, nil
+	return llfiles, files, nil
 }
 
-func processFile(path string, files *[]string, wg *sync.WaitGroup, errs chan<- error) error {
+func processFile(path string, files *[]string, llfiles *[]string, wg *sync.WaitGroup, errs chan<- error) error {
 	if _, ok := compiledCache[path]; ok {
 		return nil
 	}
@@ -356,12 +427,12 @@ func processFile(path string, files *[]string, wg *sync.WaitGroup, errs chan<- e
 		wg.Add(1)
 		go func(path string) {
 			defer wg.Done()
-			llFile, err := parseAndCompile(path, wg, errs, files)
+			llFile, err := parseAndCompile(path, wg, errs, files, llfiles)
 			if err != nil {
 				errs <- err
 				return
 			}
-			*files = append(*files, llFile)
+			*llfiles = append(*llfiles, llFile)
 		}(path)
 	}
 
