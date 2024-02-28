@@ -422,6 +422,7 @@ func processFile(path string, files *[]string, llfiles *[]string, wg *sync.WaitG
 	ext := filepath.Ext(path)
 	if ext == ".c" || ext == ".cpp" || ext == ".h" || ext == ".o" || ext == ".a" || ext == ".so" || ext == ".dll" || ext == ".dylib" || ext == ".ll" {
 		*files = append(*files, path)
+		compiledCache[path] = true
 	} else if ext == ".cffc" {
 		compiledCache[path] = true
 		wg.Add(1)
@@ -434,6 +435,18 @@ func processFile(path string, files *[]string, llfiles *[]string, wg *sync.WaitG
 			}
 			*llfiles = append(*llfiles, llFile)
 		}(path)
+	} else if ext == "" {
+		dir, err := os.ReadDir(path)
+		if err != nil {
+			return err
+		}
+
+		for _, entry := range dir {
+			err := processFile(filepath.Join(path, entry.Name()), files, llfiles, wg, errs)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
