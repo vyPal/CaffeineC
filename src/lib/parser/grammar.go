@@ -33,6 +33,7 @@ type Value struct {
 	Float    *float64  `parser:"  @Float"`
 	Duration *Duration `parser:"| @Int @('h' | 'm' | 's' | 'ms' | 'us' | 'ns')"`
 	Int      *int64    `parser:"| @('-'? Int)"`
+	HexInt   *string   `parser:"| @('0x' (Int | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F')+)"`
 	Bool     *Bool     `parser:"| @('true' | 'false')"`
 	String   *string   `parser:"| @String"`
 	Null     bool      `parser:"| @'null'"`
@@ -71,6 +72,12 @@ type Factor struct {
 	SubExpression    *Expression       `parser:"| '(' @@ ')'"`
 	ClassMethod      *ClassMethod      `parser:"| (?= Ident ( '.' Ident)+ '(') @@"`
 	Identifier       *Identifier       `parser:"| @@"`
+}
+
+type BitCast struct {
+	Pos  lexer.Position
+	Expr *Expression `parser:"@@ ')'"`
+	Type string      `parser:"':' @('*'* Ident)"`
 }
 
 type Term struct {
@@ -227,12 +234,6 @@ type FromImportMultiple struct {
 type Symbol struct {
 	Name  string `parser:"@Ident"`
 	Alias string `parser:"('as' @Ident)?"`
-}
-
-type BitCast struct {
-	Pos  lexer.Position
-	Expr *Expression `parser:"@@ ')'"`
-	Type string      `parser:"':' @('*'* Ident)"`
 }
 
 type Statement struct {

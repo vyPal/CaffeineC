@@ -388,6 +388,12 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 			}
 		}
 		return constant.NewInt(types.I64, *v.Int), nil
+	} else if v.HexInt != nil {
+		hexInt, err := strconv.ParseInt(*v.HexInt, 16, 64)
+		if err != nil {
+			return nil, posError(v.Pos, "Error parsing hex int: %s", err)
+		}
+		return constant.NewInt(types.I64, hexInt), nil
 	} else if v.Bool != nil {
 		var b int64 = 0
 		if *v.Bool {
