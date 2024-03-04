@@ -44,45 +44,44 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 					}
 				}
 			}
-		default:
-			switch rightVal.Type() {
-			case types.Float:
-				if !leftType.Type().Equal(types.Float) {
-					leftFloat := ctx.NewSIToFP(left, rightVal.Type())
-					left = leftFloat
-				}
+		}
+		switch rightVal.Type() {
+		case types.Float:
+			if !left.Type().Equal(types.Float) {
+				leftFloat := ctx.NewSIToFP(left, rightVal.Type())
+				left = leftFloat
+			}
 
-				switch right.Op {
-				case "+":
-					left = ctx.NewFAdd(left, rightVal)
-				case "-":
-					left = ctx.NewFSub(left, rightVal)
-				default:
-					return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
-				}
-			case types.Double:
-				if !leftType.Type().Equal(types.Double) {
-					leftFloat := ctx.NewSIToFP(left, rightVal.Type())
-					left = leftFloat
-				}
-
-				switch right.Op {
-				case "+":
-					left = ctx.NewFAdd(left, rightVal)
-				case "-":
-					left = ctx.NewFSub(left, rightVal)
-				default:
-					return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
-				}
+			switch right.Op {
+			case "+":
+				left = ctx.NewFAdd(left, rightVal)
+			case "-":
+				left = ctx.NewFSub(left, rightVal)
 			default:
-				switch right.Op {
-				case "+":
-					left = ctx.NewAdd(left, rightVal)
-				case "-":
-					left = ctx.NewSub(left, rightVal)
-				default:
-					return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
-				}
+				return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
+			}
+		case types.Double:
+			if !left.Type().Equal(types.Double) {
+				leftFloat := ctx.NewSIToFP(left, rightVal.Type())
+				left = leftFloat
+			}
+
+			switch right.Op {
+			case "+":
+				left = ctx.NewFAdd(left, rightVal)
+			case "-":
+				left = ctx.NewFSub(left, rightVal)
+			default:
+				return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
+			}
+		default:
+			switch right.Op {
+			case "+":
+				left = ctx.NewAdd(left, rightVal)
+			case "-":
+				left = ctx.NewSub(left, rightVal)
+			default:
+				return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
 			}
 		}
 	}
