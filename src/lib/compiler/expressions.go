@@ -352,13 +352,8 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 	if v.Float != nil {
 		if ctx.RequestedType != nil {
 			if ptrType, ok := ctx.RequestedType.(*types.PointerType); ok {
-				// Create a new local variable of the float type
 				local := ctx.NewAlloca(ptrType.ElemType.(*types.FloatType))
-
-				// Store the float in the local variable
 				ctx.NewStore(constant.NewFloat(ptrType.ElemType.(*types.FloatType), *v.Float), local)
-
-				// Return a pointer to the local variable
 				return local, nil
 			} else if ctx.RequestedType == types.Float {
 				return constant.NewFloat(types.Float, *v.Float), nil
@@ -372,13 +367,8 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 	} else if v.Int != nil {
 		if ctx.RequestedType != nil {
 			if ptrType, ok := ctx.RequestedType.(*types.PointerType); ok {
-				// Create a new local variable of the int type
 				local := ctx.NewAlloca(ptrType.ElemType.(*types.IntType))
-
-				// Store the int in the local variable
 				ctx.NewStore(constant.NewInt(ptrType.ElemType.(*types.IntType), *v.Int), local)
-
-				// Return a pointer to the local variable
 				return local, nil
 			} else if intType, ok := ctx.RequestedType.(*types.IntType); ok {
 				return constant.NewInt(intType, *v.Int), nil
@@ -404,21 +394,8 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 		if err != nil {
 			return nil, posError(v.Pos, "Error parsing string: %s", err)
 		}
-		strLen := len(str) + 1
-		// Declare malloc if it hasn't been declared yet
-		malloc, ok := ctx.lookupFunction("malloc")
-		if !ok {
-			malloc = ctx.Module.NewFunc("malloc", types.I8Ptr, ir.NewParam("size", types.I64))
-		}
-		// Allocate memory for the string
-		mem := ctx.NewCall(malloc, constant.NewInt(types.I64, int64(strLen)))
-		// Store the string in the allocated memory
-		for i, char := range str {
-			ctx.NewStore(constant.NewInt(types.I8, int64(char)), ctx.NewGetElementPtr(types.I8, mem, constant.NewInt(types.I32, int64(i))))
-		}
-		// Add null character at the end
-		ctx.NewStore(constant.NewInt(types.I8, 0), ctx.NewGetElementPtr(types.I8, mem, constant.NewInt(types.I32, int64(len(str)))))
-		return mem, nil
+		strGlobal := ctx.Module.NewGlobalDef("", constant.NewCharArrayFromString(str+"\000"))
+		return strGlobal, nil
 	} else if v.Duration != nil {
 		var factor float64
 		switch v.Duration.Unit {
@@ -449,6 +426,23 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 	val := ctx.lookupVariable(i.Name)
 	if val == nil {
 		return nil, nil, posError(i.Pos, "Variable %s not found", i.Name)
+	}
+
+	// Handle referencing
+	for j := 0; j < len(i.Ref); j++ {
+		// Create a pointer to the variable
+		ptrType := types.NewPointer(val.Value.Type())
+		ptr := ctx.NewAlloca(ptrType)
+		ctx.NewStore(val.Value, ptr)
+		val.Value = ptr
+		val.Type = ptrType
+	}
+
+	// Handle dereferencing
+	for j := 0; j < len(i.Deref); j++ {
+		// Load the value the pointer points to
+		val.Value = ctx.NewLoad(val.Value.Type().(*types.PointerType).ElemType, val.Value)
+		val.Type = val.Value.Type()
 	}
 
 	if i.Sub == nil {

@@ -40,10 +40,12 @@ type Value struct {
 }
 
 type Identifier struct {
-	Pos  lexer.Position
-	Name string      `parser:"@Ident"`
-	GEP  *Expression `parser:"('[' @@ ']')?"`
-	Sub  *Identifier `parser:"( '.' @@ )*"`
+	Pos   lexer.Position
+	Ref   string      `parser:"@'&'*"`
+	Deref string      `parser:"@'*'*"`
+	Name  string      `parser:"@Ident"`
+	GEP   *Expression `parser:"('[' @@ ']')?"`
+	Sub   *Identifier `parser:"( '.' @@ )*"`
 }
 
 type ArgumentList struct {
