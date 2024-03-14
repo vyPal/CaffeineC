@@ -395,6 +395,8 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 			return nil, posError(v.Pos, "Error parsing string: %s", err)
 		}
 		strGlobal := ctx.Module.NewGlobalDef("", constant.NewCharArrayFromString(str+"\000"))
+		strGlobal.Immutable = true
+		strGlobal.Linkage = enum.LinkagePrivate
 		return strGlobal, nil
 	} else if v.Duration != nil {
 		var factor float64
@@ -428,23 +430,6 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 		return nil, nil, posError(i.Pos, "Variable %s not found", i.Name)
 	}
 
-	// Handle referencing
-	for j := 0; j < len(i.Ref); j++ {
-		// Create a pointer to the variable
-		ptrType := types.NewPointer(val.Value.Type())
-		ptr := ctx.NewAlloca(ptrType)
-		ctx.NewStore(val.Value, ptr)
-		val.Value = ptr
-		val.Type = ptrType
-	}
-
-	// Handle dereferencing
-	for j := 0; j < len(i.Deref); j++ {
-		// Load the value the pointer points to
-		val.Value = ctx.NewLoad(val.Value.Type().(*types.PointerType).ElemType, val.Value)
-		val.Type = val.Value.Type()
-	}
-
 	if i.Sub == nil {
 		if i.GEP != nil {
 			ctx.RequestedType = types.I32
@@ -457,6 +442,22 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 			// Run GetElementPtr on the loaded value
 			v := ctx.NewGetElementPtr(val.Type.(*types.PointerType).ElemType, val.Value, gepExpr)
 			return v, v.Type(), nil
+		}
+		// Handle referencing
+		for j := 0; j < len(i.Ref); j++ {
+			// Create a pointer to the variable
+			ptrType := types.NewPointer(val.Value.Type())
+			ptr := ctx.NewAlloca(ptrType)
+			ctx.NewStore(val.Value, ptr)
+			val.Value = ptr
+			val.Type = ptrType
+		}
+
+		// Handle dereferencing
+		for j := 0; j < len(i.Deref); j++ {
+			// Load the value the pointer points to
+			val.Value = ctx.NewLoad(val.Value.Type().(*types.PointerType).ElemType, val.Value)
+			val.Type = val.Value.Type()
 		}
 		return val.Value, val.Value.Type(), nil
 	}
@@ -480,12 +481,43 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 		if currentSub.Sub == nil && !returnTopLevelStruct {
 			// If this is the last sub and we're not returning the top-level struct,
 			// return the field pointer
+			// Handle referencing
+			for j := 0; j < len(i.Ref); j++ {
+				// Create a pointer to the variable
+				ptrType := types.NewPointer(fieldPtr.Type())
+				ptr := ctx.NewAlloca(ptrType)
+				ctx.NewStore(fieldPtr, ptr)
+				fieldPtr = ptr
+			}
+
+			// Handle dereferencing
+			for j := 0; j < len(i.Deref); j++ {
+				// Load the value the pointer points to
+				fieldPtr = ctx.NewLoad(fieldPtr.Type().(*types.PointerType).ElemType, fieldPtr)
+			}
 			return fieldPtr, fieldPtr.Type(), nil
 		}
 
 		// Otherwise, load the field and continue
 		currentVal.Value = ctx.NewLoad(fieldType, fieldPtr)
 		currentSub = currentSub.Sub
+	}
+
+	// Handle referencing
+	for j := 0; j < len(i.Ref); j++ {
+		// Create a pointer to the variable
+		ptrType := types.NewPointer(currentVal.Value.Type())
+		ptr := ctx.NewAlloca(ptrType)
+		ctx.NewStore(currentVal.Value, ptr)
+		currentVal.Value = ptr
+		currentVal.Type = ptrType
+	}
+
+	// Handle dereferencing
+	for j := 0; j < len(i.Deref); j++ {
+		// Load the value the pointer points to
+		currentVal.Value = ctx.NewLoad(currentVal.Value.Type().(*types.PointerType).ElemType, currentVal.Value)
+		currentVal.Type = currentVal.Value.Type()
 	}
 
 	// If we're here, we're returning the top-level struct
@@ -517,7 +549,6 @@ func (ctx *Context) compileSubIdentifier(f *Variable, sub *parser.Identifier) (F
 		}
 
 		fieldPtr := ctx.NewGetElementPtr(ctx.StringToType(field.Type), f.Value, constant.NewInt(types.I32, int64(nfield)))
-		f.Value = fieldPtr
 		if sub.GEP != nil {
 			ctx.RequestedType = types.I32
 			gepExpr, err := ctx.compileExpression(sub.GEP)
@@ -527,10 +558,10 @@ func (ctx *Context) compileSubIdentifier(f *Variable, sub *parser.Identifier) (F
 			ctx.RequestedType = nil
 
 			// Run GetElementPtr on the loaded value
-			v := ctx.NewGetElementPtr(f.Type.(*types.PointerType).ElemType, f.Value, gepExpr)
+			v := ctx.NewGetElementPtr(fieldPtr.Type().(*types.PointerType).ElemType, fieldPtr, gepExpr)
 			return ctx.compileSubIdentifier(&Variable{Value: v, Type: v.Type()}, sub.Sub)
 		}
-		return ctx.compileSubIdentifier(f, sub.Sub)
+		return ctx.compileSubIdentifier(&Variable{Value: fieldPtr, Type: fieldPtr.Type()}, sub.Sub)
 	}
 	return f.Type, f.Value, false, nil
 }
