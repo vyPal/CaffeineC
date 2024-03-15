@@ -114,7 +114,7 @@ type Expression struct {
 
 type OpExpression struct {
 	Pos        lexer.Position
-	Op         string      `parser:"@( '+' | '-' )"`
+	Op         string      `parser:"@( '+' | '-' | '&' '&' | '|' '|' )"`
 	Expression *Comparison `parser:"@@"`
 }
 

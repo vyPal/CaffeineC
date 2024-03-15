@@ -57,6 +57,10 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 				left = ctx.NewFAdd(left, rightVal)
 			case "-":
 				left = ctx.NewFSub(left, rightVal)
+			case "&&":
+				left = ctx.NewAnd(left, rightVal)
+			case "||":
+				left = ctx.NewOr(left, rightVal)
 			default:
 				return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
 			}
@@ -71,6 +75,10 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 				left = ctx.NewFAdd(left, rightVal)
 			case "-":
 				left = ctx.NewFSub(left, rightVal)
+			case "&&":
+				left = ctx.NewAnd(left, rightVal)
+			case "||":
+				left = ctx.NewOr(left, rightVal)
 			default:
 				return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
 			}
@@ -80,6 +88,10 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 				left = ctx.NewAdd(left, rightVal)
 			case "-":
 				left = ctx.NewSub(left, rightVal)
+			case "&&":
+				left = ctx.NewAnd(left, rightVal)
+			case "||":
+				left = ctx.NewOr(left, rightVal)
 			default:
 				return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
 			}
@@ -304,9 +316,13 @@ func (ctx *Context) compileClassInitializer(ci *parser.ClassInitializer) (value.
 	// Initialize the class
 	constructor, exists := ctx.lookupFunction(class.Name() + ".constructor")
 	if exists {
+		if len(ci.Args.Arguments) != len(constructor.Sig.Params)-1 {
+			return nil, posError(ci.Pos, "Invalid number of arguments for class constructor")
+		}
 		// Compile the arguments
 		compiledArgs := make([]value.Value, len(ci.Args.Arguments))
 		for i, arg := range ci.Args.Arguments {
+			ctx.RequestedType = constructor.Sig.Params[i+1]
 			expr, err := ctx.compileExpression(arg)
 			if err != nil {
 				return nil, err
