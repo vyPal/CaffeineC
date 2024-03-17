@@ -78,7 +78,7 @@ type Factor struct {
 type BitCast struct {
 	Pos  lexer.Position
 	Expr *Expression `parser:"@@ ')'"`
-	Type string      `parser:"':'? @('*'* Ident)?"`
+	Type string      `parser:"(':' @('*'* Ident))?"`
 }
 
 type Term struct {

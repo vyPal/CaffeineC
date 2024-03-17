@@ -377,6 +377,20 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 				return constant.NewFloat(types.Float, *v.Float), nil
 			} else if ctx.RequestedType == types.Double {
 				return constant.NewFloat(types.Double, *v.Float), nil
+			} else if ctx.RequestedType == types.Half {
+				return constant.NewFloat(types.Half, *v.Float), nil
+			} else if ctx.RequestedType == types.FP128 {
+				return constant.NewFloat(types.FP128, *v.Float), nil
+			} else if ctx.RequestedType == types.I32 {
+				return constant.NewInt(types.I32, int64(*v.Float)), nil
+			} else if ctx.RequestedType == types.I64 {
+				return constant.NewInt(types.I64, int64(*v.Float)), nil
+			} else if ctx.RequestedType == types.I1 {
+				if *v.Float == 0 {
+					return constant.NewInt(types.I1, 0), nil
+				} else {
+					return constant.NewInt(types.I1, 1), nil
+				}
 			} else {
 				return nil, posError(v.Pos, "Cannot convert float to %s", ctx.RequestedType.Name())
 			}
@@ -390,6 +404,14 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 				return local, nil
 			} else if intType, ok := ctx.RequestedType.(*types.IntType); ok {
 				return constant.NewInt(intType, *v.Int), nil
+			} else if ctx.RequestedType == types.Float {
+				return constant.NewFloat(types.Float, float64(*v.Int)), nil
+			} else if ctx.RequestedType == types.Double {
+				return constant.NewFloat(types.Double, float64(*v.Int)), nil
+			} else if ctx.RequestedType == types.Half {
+				return constant.NewFloat(types.Half, float64(*v.Int)), nil
+			} else if ctx.RequestedType == types.FP128 {
+				return constant.NewFloat(types.FP128, float64(*v.Int)), nil
 			} else {
 				return nil, posError(v.Pos, "Cannot convert int to %T", ctx.RequestedType)
 			}
