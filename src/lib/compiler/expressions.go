@@ -228,8 +228,6 @@ func (ctx *Context) compileFactor(f *parser.Factor) (value.Value, error) {
 		return ctx.compileClassMethod(f.ClassMethod)
 	} else if f.FunctionCall != nil {
 		return ctx.compileFunctionCall(f.FunctionCall)
-	} else if f.SubExpression != nil {
-		return ctx.compileExpression(f.SubExpression)
 	} else if f.ClassInitializer != nil {
 		return ctx.compileClassInitializer(f.ClassInitializer)
 	} else {
@@ -241,6 +239,10 @@ func (ctx *Context) compileBitCast(bc *parser.BitCast) (value.Value, error) {
 	val, err := ctx.compileExpression(bc.Expr)
 	if err != nil {
 		return nil, err
+	}
+
+	if bc.Type == "" {
+		return val, nil
 	}
 
 	targetType := ctx.StringToType(bc.Type)

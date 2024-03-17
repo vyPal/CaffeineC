@@ -69,9 +69,8 @@ type Factor struct {
 	Pos              lexer.Position
 	Value            *Value            `parser:"  @@"`
 	FunctionCall     *FunctionCall     `parser:"| (?= ( Ident | String ) '(') @@"`
-	BitCast          *BitCast          `parser:"| '(' @@?"`
+	BitCast          *BitCast          `parser:"| '(' @@"`
 	ClassInitializer *ClassInitializer `parser:"| 'new' @@"`
-	SubExpression    *Expression       `parser:"| '(' @@ ')'"`
 	ClassMethod      *ClassMethod      `parser:"| (?= Ident ( '.' Ident)+ '(') @@"`
 	Identifier       *Identifier       `parser:"| @@"`
 }
@@ -79,7 +78,7 @@ type Factor struct {
 type BitCast struct {
 	Pos  lexer.Position
 	Expr *Expression `parser:"@@ ')'"`
-	Type string      `parser:"':' @('*'* Ident)"`
+	Type string      `parser:"':'? @('*'* Ident)?"`
 }
 
 type Term struct {
