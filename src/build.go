@@ -77,6 +77,12 @@ func init() {
 					"Useful for linking with C++ code. ",
 				Aliases: []string{"G"},
 			},
+			&cli.BoolFlag{
+				Name: "use-tcc",
+				Usage: "Use tcc instead of clang for linking. " +
+					"Useful for linking with C code. ",
+				Aliases: []string{"T"},
+			},
 		},
 		Action: build,
 	},
@@ -128,6 +134,12 @@ func init() {
 					Usage: "Use gcc instead of clang for linking. " +
 						"Useful for linking with C++ code. ",
 					Aliases: []string{"G"},
+				},
+				&cli.BoolFlag{
+					Name: "use-tcc",
+					Usage: "Use tcc instead of clang for linking. " +
+						"Useful for linking with C code. ",
+					Aliases: []string{"T"},
 				},
 			},
 			Action: run,
@@ -230,7 +242,14 @@ func build(c *cli.Context) error {
 			gccArgs = append(gccArgs, "-o", outpath)
 		}
 
-		gccCmd := exec.Command("gcc", gccArgs...)
+		var gccCmd *exec.Cmd
+
+		if c.Bool("use-tcc") {
+			gccCmd = exec.Command("tcc", gccArgs...)
+		} else {
+			gccCmd = exec.Command("gcc", gccArgs...)
+		}
+
 		gccCmd.Stderr = &stderr
 
 		err = gccCmd.Run()
