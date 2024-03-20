@@ -28,7 +28,60 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 		}
 
 		if !left.Type().Equal(rightVal.Type()) {
-			return nil, posError(right.Pos, "Type mismatch: %s and %s", left.Type(), rightVal.Type())
+			targetType := left.Type()
+
+			// Predefined bitcasts
+			switch targetType {
+			case types.Double:
+				if rightVal.Type().Equal(types.Float) {
+					rightVal = ctx.NewFPExt(rightVal, types.Double)
+				}
+			case types.Float:
+				if rightVal.Type().Equal(types.Double) {
+					rightVal = ctx.NewFPTrunc(rightVal, types.Float)
+				}
+			}
+
+			if valType, ok := rightVal.Type().(*types.IntType); ok {
+				if target, ok := targetType.(*types.IntType); ok {
+					if valType.BitSize < target.BitSize {
+						// Extend if valType is smaller than targetType
+						rightVal = ctx.NewSExt(rightVal, targetType)
+					} else if valType.BitSize > target.BitSize {
+						// Truncate if valType is larger than targetType
+						rightVal = ctx.NewTrunc(rightVal, targetType)
+					}
+				} else if targetType == types.Float {
+					rightVal = ctx.NewSIToFP(rightVal, targetType)
+				} else if targetType == types.Double {
+					rightVal = ctx.NewSIToFP(rightVal, targetType)
+				} else if targetType == types.Half {
+					rightVal = ctx.NewSIToFP(rightVal, targetType)
+				} else if targetType == types.FP128 {
+					rightVal = ctx.NewSIToFP(rightVal, targetType)
+				}
+			}
+
+			// If the value is a struct type or a pointer to a struct type, try to find a conversion function
+			if structType, ok := rightVal.Type().(*types.StructType); ok {
+				method, ok := ctx.lookupFunction(structType.Name() + ".get." + targetType.Name())
+				if ok {
+					// If a conversion function is found, call it and return the result
+					rightVal = ctx.NewCall(method, rightVal)
+				}
+			} else if ptrType, ok := rightVal.Type().(*types.PointerType); ok {
+				if structType, ok := ptrType.ElemType.(*types.StructType); ok {
+					method, ok := ctx.lookupFunction(structType.Name() + ".get." + targetType.Name())
+					if ok {
+						// If a conversion function is found, call it and return the result
+						rightVal = ctx.NewCall(method, rightVal)
+					}
+				}
+			}
+
+			if !rightVal.Type().Equal(targetType) {
+				return nil, posError(right.Pos, "Automated conversion from %s to %s failed.", rightVal.Type(), targetType)
+			}
 		}
 
 		switch leftType := left.(type) {
@@ -114,7 +167,60 @@ func (ctx *Context) compileComparison(c *parser.Comparison) (value.Value, error)
 		}
 
 		if !left.Type().Equal(rightVal.Type()) {
-			return nil, posError(right.Pos, "Type mismatch: %s and %s", left.Type(), rightVal.Type())
+			targetType := left.Type()
+
+			// Predefined bitcasts
+			switch targetType {
+			case types.Double:
+				if rightVal.Type().Equal(types.Float) {
+					rightVal = ctx.NewFPExt(rightVal, types.Double)
+				}
+			case types.Float:
+				if rightVal.Type().Equal(types.Double) {
+					rightVal = ctx.NewFPTrunc(rightVal, types.Float)
+				}
+			}
+
+			if valType, ok := rightVal.Type().(*types.IntType); ok {
+				if target, ok := targetType.(*types.IntType); ok {
+					if valType.BitSize < target.BitSize {
+						// Extend if valType is smaller than targetType
+						rightVal = ctx.NewSExt(rightVal, targetType)
+					} else if valType.BitSize > target.BitSize {
+						// Truncate if valType is larger than targetType
+						rightVal = ctx.NewTrunc(rightVal, targetType)
+					}
+				} else if targetType == types.Float {
+					rightVal = ctx.NewSIToFP(rightVal, targetType)
+				} else if targetType == types.Double {
+					rightVal = ctx.NewSIToFP(rightVal, targetType)
+				} else if targetType == types.Half {
+					rightVal = ctx.NewSIToFP(rightVal, targetType)
+				} else if targetType == types.FP128 {
+					rightVal = ctx.NewSIToFP(rightVal, targetType)
+				}
+			}
+
+			// If the value is a struct type or a pointer to a struct type, try to find a conversion function
+			if structType, ok := rightVal.Type().(*types.StructType); ok {
+				method, ok := ctx.lookupFunction(structType.Name() + ".get." + targetType.Name())
+				if ok {
+					// If a conversion function is found, call it and return the result
+					rightVal = ctx.NewCall(method, rightVal)
+				}
+			} else if ptrType, ok := rightVal.Type().(*types.PointerType); ok {
+				if structType, ok := ptrType.ElemType.(*types.StructType); ok {
+					method, ok := ctx.lookupFunction(structType.Name() + ".get." + targetType.Name())
+					if ok {
+						// If a conversion function is found, call it and return the result
+						rightVal = ctx.NewCall(method, rightVal)
+					}
+				}
+			}
+
+			if !rightVal.Type().Equal(targetType) {
+				return nil, posError(right.Pos, "Automated conversion from %s to %s failed.", rightVal.Type(), targetType)
+			}
 		}
 
 		switch leftType := left.(type) {
@@ -166,7 +272,60 @@ func (ctx *Context) compileTerm(t *parser.Term) (value.Value, error) {
 		}
 
 		if !left.Type().Equal(rightVal.Type()) {
-			return nil, posError(right.Pos, "Type mismatch: %s and %s", left.Type(), rightVal.Type())
+			targetType := left.Type()
+
+			// Predefined bitcasts
+			switch targetType {
+			case types.Double:
+				if rightVal.Type().Equal(types.Float) {
+					rightVal = ctx.NewFPExt(rightVal, types.Double)
+				}
+			case types.Float:
+				if rightVal.Type().Equal(types.Double) {
+					rightVal = ctx.NewFPTrunc(rightVal, types.Float)
+				}
+			}
+
+			if valType, ok := rightVal.Type().(*types.IntType); ok {
+				if target, ok := targetType.(*types.IntType); ok {
+					if valType.BitSize < target.BitSize {
+						// Extend if valType is smaller than targetType
+						rightVal = ctx.NewSExt(rightVal, targetType)
+					} else if valType.BitSize > target.BitSize {
+						// Truncate if valType is larger than targetType
+						rightVal = ctx.NewTrunc(rightVal, targetType)
+					}
+				} else if targetType == types.Float {
+					rightVal = ctx.NewSIToFP(rightVal, targetType)
+				} else if targetType == types.Double {
+					rightVal = ctx.NewSIToFP(rightVal, targetType)
+				} else if targetType == types.Half {
+					rightVal = ctx.NewSIToFP(rightVal, targetType)
+				} else if targetType == types.FP128 {
+					rightVal = ctx.NewSIToFP(rightVal, targetType)
+				}
+			}
+
+			// If the value is a struct type or a pointer to a struct type, try to find a conversion function
+			if structType, ok := rightVal.Type().(*types.StructType); ok {
+				method, ok := ctx.lookupFunction(structType.Name() + ".get." + targetType.Name())
+				if ok {
+					// If a conversion function is found, call it and return the result
+					rightVal = ctx.NewCall(method, rightVal)
+				}
+			} else if ptrType, ok := rightVal.Type().(*types.PointerType); ok {
+				if structType, ok := ptrType.ElemType.(*types.StructType); ok {
+					method, ok := ctx.lookupFunction(structType.Name() + ".get." + targetType.Name())
+					if ok {
+						// If a conversion function is found, call it and return the result
+						rightVal = ctx.NewCall(method, rightVal)
+					}
+				}
+			}
+
+			if !rightVal.Type().Equal(targetType) {
+				return nil, posError(right.Pos, "Automated conversion from %s to %s failed.", rightVal.Type(), targetType)
+			}
 		}
 
 		switch leftType := left.(type) {
