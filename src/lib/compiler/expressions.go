@@ -345,11 +345,23 @@ func (ctx *Context) compileTerm(t *parser.Term) (value.Value, error) {
 
 		switch right.Op {
 		case "*":
-			left = ctx.NewMul(left, rightVal)
+			if types.IsFloat(left.Type()) {
+				left = ctx.NewFMul(left, rightVal)
+			} else {
+				left = ctx.NewMul(left, rightVal)
+			}
 		case "/":
-			left = ctx.NewSDiv(left, rightVal)
+			if types.IsFloat(left.Type()) {
+				left = ctx.NewFDiv(left, rightVal)
+			} else {
+				left = ctx.NewSDiv(left, rightVal)
+			}
 		case "%":
-			left = ctx.NewSRem(left, rightVal)
+			if types.IsFloat(left.Type()) {
+				left = ctx.NewFRem(left, rightVal)
+			} else {
+				left = ctx.NewSRem(left, rightVal)
+			}
 		default:
 			return nil, posError(right.Pos, "Unknown term operator: %s", right.Op)
 		}
@@ -661,6 +673,8 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 		return val.Value, val.Value.Type(), nil
 	}
 
+	originalVal := val
+
 	// Iterate over the subs
 	currentVal := val
 	currentSub := i.Sub
@@ -677,7 +691,10 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 			}
 		}
 
-		if currentSub.Sub == nil && !returnTopLevelStruct {
+		// Update currentSub to its subfield
+		nextSub := currentSub.Sub
+
+		if nextSub == nil && !returnTopLevelStruct {
 			// If this is the last sub and we're not returning the top-level struct,
 			// return the field pointer
 			// Handle referencing
@@ -699,28 +716,28 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 
 		// Otherwise, load the field and continue
 		currentVal.Value = ctx.NewLoad(fieldType, fieldPtr)
-		currentSub = currentSub.Sub
+		currentSub = nextSub
 	}
 
 	// Handle referencing
 	for j := 0; j < len(i.Ref); j++ {
 		// Create a pointer to the variable
-		ptrType := types.NewPointer(currentVal.Value.Type())
+		ptrType := types.NewPointer(originalVal.Value.Type())
 		ptr := ctx.NewAlloca(ptrType)
-		ctx.NewStore(currentVal.Value, ptr)
-		currentVal.Value = ptr
-		currentVal.Type = ptrType
+		ctx.NewStore(originalVal.Value, ptr)
+		originalVal.Value = ptr
+		originalVal.Type = ptrType
 	}
 
 	// Handle dereferencing
 	for j := 0; j < len(i.Deref); j++ {
 		// Load the value the pointer points to
-		currentVal.Value = ctx.NewLoad(currentVal.Value.Type().(*types.PointerType).ElemType, currentVal.Value)
-		currentVal.Type = currentVal.Value.Type()
+		originalVal.Value = ctx.NewLoad(originalVal.Value.Type().(*types.PointerType).ElemType, originalVal.Value)
+		originalVal.Type = originalVal.Value.Type()
 	}
 
 	// If we're here, we're returning the top-level struct
-	return currentVal.Value, currentVal.Type, nil
+	return originalVal.Value, originalVal.Type, nil
 }
 
 func (ctx *Context) compileSubIdentifier(f *Variable, sub *parser.Identifier) (FieldType types.Type, Pointer value.Value, IsMethod bool, err error) {
@@ -756,9 +773,13 @@ func (ctx *Context) compileSubIdentifier(f *Variable, sub *parser.Identifier) (F
 			}
 			ctx.RequestedType = nil
 
-			// Run GetElementPtr on the loaded value
-			v := ctx.NewGetElementPtr(fieldPtr.Type().(*types.PointerType).ElemType, fieldPtr, gepExpr)
-			return ctx.compileSubIdentifier(&Variable{Value: v, Type: v.Type()}, sub.Sub)
+			// Load the array pointer
+			arrayPtr := ctx.NewLoad(fieldPtr.Type().(*types.PointerType).ElemType, fieldPtr)
+
+			// Get the pointer to the specific element
+			elemPtr := ctx.NewGetElementPtr(arrayPtr.Type().(*types.PointerType).ElemType, arrayPtr, gepExpr)
+
+			return elemPtr.Type().(*types.PointerType).ElemType.(*types.PointerType).ElemType, elemPtr, false, nil
 		}
 		return ctx.compileSubIdentifier(&Variable{Value: fieldPtr, Type: fieldPtr.Type()}, sub.Sub)
 	}
