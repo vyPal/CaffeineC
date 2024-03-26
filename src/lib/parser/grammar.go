@@ -30,7 +30,7 @@ func (d *Duration) Capture(values []string) error {
 
 type Value struct {
 	Pos      lexer.Position
-	Float    *float64  `parser:"  @Float"`
+	Float    *float64  `parser:"  @('-'? Float)"`
 	Duration *Duration `parser:"| @Int @('h' | 'm' | 's' | 'ms' | 'us' | 'ns')"`
 	Int      *int64    `parser:"| @('-'? Int)"`
 	HexInt   *string   `parser:"| @('0x' (Int | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F')+)"`
