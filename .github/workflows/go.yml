@@ -237,7 +237,7 @@ jobs:
               -d '{"draft": false}'
           else
             curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              https://api.github.com/repos/${{ github.repository }}/git/refs/tags/${{ needs.create_release.outputs.new_version }}
+              https://api.github.com/repos/${{ github.repository }}/git/refs/tags/v${{ needs.create_release.outputs.new_version }}
             curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               https://api.github.com/repos/${{ github.repository }}/releases/${{ steps.get_release_id.outputs.id }}
           fi
