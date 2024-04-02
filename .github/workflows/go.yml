@@ -166,6 +166,9 @@ jobs:
         run: |
           sudo apt-get install -y rpm expect
           echo "${{ secrets.RPM_SIGNING_KEY }}" | gpg --batch --yes --import
+          sudo chown -R runner:runner $HOME/.gnupg
+          sudo chmod 700 $HOME/.gnupg
+          sudo chmod 600 $HOME/.gnupg/*
           sudo chown runner:runner ${{ steps.build-rpm.outputs.file_name }}
           export GPG_TTY=/dev/console
           export GNUPGHOME=$HOME/.gnupg
