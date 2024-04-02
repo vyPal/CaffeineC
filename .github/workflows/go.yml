@@ -134,14 +134,9 @@ jobs:
       
       - name: Set distribution
         id: set-distribution
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          if [[ "${{ runner.os }}" == "Linux" ]]; then
-            echo "distribution=$(lsb_release -cs)" >> $GITHUB_ENV
-          elif [[ "${{ runner.os }}" == "macOS" ]]; then
-            echo "distribution=$(sw_vers -productVersion | awk -F '.' '{print $1 "." $2}')" >> $GITHUB_ENV
-          else
-            echo "distribution=windows" >> $GITHUB_ENV
-          fi
+          echo "distribution=$(lsb_release -cs)" >> $GITHUB_ENV
 
       - name: Prepare files for Debian package
         if: matrix.os == 'ubuntu-latest'
@@ -154,7 +149,7 @@ jobs:
         uses: jiro4989/build-deb-action@v3
         id: build-deb
         with:
-          package: CaffeineC
+          package: caffeinec
           package_root: .debpkg
           maintainer: vyPal <kubik.palacky@gmail.com>
           version: ${{ needs.create_release.outputs.new_version }}
@@ -183,7 +178,7 @@ jobs:
           package_root: .rpmpkg
           maintainer: vyPal <kubik.palacky@gmail.com>
           version: ${{ needs.create_release.outputs.new_version }}
-          arch: ${{ matrix.arch }}
+          arch: ${{ matrix.arch == 'amd64' && 'x86_64' || 'aarch64' }}
           summary: The CaffeineC compiler
           desc: The CaffeineC compiler
           license: GPL
