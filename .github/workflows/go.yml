@@ -165,7 +165,7 @@ jobs:
         if: matrix.os == 'linux' && matrix.arch == 'amd64'
         run: |
           sudo apt-get install -y rpm
-          echo "${{ secrets.RPM_SIGNING_KEY }}" | gpg --import
+          echo "${{ secrets.RPM_SIGNING_KEY }}" | gpg --batch --yes --import
           echo $'${{ secrets.KEY_PASSPHRASE }}\n' | rpmsign --addsign --fskpath /root/.gnupg/secring.gpg --key-id ${{ secrets.KEY_ID }} ${{ steps.build-rpm.outputs.file_name }}
 
       - name: Upload RPM package
