@@ -160,9 +160,16 @@ jobs:
           summary: The CaffeineC compiler
           desc: The CaffeineC compiler
           license: GPL
+      
+      - name: Sign RPM
+        if: matrix.os == 'linux' && matrix.arch == 'amd64'
+        run: |
+          sudo apt-get install -y rpm
+          echo "${{ secrets.RPM_SIGNING_KEY }}" | gpg --import
+          echo $'${{ secrets.KEY_PASSPHRASE }}\n' | rpmsign --addsign --fskpath /root/.gnupg/secring.gpg --key-id ${{ secrets.KEY_ID }} ${{ steps.build-rpm.outputs.file_name }}
 
       - name: Upload RPM package
-        if: matrix.os == 'linux'
+        if: matrix.os == 'linux' && matrix.arch == 'amd64'
         run: |
           curl --user ${{ secrets.REGISTRY_USERNAME }}:${{ secrets.REGISTRY_PASSWORD }} \
                --upload-file ${{ steps.build-rpm.outputs.file_name }} \
