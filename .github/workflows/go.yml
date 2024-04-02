@@ -85,12 +85,12 @@ jobs:
 
   build:
     name: Build
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     needs: [check_changes, create_release, update_version]
     if: needs.check_changes.outputs.run_build == 'true'
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [linux, windows, darwin]
         go: [1.21.3]
         arch: [amd64, arm64]
 
@@ -113,7 +113,8 @@ jobs:
       - name: Build
         env:
           GOARCH: ${{ matrix.arch }}
-        run: go build -v ./src
+          GOOS: ${{ matrix.os }}
+        run: go build -v ./src -ldflags="-s -w -extldflags \"-static\""
 
       - name: Build for Android arm64 (Special Case)
         if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
@@ -162,10 +163,6 @@ jobs:
           curl --user ${{ secrets.REGISTRY_USERNAME }}:${{ secrets.REGISTRY_PASSWORD }} \
                --upload-file ${{ steps.build-deb.outputs.file_name }} \
                https://src.vypal.me/api/packages/vypal/debian/pool/${{ env.distribution }}/main/upload
-
-      - name: Compile with debug information
-        run: |
-          go build -gcflags "-N -l" ./src
 
       - name: Prepare files for RPM package
         if: matrix.os == 'ubuntu-latest'
