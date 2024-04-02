@@ -429,9 +429,15 @@ func (ctx *Context) compileBitCast(bc *parser.BitCast) (value.Value, error) {
 		if val.Type().Equal(types.Float) {
 			val = ctx.NewFPExt(val, types.Double)
 		}
+		if _, ok := val.Type().(*types.IntType); ok {
+			val = ctx.NewSIToFP(val, targetType)
+		}
 	case types.Float:
 		if val.Type().Equal(types.Double) {
 			val = ctx.NewFPTrunc(val, types.Float)
+		}
+		if _, ok := val.Type().(*types.IntType); ok {
+			val = ctx.NewSIToFP(val, targetType)
 		}
 	}
 
