@@ -167,6 +167,8 @@ jobs:
           sudo apt-get install -y rpm expect
           echo "${{ secrets.RPM_SIGNING_KEY }}" | gpg --batch --yes --import
           sudo chown runner:runner ${{ steps.build-rpm.outputs.file_name }}
+          export GPG_TTY=/dev/console
+          export GNUPGHOME=$HOME/.gnupg
           expect -c "
           spawn rpmsign --addsign --key-id ${{ secrets.KEY_ID }} ${{ steps.build-rpm.outputs.file_name }}
           expect -exact \"Enter pass phrase: \"
