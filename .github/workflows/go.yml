@@ -174,7 +174,7 @@ jobs:
           cp ./CaffeineC .rpmpkg/usr/local/bin/CaffeineC
 
       - name: Build RPM package and upload (Linux only)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'amd64'
         uses: jiro4989/build-rpm-action@v2
         id: build-rpm
         with:
@@ -182,7 +182,7 @@ jobs:
           package_root: .rpmpkg
           maintainer: vyPal <kubik.palacky@gmail.com>
           version: ${{ needs.create_release.outputs.new_version }}
-          arch: ${{ matrix.arch == 'amd64' && 'x86_64' || 'aarch64' }}
+          arch: x86_64
           summary: The CaffeineC compiler
           desc: The CaffeineC compiler
           license: GPL
