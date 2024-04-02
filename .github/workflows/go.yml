@@ -166,6 +166,7 @@ jobs:
         run: |
           sudo apt-get install -y rpm
           echo "${{ secrets.RPM_SIGNING_KEY }}" | gpg --batch --yes --import
+          sudo chown runner:runner ${{ steps.build-rpm.outputs.file_name }}
           echo $'${{ secrets.KEY_PASSPHRASE }}\n' | rpmsign --addsign --key-id ${{ secrets.KEY_ID }} ${{ steps.build-rpm.outputs.file_name }}
 
       - name: Upload RPM package
