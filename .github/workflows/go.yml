@@ -131,6 +131,69 @@ jobs:
           asset_path: ${{ runner.os == 'Windows' && './CaffeineC.exe' || './CaffeineC' }}
           asset_name: "CaffeineC-${{ runner.os }}-${{ matrix.arch }}${{ runner.os == 'Windows' && '.exe' || '' }}"
           asset_content_type: application/octet-stream
+      
+      - name: Set distribution
+        id: set-distribution
+        run: |
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            echo "distribution=$(lsb_release -cs)" >> $GITHUB_ENV
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            echo "distribution=$(sw_vers -productVersion | awk -F '.' '{print $1 "." $2}')" >> $GITHUB_ENV
+          else
+            echo "distribution=windows" >> $GITHUB_ENV
+          fi
+
+      - name: Prepare files for Debian package
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          mkdir -p .debpkg/usr/local/bin
+          cp ./CaffeineC .debpkg/usr/local/bin/CaffeineC
+
+      - name: Build Debian package and upload (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        uses: jiro4989/build-deb-action@v3
+        id: build-deb
+        with:
+          package: CaffeineC
+          package_root: .debpkg
+          maintainer: vyPal <kubik.palacky@gmail.com>
+          version: ${{ needs.create_release.outputs.new_version }}
+          arch: ${{ matrix.arch }}
+          desc: The CaffeineC compiler
+
+      - name: Upload Debian package
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          curl --user ${{ secrets.REGISTRY_USERNAME }}:${{ secrets.REGISTRY_PASSWORD }} \
+               --upload-file ${{ steps.build-deb.outputs.file_name }} \
+               https://src.vypal.me/api/packages/vypal/debian/pool/${{ env.distribution }}/main/upload
+
+      - name: Prepare files for RPM package
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          mkdir -p .rpmpkg/usr/local/bin
+          cp ./CaffeineC .rpmpkg/usr/local/bin/CaffeineC
+
+      - name: Build RPM package and upload (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        uses: jiro4989/build-rpm-action@v2
+        id: build-rpm
+        with:
+          package: CaffeineC
+          package_root: .rpmpkg
+          maintainer: vyPal <kubik.palacky@gmail.com>
+          version: ${{ needs.create_release.outputs.new_version }}
+          arch: ${{ matrix.arch }}
+          summary: The CaffeineC compiler
+          desc: The CaffeineC compiler
+          license: GPL
+
+      - name: Upload RPM package
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          curl --user ${{ secrets.REGISTRY_USERNAME }}:${{ secrets.REGISTRY_PASSWORD }} \
+               --upload-file ${{ steps.build-rpm.outputs.file_name }} \
+               https://src.vypal.me/api/packages/vypal/rpm/upload
 
       - name: Upload artifact for Android arm64 (Special Case)
         if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
