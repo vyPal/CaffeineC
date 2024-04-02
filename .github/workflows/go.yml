@@ -94,7 +94,7 @@ jobs:
         run: go build -v -ldflags="-s -w -extldflags \"-static\"" ./src
 
       - name: Build for Android arm64 (Special Case)
-        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
+        if: matrix.os == 'linux' && matrix.arch == 'arm64'
         env:
           GOOS: android
           GOARCH: arm64
@@ -106,24 +106,24 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ${{ matrix.os == 'Windows' && './CaffeineC.exe' || './CaffeineC' }}
-          asset_name: "CaffeineC-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.os == 'Windows' && '.exe' || '' }}"
+          asset_path: ${{ matrix.os == 'windows' && './CaffeineC.exe' || './CaffeineC' }}
+          asset_name: "CaffeineC-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.os == 'windows' && '.exe' || '' }}"
           asset_content_type: application/octet-stream
       
       - name: Set distribution
         id: set-distribution
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'linux'
         run: |
           echo "distribution=$(lsb_release -cs)" >> $GITHUB_ENV
 
       - name: Prepare files for Debian package
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'linux'
         run: |
           mkdir -p .debpkg/usr/local/bin
           cp ./CaffeineC .debpkg/usr/local/bin/CaffeineC
 
       - name: Build Debian package and upload (Linux only)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'linux'
         uses: jiro4989/build-deb-action@v3
         id: build-deb
         with:
@@ -135,20 +135,20 @@ jobs:
           desc: The CaffeineC compiler
 
       - name: Upload Debian package
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'linux'
         run: |
           curl --user ${{ secrets.REGISTRY_USERNAME }}:${{ secrets.REGISTRY_PASSWORD }} \
                --upload-file ${{ steps.build-deb.outputs.file_name }} \
                https://src.vypal.me/api/packages/vypal/debian/pool/${{ env.distribution }}/main/upload
 
       - name: Prepare files for RPM package
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'linux'
         run: |
           mkdir -p .rpmpkg/usr/local/bin
           cp ./CaffeineC .rpmpkg/usr/local/bin/CaffeineC
 
       - name: Build RPM package and upload (Linux only)
-        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'amd64'
+        if: matrix.os == 'linux' && matrix.arch == 'amd64'
         uses: jiro4989/build-rpm-action@v2
         id: build-rpm
         with:
@@ -162,14 +162,14 @@ jobs:
           license: GPL
 
       - name: Upload RPM package
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'linux'
         run: |
           curl --user ${{ secrets.REGISTRY_USERNAME }}:${{ secrets.REGISTRY_PASSWORD }} \
                --upload-file ${{ steps.build-rpm.outputs.file_name }} \
                https://src.vypal.me/api/packages/vypal/rpm/upload
 
       - name: Upload artifact for Android arm64 (Special Case)
-        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
+        if: matrix.os == 'linux' && matrix.arch == 'arm64'
         uses: actions/upload-release-asset@v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
