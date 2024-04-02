@@ -106,8 +106,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ${{ runner.os == 'Windows' && './CaffeineC.exe' || './CaffeineC' }}
-          asset_name: "CaffeineC-${{ runner.os }}-${{ matrix.arch }}${{ runner.os == 'Windows' && '.exe' || '' }}"
+          asset_path: ${{ matrix.os == 'Windows' && './CaffeineC.exe' || './CaffeineC' }}
+          asset_name: "CaffeineC-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.os == 'Windows' && '.exe' || '' }}"
           asset_content_type: application/octet-stream
       
       - name: Set distribution
