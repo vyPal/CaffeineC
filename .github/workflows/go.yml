@@ -164,10 +164,15 @@ jobs:
       - name: Sign RPM
         if: matrix.os == 'linux' && matrix.arch == 'amd64'
         run: |
-          sudo apt-get install -y rpm
+          sudo apt-get install -y rpm expect
           echo "${{ secrets.RPM_SIGNING_KEY }}" | gpg --batch --yes --import
           sudo chown runner:runner ${{ steps.build-rpm.outputs.file_name }}
-          echo $'${{ secrets.KEY_PASSPHRASE }}\n' | rpmsign --addsign --key-id ${{ secrets.KEY_ID }} ${{ steps.build-rpm.outputs.file_name }}
+          expect -c "
+          spawn rpmsign --addsign --key-id ${{ secrets.KEY_ID }} ${{ steps.build-rpm.outputs.file_name }}
+          expect -exact \"Enter pass phrase: \"
+          send -- \"${{ secrets.KEY_PASSPHRASE }}\r\"
+          expect eof
+          "
 
       - name: Upload RPM package
         if: matrix.os == 'linux' && matrix.arch == 'amd64'
