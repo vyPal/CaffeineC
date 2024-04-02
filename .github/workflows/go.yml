@@ -91,7 +91,7 @@ jobs:
         env:
           GOARCH: ${{ matrix.arch }}
           GOOS: ${{ matrix.os }}
-        run: go build -v ./src -ldflags="-s -w -extldflags \"-static\""
+        run: go build -v -ldflags="-s -w -extldflags \"-static\"" ./src
 
       - name: Build for Android arm64 (Special Case)
         if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
