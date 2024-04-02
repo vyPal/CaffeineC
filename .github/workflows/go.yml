@@ -163,6 +163,10 @@ jobs:
                --upload-file ${{ steps.build-deb.outputs.file_name }} \
                https://src.vypal.me/api/packages/vypal/debian/pool/${{ env.distribution }}/main/upload
 
+      - name: Compile with debug information
+        run: |
+          go build -gcflags "-N -l" ./src
+
       - name: Prepare files for RPM package
         if: matrix.os == 'ubuntu-latest'
         run: |
