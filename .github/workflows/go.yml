@@ -166,14 +166,10 @@ jobs:
         run: |
           sudo apt-get install -y rpm expect
           echo "${{ secrets.RPM_SIGNING_KEY }}" | gpg --batch --yes --import
-          sudo chown -R runner:runner $HOME/.gnupg
-          sudo chmod 700 $HOME/.gnupg
-          sudo chmod 600 $HOME/.gnupg/*
+          echo "%_gpg_name Jakub Palacký <kubik.palacky@gmail.com>" >> $HOME/.rpmmacros
           sudo chown runner:runner ${{ steps.build-rpm.outputs.file_name }}
-          export GPG_TTY=/dev/console
-          export GNUPGHOME=$HOME/.gnupg
           expect -c "
-          spawn rpmsign --addsign --key-id ${{ secrets.KEY_ID }} ${{ steps.build-rpm.outputs.file_name }}
+          spawn rpm --addsign ${{ steps.build-rpm.outputs.file_name }}
           expect -exact \"Enter pass phrase: \"
           send -- \"${{ secrets.KEY_PASSPHRASE }}\r\"
           expect eof
