@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"strconv"
+	"errors"
 
 	"github.com/alecthomas/participle/v2/lexer"
 )
@@ -9,34 +9,26 @@ import (
 type Bool bool
 
 func (b *Bool) Capture(values []string) error {
-	*b = values[0] == "true"
-	return nil
-}
-
-type Duration struct {
-	Number float64
-	Unit   string
-}
-
-func (d *Duration) Capture(values []string) error {
-	num, err := strconv.ParseFloat(values[0], 64)
-	if err != nil {
-		return err
+	switch values[0] {
+	case "true", "True":
+		*b = true
+		return nil
+	case "false", "False":
+		*b = false
+		return nil
+	default:
+		return errors.New(values[0] + " is not a valid boolean value")
 	}
-	d.Number = num
-	d.Unit = values[1]
-	return nil
 }
 
 type Value struct {
-	Pos      lexer.Position
-	Float    *float64  `parser:"  @('-'? Float)"`
-	Duration *Duration `parser:"| @Int @('h' | 'm' | 's' | 'ms' | 'us' | 'ns')"`
-	Int      *int64    `parser:"| @('-'? Int)"`
-	HexInt   *string   `parser:"| @('0x' (Int | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F')+)"`
-	Bool     *Bool     `parser:"| @('true' | 'false')"`
-	String   *string   `parser:"| @String"`
-	Null     bool      `parser:"| @'null'"`
+	Pos    lexer.Position
+	Float  *float64 `parser:"  @('-'? Float)"`
+	Int    *int64   `parser:"| @('-'? Int)"`
+	HexInt *string  `parser:"| @('-'? '0x' (Int | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F')+)"`
+	Bool   *Bool    `parser:"| @('true' | 'True' | 'false' | 'False')"`
+	String *string  `parser:"| @String"`
+	Null   bool     `parser:"| @'null'"`
 }
 
 type Identifier struct {
@@ -81,46 +73,112 @@ type BitCast struct {
 	Type string      `parser:"(':' @('*'* Ident))?"`
 }
 
-type Term struct {
-	Pos   lexer.Position
-	Left  *Factor   `parser:"@@"`
-	Right []*OpTerm `parser:"@@*"`
-}
-
-type OpTerm struct {
-	Pos  lexer.Position
-	Op   string  `parser:"@( '*' | '/' | '%' )"`
-	Term *Factor `parser:"@@"`
-}
-
-type Comparison struct {
-	Pos   lexer.Position
-	Left  *Term           `parser:"@@"`
-	Right []*OpComparison `parser:"@@*"`
-}
-
-type OpComparison struct {
-	Pos        lexer.Position
-	Op         string `parser:"@( ('=' '=') | ( '<' '=' ) | '<'  | ( '>' '=' ) |'>' | ('!' '=') )"`
-	Comparison *Term  `parser:"@@"`
-}
-
-type Expression struct {
-	Pos   lexer.Position
-	Left  *Comparison     `parser:"@@"`
-	Right []*OpExpression `parser:"@@*"`
-}
-
-type OpExpression struct {
-	Pos        lexer.Position
-	Op         string      `parser:"@( '+' | '-' | '&' '&' | '|' '|' )"`
-	Expression *Comparison `parser:"@@"`
-}
-
 type Assignment struct {
 	Pos   lexer.Position
 	Left  *Identifier `parser:"@@"`
-	Right *Expression `parser:"'=' @@"`
+	Op    string      `parser:"@('=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=' | '>>>=' | '&&=' | '||=' | '??=')"`
+	Right *Expression `parser:"@@"`
+}
+
+type Expression struct {
+	Pos       lexer.Position
+	Condition *LogicalOr  `parser:"@@"`
+	True      *Expression `parser:"'?' @@ ':'"`
+	False     *Expression `parser:"| @@"`
+}
+
+type LogicalOr struct {
+	Pos   lexer.Position
+	Left  *LogicalAnd `parser:"@@"`
+	Op    string      `parser:"@( '||' | 'or' )"`
+	Right *LogicalOr  `parser:"@@"`
+}
+
+type LogicalAnd struct {
+	Pos   lexer.Position
+	Left  *BitwiseOr  `parser:"@@"`
+	Op    string      `parser:"@( '&&' | 'and' )"`
+	Right *LogicalAnd `parser:"@@"`
+}
+
+type BitwiseOr struct {
+	Pos   lexer.Position
+	Left  *BitwiseXor `parser:"@@"`
+	Op    string      `parser:"@'|'"`
+	Right *BitwiseOr  `parser:"@@"`
+}
+
+type BitwiseXor struct {
+	Pos   lexer.Position
+	Left  *BitwiseAnd `parser:"@@"`
+	Op    string      `parser:"@'^'"`
+	Right *BitwiseXor `parser:"@@"`
+}
+
+type BitwiseAnd struct {
+	Pos   lexer.Position
+	Left  *Equality   `parser:"@@"`
+	Op    string      `parser:"@'&'"`
+	Right *BitwiseAnd `parser:"@@"`
+}
+
+type Equality struct {
+	Pos   lexer.Position
+	Left  *Relational `parser:"@@"`
+	Op    string      `parser:"@( '==' | '!=' )"`
+	Right *Equality   `parser:"@@"`
+}
+
+type Relational struct {
+	Pos   lexer.Position
+	Left  *Shift      `parser:"@@"`
+	Op    string      `parser:"@( '<=' | '>=' | '<' | '>' )"`
+	Right *Relational `parser:"@@"`
+}
+
+type Shift struct {
+	Pos   lexer.Position
+	Left  *Additive `parser:"@@"`
+	Op    string    `parser:"@( '<<' | '>>' | '>>>' )"`
+	Right *Shift    `parser:"@@"`
+}
+
+type Additive struct {
+	Pos   lexer.Position
+	Left  *Multiplicative `parser:"@@"`
+	Op    string          `parser:"@( '+' | '-' )"`
+	Right *Additive       `parser:"@@"`
+}
+
+type Multiplicative struct {
+	Pos   lexer.Position
+	Left  *LogicalNot     `parser:"@@"`
+	Op    string          `parser:"@( '*' | '/' | '%' )"`
+	Right *Multiplicative `parser:"@@"`
+}
+
+type LogicalNot struct {
+	Pos   lexer.Position
+	Op    string      `parser:"@'!'"`
+	Right *BitwiseNot `parser:"@@"`
+}
+
+type BitwiseNot struct {
+	Pos   lexer.Position
+	Op    string          `parser:"@'~'"`
+	Right *PrefixAdditive `parser:"@@"`
+}
+
+type PrefixAdditive struct {
+	Pos   lexer.Position
+	Op    string           `parser:"@('++' | '--')"`
+	Right *PostfixAdditive `parser:"@@"`
+}
+
+type PostfixAdditive struct {
+	Pos  lexer.Position
+	Left *Factor `parser:"@@"`
+	Op   string  `parser:"@('++' | '--')"`
 }
 
 type VariableDefinition struct {
