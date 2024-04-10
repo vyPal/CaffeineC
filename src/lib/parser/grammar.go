@@ -269,6 +269,19 @@ type Until struct {
 	Body      []*Statement `parser:"'{' @@* '}'"`
 }
 
+type Switch struct {
+	Pos       lexer.Position
+	Condition *Expression  `parser:"'(' @@ ')'"`
+	Cases     []*Case      `parser:"'{' @@*"`
+	Default   []*Statement `parser:"('default' ':' @@*)? '}'"`
+}
+
+type Case struct {
+	Pos    lexer.Position
+	Values []*Expression `parser:"('case' @@ ( ',' @@ )* ':'"`
+	Body   []*Statement  `parser:"@@*"`
+}
+
 type Return struct {
 	Pos         lexer.Position
 	Expressions []*Expression `parser:"@@ ( ',' @@ )* ';'"`
@@ -329,6 +342,7 @@ type Statement struct {
 	Export             *Statement                  `parser:"| 'export' @@"`
 	FunctionDefinition *FunctionDefinition         `parser:"| (?= 'private'? 'static'? 'func') @@?"`
 	TryCatch           *TryCatch                   `parser:"| 'try' @@"`
+	Switch             *Switch                     `parser:"| 'switch' @@"`
 	ClassDefinition    *ClassDefinition            `parser:"| 'class' @@?"`
 	If                 *If                         `parser:"| 'if' @@?"`
 	For                *For                        `parser:"| 'for' @@?"`
