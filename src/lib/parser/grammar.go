@@ -76,10 +76,10 @@ type BitCast struct {
 }
 
 type Assignment struct {
-	Pos   lexer.Position
-	Left  *Identifier `parser:"@@"`
-	Op    string      `parser:"@('=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=' | '>>>=' | '&&=' | '||=' | '??=')"`
-	Right *Expression `parser:"@@"`
+	Pos    lexer.Position
+	Idents []*Identifier `parser:"@@ ( ',' @@ )*"`
+	Op     string        `parser:"@('=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=' | '>>>=' | '&&=' | '||=' | '??=')"`
+	Right  *Expression   `parser:"@@"`
 }
 
 type Expression struct {
@@ -219,7 +219,7 @@ type FunctionDefinition struct {
 	Name       FuncName              `parser:"@@"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )?"`
 	Variadic   string                `parser:"(',' '...' @Ident)?"`
-	ReturnType Type                  `parser:"')' ( ':' @@ )?"`
+	ReturnType []*Type               `parser:"')' ( ':' @@ ( ',' @@ )* )?"`
 	Body       []*Statement          `parser:"'{' @@* '}'"`
 }
 
@@ -270,8 +270,8 @@ type Until struct {
 }
 
 type Return struct {
-	Pos        lexer.Position
-	Expression *Expression `parser:"@@? ';'"`
+	Pos         lexer.Position
+	Expressions []*Expression `parser:"@@ ( ',' @@ )* ';'"`
 }
 
 type ExternalFunctionDefinition struct {
@@ -279,7 +279,7 @@ type ExternalFunctionDefinition struct {
 	Name       string                `parser:"'func' @( Ident | String )"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )?"`
 	Variadic   bool                  `parser:"@(',' '...')?"`
-	ReturnType Type                  `parser:"')' ( ':' @@ )?"`
+	ReturnType []*Type               `parser:"')' ( ':' @@ ( ',' @@ )* )?"`
 }
 
 type TryCatch struct {
@@ -324,7 +324,7 @@ type Symbol struct {
 type Statement struct {
 	Pos                lexer.Position
 	VariableDefinition *VariableDefinition         `parser:"(?= ('const' | 'var') Ident) @@? (';' | '\\n')?"`
-	Assignment         *Assignment                 `parser:"| (?= Ident ( '[' ~']' ']' )? ( '.' Ident ( '[' ~']' ']' )? )* '=') @@? (';' | '\\n')?"`
+	Assignment         *Assignment                 `parser:"| (?= Ident ( '[' ~']' ']' )? ( '.' Ident ( '[' ~']' ']' )? )* (',' Ident ( '[' ~']' ']' )? ( '.' Ident ( '[' ~']' ']' )? )*)* '=') @@? (';' | '\\n')?"`
 	External           *ExternalFunctionDefinition `parser:"| 'extern' @@ ';'"`
 	Export             *Statement                  `parser:"| 'export' @@"`
 	FunctionDefinition *FunctionDefinition         `parser:"| (?= 'private'? 'static'? 'func') @@?"`
