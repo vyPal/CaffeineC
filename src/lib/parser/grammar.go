@@ -70,7 +70,7 @@ type Factor struct {
 type BitCast struct {
 	Pos  lexer.Position
 	Expr *Expression `parser:"@@ ')'"`
-	Type string      `parser:"(':' @('*'* Ident))?"`
+	Type Type        `parser:"(':' @@)?"`
 }
 
 type Assignment struct {
@@ -185,7 +185,7 @@ type VariableDefinition struct {
 	Pos        lexer.Position
 	Constant   string      `parser:"@('const' | 'var')"`
 	Name       string      `parser:"@Ident"`
-	Type       string      `parser:"':' @('*'* Ident)"`
+	Type       Type        `parser:"':' @@"`
 	Assignment *Expression `parser:"( '=' @@ )?"`
 }
 
@@ -193,13 +193,13 @@ type FieldDefinition struct {
 	Pos     lexer.Position
 	Private bool   `parser:"@'private'?"`
 	Name    string `parser:"@Ident"`
-	Type    string `parser:"':' @('*'* Ident) ';'"`
+	Type    Type   `parser:"':' @@ ';'"`
 }
 
 type ArgumentDefinition struct {
 	Pos  lexer.Position
 	Name string `parser:"@Ident"`
-	Type string `parser:"':' @('*'* Ident)"`
+	Type Type   `parser:"':' @@"`
 }
 
 type FuncName struct {
@@ -218,7 +218,7 @@ type FunctionDefinition struct {
 	Variadic   bool                  `parser:"@'vararg'?"`
 	Name       FuncName              `parser:"@@"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )? ')'"`
-	ReturnType string                `parser:"( ':' @('*'* Ident) )?"`
+	ReturnType Type                  `parser:"( ':' @@ )?"`
 	Body       []*Statement          `parser:"'{' @@* '}'"`
 }
 
@@ -272,7 +272,13 @@ type ExternalFunctionDefinition struct {
 	Variadic   bool                  `parser:"@'vararg'?"`
 	Name       string                `parser:"'func' @( Ident | String )"`
 	Parameters []*ArgumentDefinition `parser:"'(' ( @@ ( ',' @@ )* )? ')'"`
-	ReturnType string                `parser:"( ':' @('*'* Ident) )?"`
+	ReturnType Type                  `parser:"( ':' @@ )?"`
+}
+
+type Type struct {
+	Pos  lexer.Position
+	GEP  *Expression `parser:"('[' @@ ']')?"`
+	Name string      `parser:"@('*'* Ident)"`
 }
 
 type Import struct {
@@ -307,7 +313,7 @@ type Statement struct {
 	For                *For                        `parser:"| 'for' @@?"`
 	While              *While                      `parser:"| 'while' @@?"`
 	Return             *Return                     `parser:"| 'return' @@?"`
-	FieldDefinition    *FieldDefinition            `parser:"| (?= 'private'? Ident ':' '*'* Ident) @@?"`
+	FieldDefinition    *FieldDefinition            `parser:"| (?= 'private'? Ident ':' ('[' ~']' ']')? '*'* Ident) @@?"`
 	Import             *Import                     `parser:"| 'import' @@?"`
 	FromImportMultiple *FromImportMultiple         `parser:"| (?= 'from' String 'import' '{') @@?"`
 	FromImport         *FromImport                 `parser:"| (?= 'from' String 'import') @@?"`
