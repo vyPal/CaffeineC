@@ -183,8 +183,8 @@ type PostfixAdditive struct {
 
 type VariableDefinition struct {
 	Pos        lexer.Position
-	Constant   bool        `parser:"'const'?"`
-	Name       string      `parser:"'var' @Ident"`
+	Constant   string      `parser:"@('const' | 'var')"`
+	Name       string      `parser:"@Ident"`
 	Type       string      `parser:"':' @('*'* Ident)"`
 	Assignment *Expression `parser:"( '=' @@ )?"`
 }
@@ -297,7 +297,7 @@ type Symbol struct {
 
 type Statement struct {
 	Pos                lexer.Position
-	VariableDefinition *VariableDefinition         `parser:"(?= 'const'? 'var' Ident) @@? (';' | '\\n')?"`
+	VariableDefinition *VariableDefinition         `parser:"(?= ('const' | 'var') Ident) @@? (';' | '\\n')?"`
 	Assignment         *Assignment                 `parser:"| (?= Ident ( '[' ~']' ']' )? ( '.' Ident ( '[' ~']' ']' )? )* '=') @@? (';' | '\\n')?"`
 	External           *ExternalFunctionDefinition `parser:"| 'extern' @@ ';'"`
 	Export             *Statement                  `parser:"| 'export' @@"`
