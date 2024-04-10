@@ -23,12 +23,13 @@ func (b *Bool) Capture(values []string) error {
 
 type Value struct {
 	Pos    lexer.Position
-	Float  *float64 `parser:"  @('-'? Float)"`
-	Int    *int64   `parser:"| @('-'? Int)"`
-	HexInt *string  `parser:"| @('-'? '0x' (Int | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F')+)"`
-	Bool   *Bool    `parser:"| @('true' | 'True' | 'false' | 'False')"`
-	String *string  `parser:"| @String"`
-	Null   bool     `parser:"| @'null'"`
+	Array  []*Expression `parser:"'[' ( @@ ( ',' @@ )* )? ']'"`
+	Float  *float64      `parser:"  @('-'? Float)"`
+	Int    *int64        `parser:"| @('-'? Int)"`
+	HexInt *string       `parser:"| @('-'? '0x' (Int | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F')+)"`
+	Bool   *Bool         `parser:"| @('true' | 'True' | 'false' | 'False')"`
+	String *string       `parser:"| @String"`
+	Null   bool          `parser:"| @'null'"`
 }
 
 type Identifier struct {
@@ -59,6 +60,7 @@ type FunctionCall struct {
 
 type Factor struct {
 	Pos              lexer.Position
+	Unpack           bool              `parser:"@'...'?"`
 	Value            *Value            `parser:"  @@"`
 	FunctionCall     *FunctionCall     `parser:"| (?= ( Ident | String ) '(') @@"`
 	BitCast          *BitCast          `parser:"| '(' @@"`
