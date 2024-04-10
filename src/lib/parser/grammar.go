@@ -263,6 +263,12 @@ type While struct {
 	Body      []*Statement `parser:"'{' @@* '}'"`
 }
 
+type Until struct {
+	Pos       lexer.Position
+	Condition *Expression  `parser:"'(' @@ ')'"`
+	Body      []*Statement `parser:"'{' @@* '}'"`
+}
+
 type Return struct {
 	Pos        lexer.Position
 	Expression *Expression `parser:"@@? ';'"`
@@ -327,6 +333,7 @@ type Statement struct {
 	If                 *If                         `parser:"| 'if' @@?"`
 	For                *For                        `parser:"| 'for' @@?"`
 	While              *While                      `parser:"| 'while' @@?"`
+	Until              *Until                      `parser:"| 'until' @@?"`
 	Return             *Return                     `parser:"| 'return' @@?"`
 	FieldDefinition    *FieldDefinition            `parser:"| (?= 'private'? Ident ':' ('[' ~']' ']')? '*'* Ident) @@?"`
 	Import             *Import                     `parser:"| 'import' @@?"`
