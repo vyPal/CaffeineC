@@ -275,6 +275,19 @@ type ExternalFunctionDefinition struct {
 	ReturnType Type                  `parser:"( ':' @@ )?"`
 }
 
+type TryCatch struct {
+	Pos   lexer.Position
+	Try   []*Statement `parser:"'try' '{' @@* '}'"`
+	Catch *Catch       `parser:"'catch' @@"`
+	Final []*Statement `parser:"('finally' '{' @@* '}')?"`
+}
+
+type Catch struct {
+	Pos  lexer.Position
+	Name string       `parser:"@Ident"`
+	Body []*Statement `parser:"'{' @@* '}'"`
+}
+
 type Type struct {
 	Pos  lexer.Position
 	GEP  *Expression `parser:"('[' @@ ']')?"`
@@ -308,6 +321,7 @@ type Statement struct {
 	External           *ExternalFunctionDefinition `parser:"| 'extern' @@ ';'"`
 	Export             *Statement                  `parser:"| 'export' @@"`
 	FunctionDefinition *FunctionDefinition         `parser:"| (?= 'private'? 'static'? 'func') @@?"`
+	TryCatch           *TryCatch                   `parser:"| 'try' @@"`
 	ClassDefinition    *ClassDefinition            `parser:"| 'class' @@?"`
 	If                 *If                         `parser:"| 'if' @@?"`
 	For                *For                        `parser:"| 'for' @@?"`
