@@ -315,7 +315,8 @@ type Type struct {
 }
 
 type Import struct {
-	Package string `parser:"@String ';'"`
+	Package string `parser:"@String"`
+	Alias   string `parser:"('as' @Ident)? ';'"`
 }
 
 type FromImport struct {
