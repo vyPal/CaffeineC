@@ -842,9 +842,18 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 			}
 			ctx.RequestedType = nil
 
-			// Run GetElementPtr on the loaded value
-			v := ctx.NewGetElementPtr(val.Type.(*types.PointerType).ElemType, val.Value, gepExpr)
-			return v, v.Type(), nil
+			var elementType types.Type
+			switch t := val.Type.(type) {
+			case *types.PointerType:
+				elementType = t.ElemType
+			case *types.ArrayType:
+				elementType = t.ElemType
+			default:
+				return nil, nil, posError(i.GEP.Pos, "unsupported type for GetElementPtr: %s", t)
+			}
+
+			v := ctx.NewGetElementPtr(elementType, val.Value, gepExpr)
+			return v, elementType, nil
 		}
 		// Handle referencing
 		for j := 0; j < len(i.Ref); j++ {
