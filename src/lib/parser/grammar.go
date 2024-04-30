@@ -78,7 +78,7 @@ type BitCast struct {
 type Assignment struct {
 	Pos    lexer.Position
 	Idents []*Identifier `parser:"@@ ( ',' @@ )*"`
-	Op     string        `parser:"@('=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=' | '>>>=' | '&&=' | '||=' | '??=')"`
+	Op     string        `parser:"@('=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=' | '>>>=' | '??=')"`
 	Right  *Expression   `parser:"@@"`
 }
 

@@ -79,12 +79,27 @@ func (ctx *Context) CFTypeToLLType(t parser.Type) types.Type {
 }
 
 func (ctx *Context) CFMultiTypeToLLType(typeArr []*parser.Type) types.Type {
+	if len(typeArr) == 1 {
+		return ctx.CFTypeToLLType(*typeArr[0])
+	}
+
 	var typs []types.Type
 	for _, t := range typeArr {
 		typs = append(typs, ctx.CFTypeToLLType(*t))
 	}
 
 	return types.NewStruct(typs...)
+}
+
+func isNumeric(t types.Type) bool {
+	switch t := t.(type) {
+	case *types.IntType, *types.FloatType:
+		return true
+	case *types.PointerType:
+		return isNumeric(t.ElemType)
+	default:
+		return false
+	}
 }
 
 func (ctx *Context) StringToType(name string) types.Type {
