@@ -201,10 +201,12 @@ func (c *Compiler) ImportAll(path string, ctx *Context) error {
 			if s.Export.FunctionDefinition != nil {
 				var params []*ir.Param
 				for _, p := range s.Export.FunctionDefinition.Parameters {
-					params = append(params, ir.NewParam(p.Name, ctx.StringToType(p.Type)))
+					params = append(params, ir.NewParam(p.Name, ctx.CFTypeToLLType(p.Type)))
 				}
-				fn := c.Module.NewFunc(s.Export.FunctionDefinition.Name.Name, ctx.StringToType(s.Export.FunctionDefinition.ReturnType), params...)
-				fn.Sig.Variadic = s.Export.FunctionDefinition.Variadic
+				fn := c.Module.NewFunc(s.Export.FunctionDefinition.Name.Name, ctx.CFMultiTypeToLLType(s.Export.FunctionDefinition.ReturnType), params...)
+				if s.Export.FunctionDefinition.Variadic != "" {
+					fn.Sig.Variadic = true
+				}
 				ctx.SymbolTable[s.Export.FunctionDefinition.Name.Name] = fn
 
 			} else if s.Export.ClassDefinition != nil {
@@ -214,28 +216,29 @@ func (c *Compiler) ImportAll(path string, ctx *Context) error {
 				ctx.structNames[cStruct] = s.Export.ClassDefinition.Name
 				for _, st := range s.Export.ClassDefinition.Body {
 					if st.FieldDefinition != nil {
-						cStruct.Fields = append(cStruct.Fields, ctx.StringToType(st.FieldDefinition.Type))
+						cStruct.Fields = append(cStruct.Fields, ctx.CFTypeToLLType(st.FieldDefinition.Type))
 						ctx.Compiler.StructFields[s.Export.ClassDefinition.Name] = append(ctx.Compiler.StructFields[s.Export.ClassDefinition.Name], st.FieldDefinition)
 					} else if st.FunctionDefinition != nil {
 						f := st.FunctionDefinition
 						var params []*ir.Param
 						params = append(params, ir.NewParam("this", types.NewPointer(cStruct)))
 						for _, arg := range f.Parameters {
-							params = append(params, ir.NewParam(arg.Name, ctx.StringToType(arg.Type)))
+							params = append(params, ir.NewParam(arg.Name, ctx.CFTypeToLLType(arg.Type)))
 						}
 
 						ms := "." + f.Name.Name
 						if f.Name.Op {
-							ms = ".op." + strings.Trim(f.Name.String, "\"")
+							ms = ".op." + strings.Trim(f.Name.Name, "\"")
 						} else if f.Name.Get {
-							ms = ".get." + strings.Trim(f.Name.String, "\"")
+							ms = ".get." + strings.Trim(f.Name.Name, "\"")
 						} else if f.Name.Set {
-							ms = ".set." + strings.Trim(f.Name.String, "\"")
+							ms = ".set." + strings.Trim(f.Name.Name, "\"")
 						}
 
-						fn := ctx.Module.NewFunc(s.Export.ClassDefinition.Name+ms, ctx.StringToType(f.ReturnType), params...)
-						fn.Sig.Variadic = st.FunctionDefinition.Variadic
-						fn.Sig.RetType = ctx.StringToType(f.ReturnType)
+						fn := ctx.Module.NewFunc(s.Export.ClassDefinition.Name+ms, ctx.CFMultiTypeToLLType(f.ReturnType), params...)
+						if st.FunctionDefinition.Variadic != "" {
+							fn.Sig.Variadic = true
+						}
 
 						ctx.SymbolTable[s.Export.ClassDefinition.Name+ms] = fn
 					}
@@ -243,9 +246,9 @@ func (c *Compiler) ImportAll(path string, ctx *Context) error {
 			} else if s.Export.External != nil {
 				var params []*ir.Param
 				for _, p := range s.Export.External.Parameters {
-					params = append(params, ir.NewParam(p.Name, ctx.StringToType(p.Type)))
+					params = append(params, ir.NewParam(p.Name, ctx.CFTypeToLLType(p.Type)))
 				}
-				fn := c.Module.NewFunc(s.Export.External.Name, ctx.StringToType(s.Export.External.ReturnType), params...)
+				fn := c.Module.NewFunc(s.Export.External.Name, ctx.CFMultiTypeToLLType(s.Export.External.ReturnType), params...)
 				fn.Sig.Variadic = s.Export.External.Variadic
 				ctx.SymbolTable[s.Export.External.Name] = fn
 			} else {
@@ -283,9 +286,9 @@ func (c *Compiler) ImportAs(path string, symbols map[string]string, ctx *Context
 				if newname, ok := symbols[s.Export.FunctionDefinition.Name.Name]; ok {
 					var params []*ir.Param
 					for _, p := range s.Export.FunctionDefinition.Parameters {
-						params = append(params, ir.NewParam(p.Name, ctx.StringToType(p.Type)))
+						params = append(params, ir.NewParam(p.Name, ctx.CFTypeToLLType(p.Type)))
 					}
-					fn := c.Module.NewFunc(s.Export.FunctionDefinition.Name.Name, ctx.StringToType(s.Export.FunctionDefinition.ReturnType), params...)
+					fn := c.Module.NewFunc(s.Export.FunctionDefinition.Name.Name, ctx.CFMultiTypeToLLType(s.Export.FunctionDefinition.ReturnType), params...)
 					if newname == "" {
 						newname = s.Export.FunctionDefinition.Name.Name
 					}
@@ -299,26 +302,27 @@ func (c *Compiler) ImportAs(path string, symbols map[string]string, ctx *Context
 					cStruct := types.NewStruct()
 					for _, st := range s.Export.ClassDefinition.Body {
 						if st.FieldDefinition != nil {
-							cStruct.Fields = append(cStruct.Fields, ctx.StringToType(st.FieldDefinition.Type))
+							cStruct.Fields = append(cStruct.Fields, ctx.CFTypeToLLType(st.FieldDefinition.Type))
 						} else if st.FunctionDefinition != nil {
 							var params []*ir.Param
 							for _, p := range st.FunctionDefinition.Parameters {
-								params = append(params, ir.NewParam(p.Name, ctx.StringToType(p.Type)))
+								params = append(params, ir.NewParam(p.Name, ctx.CFTypeToLLType(p.Type)))
 							}
 							f := st.FunctionDefinition
 
 							ms := "." + f.Name.Name
 							if f.Name.Op {
-								ms = ".op." + strings.Trim(f.Name.String, "\"")
+								ms = ".op." + strings.Trim(f.Name.Name, "\"")
 							} else if f.Name.Get {
-								ms = ".get." + strings.Trim(f.Name.String, "\"")
+								ms = ".get." + strings.Trim(f.Name.Name, "\"")
 							} else if f.Name.Set {
-								ms = ".set." + strings.Trim(f.Name.String, "\"")
+								ms = ".set." + strings.Trim(f.Name.Name, "\"")
 							}
 
-							fn := ctx.Module.NewFunc(s.Export.ClassDefinition.Name+ms, ctx.StringToType(f.ReturnType), params...)
-							fn.Sig.Variadic = false
-							fn.Sig.RetType = ctx.StringToType(f.ReturnType)
+							fn := ctx.Module.NewFunc(s.Export.ClassDefinition.Name+ms, ctx.CFMultiTypeToLLType(f.ReturnType), params...)
+							if st.FunctionDefinition.Variadic != "" {
+								fn.Sig.Variadic = true
+							}
 
 							ctx.SymbolTable[s.Export.ClassDefinition.Name+ms] = fn
 						}
@@ -329,9 +333,9 @@ func (c *Compiler) ImportAs(path string, symbols map[string]string, ctx *Context
 			} else if s.Export.External != nil {
 				var params []*ir.Param
 				for _, p := range s.Export.External.Parameters {
-					params = append(params, ir.NewParam(p.Name, ctx.StringToType(p.Type)))
+					params = append(params, ir.NewParam(p.Name, ctx.CFTypeToLLType(p.Type)))
 				}
-				fn := c.Module.NewFunc(s.Export.External.Name, ctx.StringToType(s.Export.External.ReturnType), params...)
+				fn := c.Module.NewFunc(s.Export.External.Name, ctx.CFMultiTypeToLLType(s.Export.External.ReturnType), params...)
 				ctx.SymbolTable[s.Export.External.Name] = fn
 			} else {
 				continue

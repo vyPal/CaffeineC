@@ -78,6 +78,15 @@ func (ctx *Context) CFTypeToLLType(t parser.Type) types.Type {
 	return typ
 }
 
+func (ctx *Context) CFMultiTypeToLLType(typeArr []*parser.Type) types.Type {
+	var typs []types.Type
+	for _, t := range typeArr {
+		typs = append(typs, ctx.CFTypeToLLType(*t))
+	}
+
+	return types.NewStruct(typs...)
+}
+
 func (ctx *Context) StringToType(name string) types.Type {
 	pointerCount := strings.Count(name, "*")
 	name = strings.TrimLeft(name, "*")
