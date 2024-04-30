@@ -23,7 +23,7 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 
 	if e.True != nil && e.False != nil {
 		if cond.Type() != types.I1 {
-			return nil, fmt.Errorf("condition in ternary expression must be a boolean")
+			return nil, posError(e.Condition.Pos, "condition in ternary expression must be a boolean")
 		}
 
 		trueVal, err := ctx.compileExpression(e.True)
@@ -37,7 +37,7 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 		}
 
 		if trueVal.Type() != falseVal.Type() {
-			return nil, fmt.Errorf("true and false expressions in ternary expression must be the same type")
+			return nil, posError(e.Pos, "true and false expressions in ternary expression must be the same type")
 		}
 
 		return ctx.NewSelect(cond, trueVal, falseVal), nil
@@ -53,7 +53,7 @@ func (ctx *Context) compileLogicalAnd(l *parser.LogicalAnd) (value.Value, error)
 	}
 
 	if len(l.Right) != 0 && left.Type() != types.I1 {
-		return nil, fmt.Errorf("logical and operator requires boolean operands")
+		return nil, posError(l.Left.Pos, "logical and operator requires boolean operands")
 	}
 
 	for _, right := range l.Right {
@@ -63,7 +63,7 @@ func (ctx *Context) compileLogicalAnd(l *parser.LogicalAnd) (value.Value, error)
 		}
 
 		if rightVal.Type() != types.I1 {
-			return nil, fmt.Errorf("logical and operator requires boolean operands")
+			return nil, posError(right.Pos, "logical and operator requires boolean operands")
 		}
 
 		left = ctx.NewAnd(left, rightVal)
@@ -79,7 +79,7 @@ func (ctx *Context) compileLogicalOr(l *parser.LogicalOr) (value.Value, error) {
 	}
 
 	if len(l.Right) != 0 && left.Type() != types.I1 {
-		return nil, fmt.Errorf("logical or operator requires boolean operands")
+		return nil, posError(l.Left.Pos, "logical or operator requires boolean operands")
 	}
 
 	for _, right := range l.Right {
@@ -89,7 +89,7 @@ func (ctx *Context) compileLogicalOr(l *parser.LogicalOr) (value.Value, error) {
 		}
 
 		if rightVal.Type() != types.I1 {
-			return nil, fmt.Errorf("logical or operator requires boolean operands")
+			return nil, posError(right.Pos, "logical or operator requires boolean operands")
 		}
 
 		left = ctx.NewOr(left, rightVal)
@@ -105,7 +105,7 @@ func (ctx *Context) compileBitwiseAnd(b *parser.BitwiseAnd) (value.Value, error)
 	}
 
 	if _, ok := left.Type().(*types.IntType); len(b.Right) != 0 && !ok {
-		return nil, fmt.Errorf("bitwise and operator requires integer operands")
+		return nil, posError(b.Left.Pos, "bitwise and operator requires integer operands")
 	}
 
 	for _, right := range b.Right {
@@ -115,11 +115,11 @@ func (ctx *Context) compileBitwiseAnd(b *parser.BitwiseAnd) (value.Value, error)
 		}
 
 		if _, ok := rightVal.Type().(*types.IntType); !ok {
-			return nil, fmt.Errorf("bitwise and operator requires integer operands")
+			return nil, posError(right.Pos, "bitwise and operator requires integer operands")
 		}
 
 		if left.Type() != rightVal.Type() {
-			return nil, fmt.Errorf("operands must be the same type")
+			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
 		left = ctx.NewAnd(left, rightVal)
@@ -135,7 +135,7 @@ func (ctx *Context) compileBitwiseXor(b *parser.BitwiseXor) (value.Value, error)
 	}
 
 	if _, ok := left.Type().(*types.IntType); len(b.Right) != 0 && !ok {
-		return nil, fmt.Errorf("bitwise xor operator requires integer operands")
+		return nil, posError(b.Left.Pos, "bitwise xor operator requires integer operands")
 	}
 
 	for _, right := range b.Right {
@@ -145,11 +145,11 @@ func (ctx *Context) compileBitwiseXor(b *parser.BitwiseXor) (value.Value, error)
 		}
 
 		if _, ok := rightVal.Type().(*types.IntType); !ok {
-			return nil, fmt.Errorf("bitwise xor operator requires integer operands")
+			return nil, posError(right.Pos, "bitwise xor operator requires integer operands")
 		}
 
 		if left.Type() != rightVal.Type() {
-			return nil, fmt.Errorf("operands must be the same type")
+			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
 		left = ctx.NewXor(left, rightVal)
@@ -165,7 +165,7 @@ func (ctx *Context) compileBitwiseOr(b *parser.BitwiseOr) (value.Value, error) {
 	}
 
 	if _, ok := left.Type().(*types.IntType); len(b.Right) != 0 && !ok {
-		return nil, fmt.Errorf("bitwise or operator requires integer operands")
+		return nil, posError(b.Left.Pos, "bitwise or operator requires integer operands")
 	}
 
 	for _, right := range b.Right {
@@ -175,11 +175,11 @@ func (ctx *Context) compileBitwiseOr(b *parser.BitwiseOr) (value.Value, error) {
 		}
 
 		if _, ok := rightVal.Type().(*types.IntType); !ok {
-			return nil, fmt.Errorf("bitwise or operator requires integer operands")
+			return nil, posError(right.Pos, "bitwise or operator requires integer operands")
 		}
 
 		if left.Type() != rightVal.Type() {
-			return nil, fmt.Errorf("operands must be the same type")
+			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
 		left = ctx.NewOr(left, rightVal)
@@ -201,7 +201,7 @@ func (ctx *Context) compileEquality(e *parser.Equality) (value.Value, error) {
 		}
 
 		if left.Type() != rightVal.Type() {
-			return nil, fmt.Errorf("operands must be the same type")
+			return nil, posError(e.Left.Pos, "operands must be the same type")
 		}
 
 		switch right.Op {
@@ -218,7 +218,7 @@ func (ctx *Context) compileEquality(e *parser.Equality) (value.Value, error) {
 				left = ctx.NewICmp(enum.IPredNE, left, rightVal)
 			}
 		default:
-			return nil, fmt.Errorf("unknown equality operator: %s", right.Op)
+			return nil, posError(right.Pos, "unknown equality operator: %s", right.Op)
 		}
 	}
 
@@ -232,7 +232,7 @@ func (ctx *Context) compileRelational(r *parser.Relational) (value.Value, error)
 	}
 
 	if len(r.Right) != 0 && !isNumeric(left.Type()) {
-		return nil, fmt.Errorf("relational operator requires numeric operands")
+		return nil, posError(r.Left.Pos, "relational operator requires numeric operands")
 	}
 
 	for _, right := range r.Right {
@@ -242,11 +242,11 @@ func (ctx *Context) compileRelational(r *parser.Relational) (value.Value, error)
 		}
 
 		if !isNumeric(rightVal.Type()) {
-			return nil, fmt.Errorf("relational operator requires numeric operands")
+			return nil, posError(right.Pos, "relational operator requires numeric operands")
 		}
 
 		if left.Type() != rightVal.Type() {
-			return nil, fmt.Errorf("operands must be the same type")
+			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
 		switch right.Op {
@@ -275,7 +275,7 @@ func (ctx *Context) compileRelational(r *parser.Relational) (value.Value, error)
 				left = ctx.NewICmp(enum.IPredSGT, left, rightVal)
 			}
 		default:
-			return nil, fmt.Errorf("unknown relational operator: %s", right.Op)
+			return nil, posError(right.Pos, "unknown relational operator: %s", right.Op)
 		}
 	}
 
@@ -289,7 +289,7 @@ func (ctx *Context) compileShift(s *parser.Shift) (value.Value, error) {
 	}
 
 	if _, ok := left.Type().(*types.IntType); len(s.Right) != 0 && !ok {
-		return nil, fmt.Errorf("shift operator requires integer operands")
+		return nil, posError(s.Left.Pos, "shift operator requires integer operands")
 	}
 
 	for _, right := range s.Right {
@@ -299,11 +299,11 @@ func (ctx *Context) compileShift(s *parser.Shift) (value.Value, error) {
 		}
 
 		if _, ok := rightVal.Type().(*types.IntType); !ok {
-			return nil, fmt.Errorf("shift operator requires integer operands")
+			return nil, posError(right.Pos, "shift operator requires integer operands")
 		}
 
 		if left.Type() != rightVal.Type() {
-			return nil, fmt.Errorf("operands must be the same type")
+			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
 		switch right.Op {
@@ -312,7 +312,7 @@ func (ctx *Context) compileShift(s *parser.Shift) (value.Value, error) {
 		case ">>", ">>>":
 			left = ctx.NewLShr(left, rightVal)
 		default:
-			return nil, fmt.Errorf("unknown shift operator: %s", right.Op)
+			return nil, posError(right.Pos, "unknown shift operator: %s", right.Op)
 		}
 	}
 
@@ -326,7 +326,7 @@ func (ctx *Context) compileAdditive(a *parser.Additive) (value.Value, error) {
 	}
 
 	if len(a.Right) != 0 && !isNumeric(left.Type()) {
-		return nil, fmt.Errorf("additive operator requires numeric operands")
+		return nil, posError(a.Left.Pos, "additive operator requires numeric operands")
 	}
 
 	for _, right := range a.Right {
@@ -336,11 +336,11 @@ func (ctx *Context) compileAdditive(a *parser.Additive) (value.Value, error) {
 		}
 
 		if !isNumeric(rightVal.Type()) {
-			return nil, fmt.Errorf("additive operator requires numeric operands")
+			return nil, posError(right.Pos, "additive operator requires numeric operands")
 		}
 
 		if left.Type() != rightVal.Type() {
-			return nil, fmt.Errorf("operands must be the same type")
+			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
 		switch leftType := left.(type) {
@@ -372,7 +372,7 @@ func (ctx *Context) compileAdditive(a *parser.Additive) (value.Value, error) {
 				left = ctx.NewSub(left, rightVal)
 			}
 		default:
-			return nil, fmt.Errorf("unknown additive operator: %s", right.Op)
+			return nil, posError(right.Pos, "unknown additive operator: %s", right.Op)
 		}
 	}
 
@@ -386,7 +386,7 @@ func (ctx *Context) compileMultiplicative(m *parser.Multiplicative) (value.Value
 	}
 
 	if len(m.Right) != 0 && !isNumeric(left.Type()) {
-		return nil, fmt.Errorf("multiplicative operator requires numeric operands")
+		return nil, posError(m.Left.Pos, "multiplicative operator requires numeric operands")
 	}
 
 	for _, right := range m.Right {
@@ -396,11 +396,11 @@ func (ctx *Context) compileMultiplicative(m *parser.Multiplicative) (value.Value
 		}
 
 		if !isNumeric(rightVal.Type()) {
-			return nil, fmt.Errorf("multiplicative operator requires numeric operands")
+			return nil, posError(right.Pos, "multiplicative operator requires numeric operands")
 		}
 
 		if left.Type() != rightVal.Type() {
-			return nil, fmt.Errorf("operands must be the same type")
+			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
 		switch leftType := left.(type) {
@@ -438,7 +438,7 @@ func (ctx *Context) compileMultiplicative(m *parser.Multiplicative) (value.Value
 				left = ctx.NewSRem(left, rightVal)
 			}
 		default:
-			return nil, fmt.Errorf("unknown multiplicative operator: %s", right.Op)
+			return nil, posError(right.Pos, "unknown multiplicative operator: %s", right.Op)
 		}
 	}
 
@@ -453,7 +453,7 @@ func (ctx *Context) compileLogicalNot(l *parser.LogicalNot) (value.Value, error)
 
 	if l.Op != "" {
 		if right.Type() != types.I1 {
-			return nil, fmt.Errorf("logical not operator requires a boolean operand")
+			return nil, posError(l.Right.Pos, "logical not operator requires a boolean operand")
 		}
 		right = ctx.NewXor(right, constant.NewInt(types.I1, 1))
 	}
@@ -470,7 +470,7 @@ func (ctx *Context) compileBitwiseNot(b *parser.BitwiseNot) (value.Value, error)
 	if b.Op != "" {
 		intType, ok := right.Type().(*types.IntType)
 		if !ok {
-			return nil, fmt.Errorf("bitwise not operator requires an integer operand")
+			return nil, posError(b.Right.Pos, "bitwise not operator requires an integer operand")
 		}
 
 		mask := constant.NewInt(intType, -1)
