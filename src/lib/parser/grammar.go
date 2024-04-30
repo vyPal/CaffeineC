@@ -309,9 +309,11 @@ type Catch struct {
 }
 
 type Type struct {
-	Pos  lexer.Position
-	GEP  *Expression `parser:"('[' @@ ']')?"`
-	Name string      `parser:"@('*'* Ident)"`
+	Pos   lexer.Position
+	Array *Expression `parser:"('[' @@ ']')?"`
+	Ptr   string      `parser:"'*'*"`
+	Inner *Type       `parser:"@@ "`
+	Name  string      `parser:"| @Ident"`
 }
 
 type Import struct {
