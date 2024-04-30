@@ -145,7 +145,7 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Err error) {
 	}
 	var idents = make([]Ident, len(a.Idents))
 
-	for _, ident := range a.Idents {
+	for index, ident := range a.Idents {
 		i, t, err := ctx.compileIdentifier(ident, false)
 		if err != nil {
 			return err
@@ -155,13 +155,15 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Err error) {
 			return posError(ident.Pos, "Numeric operator used on non-numeric identifier %s", ident.Name)
 		}
 
-		idents = append(idents, Ident{Value: i, Type: t})
+		idents[index] = Ident{Value: i, Type: t}
 	}
 
+	ctx.RequestedType = idents[0].Type
 	val, err := ctx.compileExpression(a.Right)
 	if err != nil {
 		return err
 	}
+	ctx.RequestedType = nil
 
 	if a.Op != "=" {
 		if !isNumeric(val.Type()) {

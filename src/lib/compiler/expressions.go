@@ -62,6 +62,10 @@ func (ctx *Context) compileLogicalAnd(l *parser.LogicalAnd) (value.Value, error)
 			return nil, err
 		}
 
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
+		}
+
 		if rightVal.Type() != types.I1 {
 			return nil, posError(right.Pos, "logical and operator requires boolean operands")
 		}
@@ -88,6 +92,10 @@ func (ctx *Context) compileLogicalOr(l *parser.LogicalOr) (value.Value, error) {
 			return nil, err
 		}
 
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
+		}
+
 		if rightVal.Type() != types.I1 {
 			return nil, posError(right.Pos, "logical or operator requires boolean operands")
 		}
@@ -112,6 +120,10 @@ func (ctx *Context) compileBitwiseAnd(b *parser.BitwiseAnd) (value.Value, error)
 		rightVal, err := ctx.compileBitwiseAnd(right)
 		if err != nil {
 			return nil, err
+		}
+
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
 		}
 
 		if _, ok := rightVal.Type().(*types.IntType); !ok {
@@ -144,6 +156,10 @@ func (ctx *Context) compileBitwiseXor(b *parser.BitwiseXor) (value.Value, error)
 			return nil, err
 		}
 
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
+		}
+
 		if _, ok := rightVal.Type().(*types.IntType); !ok {
 			return nil, posError(right.Pos, "bitwise xor operator requires integer operands")
 		}
@@ -174,6 +190,10 @@ func (ctx *Context) compileBitwiseOr(b *parser.BitwiseOr) (value.Value, error) {
 			return nil, err
 		}
 
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
+		}
+
 		if _, ok := rightVal.Type().(*types.IntType); !ok {
 			return nil, posError(right.Pos, "bitwise or operator requires integer operands")
 		}
@@ -198,6 +218,10 @@ func (ctx *Context) compileEquality(e *parser.Equality) (value.Value, error) {
 		rightVal, err := ctx.compileEquality(right)
 		if err != nil {
 			return nil, err
+		}
+
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
 		}
 
 		if left.Type() != rightVal.Type() {
@@ -239,6 +263,10 @@ func (ctx *Context) compileRelational(r *parser.Relational) (value.Value, error)
 		rightVal, err := ctx.compileRelational(right)
 		if err != nil {
 			return nil, err
+		}
+
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
 		}
 
 		if !isNumeric(rightVal.Type()) {
@@ -298,6 +326,10 @@ func (ctx *Context) compileShift(s *parser.Shift) (value.Value, error) {
 			return nil, err
 		}
 
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
+		}
+
 		if _, ok := rightVal.Type().(*types.IntType); !ok {
 			return nil, posError(right.Pos, "shift operator requires integer operands")
 		}
@@ -335,6 +367,10 @@ func (ctx *Context) compileAdditive(a *parser.Additive) (value.Value, error) {
 			return nil, err
 		}
 
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
+		}
+
 		if !isNumeric(rightVal.Type()) {
 			return nil, posError(right.Pos, "additive operator requires numeric operands")
 		}
@@ -348,7 +384,7 @@ func (ctx *Context) compileAdditive(a *parser.Additive) (value.Value, error) {
 			if ptrType, ok := leftType.Type().(*types.PointerType); ok {
 				if structType, ok := ptrType.ElemType.(*types.StructType); ok {
 					// Check if the class has a method with the name "classname.op.operator"
-					methodName := fmt.Sprintf("%s.op.%s", structType.Name(), right.Op)
+					methodName := fmt.Sprintf("%s.op.%s", structType.Name(), a.Op)
 					if method, ok := ctx.lookupFunction(methodName); ok {
 						// Call the method and use its result as the result
 						left = ctx.NewCall(method, left, rightVal)
@@ -358,7 +394,7 @@ func (ctx *Context) compileAdditive(a *parser.Additive) (value.Value, error) {
 			}
 		}
 
-		switch right.Op {
+		switch a.Op {
 		case "+":
 			if types.IsFloat(left.Type()) {
 				left = ctx.NewFAdd(left, rightVal)
@@ -372,7 +408,7 @@ func (ctx *Context) compileAdditive(a *parser.Additive) (value.Value, error) {
 				left = ctx.NewSub(left, rightVal)
 			}
 		default:
-			return nil, posError(right.Pos, "unknown additive operator: %s", right.Op)
+			return nil, posError(right.Pos, "unknown additive operator: %s", a.Op)
 		}
 	}
 
@@ -393,6 +429,10 @@ func (ctx *Context) compileMultiplicative(m *parser.Multiplicative) (value.Value
 		rightVal, err := ctx.compileMultiplicative(right)
 		if err != nil {
 			return nil, err
+		}
+
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
 		}
 
 		if !isNumeric(rightVal.Type()) {
