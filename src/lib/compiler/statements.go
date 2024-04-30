@@ -87,6 +87,26 @@ func (ctx *Context) compileExternalFunction(v *parser.ExternalFunctionDefinition
 func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Name string, Type types.Type, Value value.Value, Err error) {
 	// If there is no assignment, create an uninitialized variable
 	valType := ctx.CFTypeToLLType(v.Type)
+
+	if v.Constant == "const" {
+		if v.Assignment == nil {
+			return "", nil, nil, posError(v.Pos, "Constant definition must have assignment")
+		}
+
+		cVal, err := ctx.compileExpression(v.Assignment)
+		if err != nil {
+			return "", nil, nil, err
+		}
+
+		ctx.vars[v.Name] = &Variable{
+			Name:  v.Name,
+			Type:  valType,
+			Value: cVal,
+		}
+
+		return v.Name, valType, cVal, nil
+	}
+
 	if v.Assignment == nil {
 		alloc := ctx.NewAlloca(valType)
 		ctx.NewStore(constant.NewZeroInitializer(valType), alloc)
