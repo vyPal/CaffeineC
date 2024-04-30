@@ -158,7 +158,7 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Err error) {
 		}
 
 		if a.Op != "=" && !isNumeric(t) {
-			return posError(ident.Pos, "Numeric operator used on non-numeric identifier %s", ident)
+			return posError(ident.Pos, "Numeric operator used on non-numeric identifier %s", ident.Name)
 		}
 
 		idents = append(idents, Ident{Value: i, Type: t})

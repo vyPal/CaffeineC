@@ -91,72 +91,72 @@ type Expression struct {
 
 type LogicalOr struct {
 	Pos   lexer.Position
-	Left  *LogicalAnd `parser:"@@"`
-	Op    string      `parser:"@( '||' | 'or' )"`
-	Right *LogicalOr  `parser:"@@"`
+	Left  *LogicalAnd  `parser:"@@"`
+	Op    string       `parser:"@( '||' | 'or' )"`
+	Right []*LogicalOr `parser:"@@"`
 }
 
 type LogicalAnd struct {
 	Pos   lexer.Position
-	Left  *BitwiseOr  `parser:"@@"`
-	Op    string      `parser:"@( '&&' | 'and' )"`
-	Right *LogicalAnd `parser:"@@"`
+	Left  *BitwiseOr    `parser:"@@"`
+	Op    string        `parser:"@( '&&' | 'and' )"`
+	Right []*LogicalAnd `parser:"@@"`
 }
 
 type BitwiseOr struct {
 	Pos   lexer.Position
-	Left  *BitwiseXor `parser:"@@"`
-	Op    string      `parser:"@'|'"`
-	Right *BitwiseOr  `parser:"@@"`
+	Left  *BitwiseXor  `parser:"@@"`
+	Op    string       `parser:"@'|'"`
+	Right []*BitwiseOr `parser:"@@"`
 }
 
 type BitwiseXor struct {
 	Pos   lexer.Position
-	Left  *BitwiseAnd `parser:"@@"`
-	Op    string      `parser:"@'^'"`
-	Right *BitwiseXor `parser:"@@"`
+	Left  *BitwiseAnd   `parser:"@@"`
+	Op    string        `parser:"@'^'"`
+	Right []*BitwiseXor `parser:"@@"`
 }
 
 type BitwiseAnd struct {
 	Pos   lexer.Position
-	Left  *Equality   `parser:"@@"`
-	Op    string      `parser:"@'&'"`
-	Right *BitwiseAnd `parser:"@@"`
+	Left  *Equality     `parser:"@@"`
+	Op    string        `parser:"@'&'"`
+	Right []*BitwiseAnd `parser:"@@"`
 }
 
 type Equality struct {
 	Pos   lexer.Position
 	Left  *Relational `parser:"@@"`
 	Op    string      `parser:"@( '==' | '!=' )"`
-	Right *Equality   `parser:"@@"`
+	Right []*Equality `parser:"@@"`
 }
 
 type Relational struct {
 	Pos   lexer.Position
-	Left  *Shift      `parser:"@@"`
-	Op    string      `parser:"@( '<=' | '>=' | '<' | '>' )"`
-	Right *Relational `parser:"@@"`
+	Left  *Shift        `parser:"@@"`
+	Op    string        `parser:"@( '<=' | '>=' | '<' | '>' )"`
+	Right []*Relational `parser:"@@"`
 }
 
 type Shift struct {
 	Pos   lexer.Position
 	Left  *Additive `parser:"@@"`
 	Op    string    `parser:"@( '<<' | '>>' | '>>>' )"`
-	Right *Shift    `parser:"@@"`
+	Right []*Shift  `parser:"@@"`
 }
 
 type Additive struct {
 	Pos   lexer.Position
 	Left  *Multiplicative `parser:"@@"`
 	Op    string          `parser:"@( '+' | '-' )"`
-	Right *Additive       `parser:"@@"`
+	Right []*Additive     `parser:"@@"`
 }
 
 type Multiplicative struct {
 	Pos   lexer.Position
-	Left  *LogicalNot     `parser:"@@"`
-	Op    string          `parser:"@( '*' | '/' | '%' )"`
-	Right *Multiplicative `parser:"@@"`
+	Left  *LogicalNot       `parser:"@@"`
+	Op    string            `parser:"@( '*' | '/' | '%' )"`
+	Right []*Multiplicative `parser:"@@"`
 }
 
 type LogicalNot struct {
