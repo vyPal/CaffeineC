@@ -259,6 +259,7 @@ func (ctx *Context) compileRelational(r *parser.Relational) (value.Value, error)
 		return nil, posError(r.Left.Pos, "relational operator requires numeric operands")
 	}
 
+	lrop := r.Op
 	for _, right := range r.Right {
 		rightVal, err := ctx.compileRelational(right)
 		if err != nil {
@@ -273,11 +274,11 @@ func (ctx *Context) compileRelational(r *parser.Relational) (value.Value, error)
 			return nil, posError(right.Pos, "relational operator requires numeric operands")
 		}
 
-		if left.Type() != rightVal.Type() {
+		if !left.Type().Equal(rightVal.Type()) {
 			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
-		switch right.Op {
+		switch lrop {
 		case "<=":
 			if types.IsFloat(left.Type()) {
 				left = ctx.NewFCmp(enum.FPredOLE, left, rightVal)
@@ -303,8 +304,9 @@ func (ctx *Context) compileRelational(r *parser.Relational) (value.Value, error)
 				left = ctx.NewICmp(enum.IPredSGT, left, rightVal)
 			}
 		default:
-			return nil, posError(right.Pos, "unknown relational operator: %s", right.Op)
+			return nil, posError(right.Pos, "unknown relational operator: %s", lrop)
 		}
+		lrop = right.Op
 	}
 
 	return left, nil
