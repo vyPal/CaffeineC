@@ -61,7 +61,7 @@ func (ctx *Context) CFTypeToLLType(t *parser.Type) types.Type {
 
 	if t.Array != nil {
 		array, err := ctx.compileExpression(t.Array)
-		if array != nil {
+		if err != nil {
 			panic(err)
 		}
 
