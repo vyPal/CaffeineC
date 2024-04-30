@@ -78,7 +78,7 @@ type BitCast struct {
 type Assignment struct {
 	Pos    lexer.Position
 	Idents []*Identifier `parser:"@@ ( ',' @@ )*"`
-	Op     string        `parser:"@('=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=' | '>>>=' | '??=')"`
+	Op     string        `parser:"@('=' | '+' '=' | '-' '=' | '*' '=' | '/' '=' | '%' '=' | '&' '=' | '|' '=' | '^' '=' | '<' '<' '=' | '>' '>' '=' | '>' '>' '>' '=' | '?' '?' '=')"`
 	Right  *Expression   `parser:"@@"`
 }
 
@@ -92,14 +92,14 @@ type Expression struct {
 type LogicalOr struct {
 	Pos   lexer.Position
 	Left  *LogicalAnd  `parser:"@@"`
-	Op    string       `parser:"@( '||' | 'or' )?"`
+	Op    string       `parser:"@( '|' '|' | 'or' )?"`
 	Right []*LogicalOr `parser:"@@?"`
 }
 
 type LogicalAnd struct {
 	Pos   lexer.Position
 	Left  *BitwiseOr    `parser:"@@"`
-	Op    string        `parser:"@( '&&' | 'and' )?"`
+	Op    string        `parser:"@( '&' '&' | 'and' )?"`
 	Right []*LogicalAnd `parser:"@@?"`
 }
 
@@ -127,21 +127,21 @@ type BitwiseAnd struct {
 type Equality struct {
 	Pos   lexer.Position
 	Left  *Relational `parser:"@@"`
-	Op    string      `parser:"@( '==' | '!=' )?"`
+	Op    string      `parser:"@( '=' '=' | '!' '=' )?"`
 	Right []*Equality `parser:"@@?"`
 }
 
 type Relational struct {
 	Pos   lexer.Position
 	Left  *Shift        `parser:"@@"`
-	Op    string        `parser:"@( '<=' | '>=' | '<' | '>' )?"`
+	Op    string        `parser:"@( '<' '=' | '>' '=' | '<' | '>' )?"`
 	Right []*Relational `parser:"@@?"`
 }
 
 type Shift struct {
 	Pos   lexer.Position
 	Left  *Additive `parser:"@@"`
-	Op    string    `parser:"@( '<<' | '>>' | '>>>' )?"`
+	Op    string    `parser:"@( '<' '<' | '>' '>' | '>' '>' '>' )?"`
 	Right []*Shift  `parser:"@@?"`
 }
 
@@ -173,14 +173,14 @@ type BitwiseNot struct {
 
 type PrefixAdditive struct {
 	Pos   lexer.Position
-	Op    string           `parser:"@('++' | '--')?"`
+	Op    string           `parser:"@('+' '+' | '-' '-')?"`
 	Right *PostfixAdditive `parser:"@@"`
 }
 
 type PostfixAdditive struct {
 	Pos  lexer.Position
 	Left *Factor `parser:"@@"`
-	Op   string  `parser:"@('++' | '--')?"`
+	Op   string  `parser:"@('+' '+' | '-' '-')?"`
 }
 
 type VariableDefinition struct {

@@ -552,19 +552,24 @@ func (ctx *Context) compilePostfixAdditive(p *parser.PostfixAdditive) (value.Val
 	}
 
 	if p.Op != "" {
+		original := left
 		if _, ok := left.Type().(*types.FloatType); ok {
 			if p.Op == "++" {
-				ctx.NewFAdd(left, constant.NewFloat(types.Float, 1))
+				left = ctx.NewFAdd(left, constant.NewFloat(types.Float, 1))
 			} else {
-				ctx.NewFSub(left, constant.NewFloat(types.Float, 1))
+				left = ctx.NewFSub(left, constant.NewFloat(types.Float, 1))
 			}
 		} else {
 			if p.Op == "++" {
-				ctx.NewAdd(left, constant.NewInt(types.I8, 1))
+				left = ctx.NewAdd(left, constant.NewInt(types.I8, 1))
 			} else {
-				ctx.NewSub(left, constant.NewInt(types.I8, 1))
+				left = ctx.NewSub(left, constant.NewInt(types.I8, 1))
 			}
 		}
+		if _, ok := original.Type().(*types.PointerType); ok {
+			ctx.NewStore(left, original)
+		}
+		return original, nil
 	}
 
 	return left, nil
