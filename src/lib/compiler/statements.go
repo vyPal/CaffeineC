@@ -45,29 +45,23 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 	} else if s.External != nil {
 		ctx.compileExternalFunction(s.External)
 	} else if s.Import != nil {
-		//return ctx.Compiler.ImportAll(s.Import.Package, ctx)
+		return ctx.Compiler.ImportAll(s.Import.Package, ctx)
 	} else if s.FromImport != nil {
-		/*
-			symbols := map[string]string{strings.Trim(s.FromImport.Symbol, "\""): strings.Trim(s.FromImport.Symbol, "\"")}
-			ctx.Compiler.ImportAs(s.FromImport.Package, symbols, ctx)
-		*/
+		symbols := map[string]string{strings.Trim(s.FromImport.Symbol, "\""): strings.Trim(s.FromImport.Symbol, "\"")}
+		ctx.Compiler.ImportAs(s.FromImport.Package, symbols, ctx)
 	} else if s.FromImportMultiple != nil {
-		/*
-			symbols := map[string]string{}
-			for _, symbol := range s.FromImportMultiple.Symbols {
-				if symbol.Alias == "" {
-					symbol.Alias = symbol.Name
-				}
-				symbols[strings.Trim(symbol.Name, "\"")] = strings.Trim(symbol.Alias, "\"")
+		symbols := map[string]string{}
+		for _, symbol := range s.FromImportMultiple.Symbols {
+			if symbol.Alias == "" {
+				symbol.Alias = symbol.Name
 			}
-			ctx.Compiler.ImportAs(s.FromImportMultiple.Package, symbols, ctx)
-		*/
+			symbols[strings.Trim(symbol.Name, "\"")] = strings.Trim(symbol.Alias, "\"")
+		}
+		ctx.Compiler.ImportAs(s.FromImportMultiple.Package, symbols, ctx)
 	} else if s.Export != nil {
 		return ctx.compileStatement(s.Export)
 	} else if s.Comment != nil {
 		return nil
-	} else {
-		return posError(s.Pos, "Unknown statement")
 	}
 	return nil
 }

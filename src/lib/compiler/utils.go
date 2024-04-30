@@ -81,6 +81,8 @@ func (ctx *Context) CFTypeToLLType(t *parser.Type) types.Type {
 func (ctx *Context) CFMultiTypeToLLType(typeArr []*parser.Type) types.Type {
 	if len(typeArr) == 1 {
 		return ctx.CFTypeToLLType(typeArr[0])
+	} else if len(typeArr) == 0 {
+		return types.Void
 	}
 
 	var typs []types.Type

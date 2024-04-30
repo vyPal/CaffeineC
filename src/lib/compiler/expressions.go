@@ -21,11 +21,11 @@ func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error)
 		return nil, err
 	}
 
-	if cond.Type() != types.I1 {
-		return nil, fmt.Errorf("condition in ternary expression must be a boolean")
-	}
-
 	if e.True != nil && e.False != nil {
+		if cond.Type() != types.I1 {
+			return nil, fmt.Errorf("condition in ternary expression must be a boolean")
+		}
+
 		trueVal, err := ctx.compileExpression(e.True)
 		if err != nil {
 			return nil, err
@@ -52,7 +52,7 @@ func (ctx *Context) compileLogicalAnd(l *parser.LogicalAnd) (value.Value, error)
 		return nil, err
 	}
 
-	if left.Type() != types.I1 {
+	if len(l.Right) != 0 && left.Type() != types.I1 {
 		return nil, fmt.Errorf("logical and operator requires boolean operands")
 	}
 
@@ -78,7 +78,7 @@ func (ctx *Context) compileLogicalOr(l *parser.LogicalOr) (value.Value, error) {
 		return nil, err
 	}
 
-	if left.Type() != types.I1 {
+	if len(l.Right) != 0 && left.Type() != types.I1 {
 		return nil, fmt.Errorf("logical or operator requires boolean operands")
 	}
 
@@ -104,7 +104,7 @@ func (ctx *Context) compileBitwiseAnd(b *parser.BitwiseAnd) (value.Value, error)
 		return nil, err
 	}
 
-	if _, ok := left.Type().(*types.IntType); !ok {
+	if _, ok := left.Type().(*types.IntType); len(b.Right) != 0 && !ok {
 		return nil, fmt.Errorf("bitwise and operator requires integer operands")
 	}
 
@@ -134,7 +134,7 @@ func (ctx *Context) compileBitwiseXor(b *parser.BitwiseXor) (value.Value, error)
 		return nil, err
 	}
 
-	if _, ok := left.Type().(*types.IntType); !ok {
+	if _, ok := left.Type().(*types.IntType); len(b.Right) != 0 && !ok {
 		return nil, fmt.Errorf("bitwise xor operator requires integer operands")
 	}
 
@@ -164,7 +164,7 @@ func (ctx *Context) compileBitwiseOr(b *parser.BitwiseOr) (value.Value, error) {
 		return nil, err
 	}
 
-	if _, ok := left.Type().(*types.IntType); !ok {
+	if _, ok := left.Type().(*types.IntType); len(b.Right) != 0 && !ok {
 		return nil, fmt.Errorf("bitwise or operator requires integer operands")
 	}
 
@@ -231,7 +231,7 @@ func (ctx *Context) compileRelational(r *parser.Relational) (value.Value, error)
 		return nil, err
 	}
 
-	if !isNumeric(left.Type()) {
+	if len(r.Right) != 0 && !isNumeric(left.Type()) {
 		return nil, fmt.Errorf("relational operator requires numeric operands")
 	}
 
@@ -288,8 +288,7 @@ func (ctx *Context) compileShift(s *parser.Shift) (value.Value, error) {
 		return nil, err
 	}
 
-	// Check if the left operand is an integer type
-	if _, ok := left.Type().(*types.IntType); !ok {
+	if _, ok := left.Type().(*types.IntType); len(s.Right) != 0 && !ok {
 		return nil, fmt.Errorf("shift operator requires integer operands")
 	}
 
@@ -299,12 +298,10 @@ func (ctx *Context) compileShift(s *parser.Shift) (value.Value, error) {
 			return nil, err
 		}
 
-		// Check if the right operand is an integer type
 		if _, ok := rightVal.Type().(*types.IntType); !ok {
 			return nil, fmt.Errorf("shift operator requires integer operands")
 		}
 
-		// Check if the operands are the same type
 		if left.Type() != rightVal.Type() {
 			return nil, fmt.Errorf("operands must be the same type")
 		}
@@ -328,7 +325,7 @@ func (ctx *Context) compileAdditive(a *parser.Additive) (value.Value, error) {
 		return nil, err
 	}
 
-	if !isNumeric(left.Type()) {
+	if len(a.Right) != 0 && !isNumeric(left.Type()) {
 		return nil, fmt.Errorf("additive operator requires numeric operands")
 	}
 
@@ -388,7 +385,7 @@ func (ctx *Context) compileMultiplicative(m *parser.Multiplicative) (value.Value
 		return nil, err
 	}
 
-	if !isNumeric(left.Type()) {
+	if len(m.Right) != 0 && !isNumeric(left.Type()) {
 		return nil, fmt.Errorf("multiplicative operator requires numeric operands")
 	}
 
@@ -454,12 +451,14 @@ func (ctx *Context) compileLogicalNot(l *parser.LogicalNot) (value.Value, error)
 		return nil, err
 	}
 
-	if right.Type() != types.I1 {
-		return nil, fmt.Errorf("logical not operator requires a boolean operand")
+	if l.Op != "" {
+		if right.Type() != types.I1 {
+			return nil, fmt.Errorf("logical not operator requires a boolean operand")
+		}
+		right = ctx.NewXor(right, constant.NewInt(types.I1, 1))
 	}
-	result := ctx.NewXor(right, constant.NewInt(types.I1, 1))
 
-	return result, nil
+	return right, nil
 }
 
 func (ctx *Context) compileBitwiseNot(b *parser.BitwiseNot) (value.Value, error) {
@@ -468,15 +467,17 @@ func (ctx *Context) compileBitwiseNot(b *parser.BitwiseNot) (value.Value, error)
 		return nil, err
 	}
 
-	intType, ok := right.Type().(*types.IntType)
-	if !ok {
-		return nil, fmt.Errorf("bitwise not operator requires an integer operand")
+	if b.Op != "" {
+		intType, ok := right.Type().(*types.IntType)
+		if !ok {
+			return nil, fmt.Errorf("bitwise not operator requires an integer operand")
+		}
+
+		mask := constant.NewInt(intType, -1)
+		right = ctx.NewXor(right, mask)
 	}
 
-	mask := constant.NewInt(intType, -1)
-	result := ctx.NewXor(right, mask)
-
-	return result, nil
+	return right, nil
 }
 
 func (ctx *Context) compilePrefixAdditive(p *parser.PrefixAdditive) (value.Value, error) {
@@ -485,19 +486,23 @@ func (ctx *Context) compilePrefixAdditive(p *parser.PrefixAdditive) (value.Value
 		return nil, err
 	}
 
-	if _, ok := right.Type().(*types.FloatType); ok {
-		if p.Op == "++" {
-			return ctx.NewFAdd(right, constant.NewFloat(types.Float, 1)), nil
+	if p.Op != "" {
+		if _, ok := right.Type().(*types.FloatType); ok {
+			if p.Op == "++" {
+				return ctx.NewFAdd(right, constant.NewFloat(types.Float, 1)), nil
+			} else {
+				return ctx.NewFSub(right, constant.NewFloat(types.Float, 1)), nil
+			}
 		} else {
-			return ctx.NewFSub(right, constant.NewFloat(types.Float, 1)), nil
-		}
-	} else {
-		if p.Op == "++" {
-			return ctx.NewAdd(right, constant.NewInt(types.I8, 1)), nil
-		} else {
-			return ctx.NewSub(right, constant.NewInt(types.I8, 1)), nil
+			if p.Op == "++" {
+				return ctx.NewAdd(right, constant.NewInt(types.I8, 1)), nil
+			} else {
+				return ctx.NewSub(right, constant.NewInt(types.I8, 1)), nil
+			}
 		}
 	}
+
+	return right, nil
 }
 
 func (ctx *Context) compilePostfixAdditive(p *parser.PostfixAdditive) (value.Value, error) {
@@ -506,17 +511,19 @@ func (ctx *Context) compilePostfixAdditive(p *parser.PostfixAdditive) (value.Val
 		return nil, err
 	}
 
-	if _, ok := left.Type().(*types.FloatType); ok {
-		if p.Op == "++" {
-			ctx.NewFAdd(left, constant.NewFloat(types.Float, 1))
+	if p.Op != "" {
+		if _, ok := left.Type().(*types.FloatType); ok {
+			if p.Op == "++" {
+				ctx.NewFAdd(left, constant.NewFloat(types.Float, 1))
+			} else {
+				ctx.NewFSub(left, constant.NewFloat(types.Float, 1))
+			}
 		} else {
-			ctx.NewFSub(left, constant.NewFloat(types.Float, 1))
-		}
-	} else {
-		if p.Op == "++" {
-			ctx.NewAdd(left, constant.NewInt(types.I8, 1))
-		} else {
-			ctx.NewSub(left, constant.NewInt(types.I8, 1))
+			if p.Op == "++" {
+				ctx.NewAdd(left, constant.NewInt(types.I8, 1))
+			} else {
+				ctx.NewSub(left, constant.NewInt(types.I8, 1))
+			}
 		}
 	}
 
