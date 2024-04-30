@@ -17,12 +17,12 @@ func posError(pos lexer.Position, message string, args ...interface{}) error {
 	return cli.Exit(color.RedString("%s at %s:%d:%d", fmt.Sprintf(message, args...), pos.Filename, pos.Line, pos.Column), 1)
 }
 
-func (ctx *Context) CFTypeToLLType(t parser.Type) types.Type {
+func (ctx *Context) CFTypeToLLType(t *parser.Type) types.Type {
 	pointerCount := strings.Count(t.Ptr, "*")
 	var typ types.Type
 
 	if t.Inner != nil {
-		typ = ctx.CFTypeToLLType(*t.Inner)
+		typ = ctx.CFTypeToLLType(t.Inner)
 	} else {
 		if strings.HasPrefix(t.Name, "i") || strings.HasPrefix(t.Name, "u") {
 			size, _ := strconv.Atoi(t.Name[1:])
@@ -80,12 +80,12 @@ func (ctx *Context) CFTypeToLLType(t parser.Type) types.Type {
 
 func (ctx *Context) CFMultiTypeToLLType(typeArr []*parser.Type) types.Type {
 	if len(typeArr) == 1 {
-		return ctx.CFTypeToLLType(*typeArr[0])
+		return ctx.CFTypeToLLType(typeArr[0])
 	}
 
 	var typs []types.Type
 	for _, t := range typeArr {
-		typs = append(typs, ctx.CFTypeToLLType(*t))
+		typs = append(typs, ctx.CFTypeToLLType(t))
 	}
 
 	return types.NewStruct(typs...)

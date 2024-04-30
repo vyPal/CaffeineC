@@ -72,7 +72,7 @@ type Factor struct {
 type BitCast struct {
 	Pos  lexer.Position
 	Expr *Expression `parser:"@@ ')'"`
-	Type Type        `parser:"(':' @@)?"`
+	Type *Type       `parser:"(':' @@)?"`
 }
 
 type Assignment struct {
@@ -187,7 +187,7 @@ type VariableDefinition struct {
 	Pos        lexer.Position
 	Constant   string      `parser:"@('const' | 'var')"`
 	Name       string      `parser:"@Ident"`
-	Type       Type        `parser:"':' @@"`
+	Type       *Type       `parser:"':' @@"`
 	Assignment *Expression `parser:"( '=' @@ )?"`
 }
 
@@ -195,13 +195,13 @@ type FieldDefinition struct {
 	Pos     lexer.Position
 	Private bool   `parser:"@'private'?"`
 	Name    string `parser:"@Ident"`
-	Type    Type   `parser:"':' @@ ';'"`
+	Type    *Type  `parser:"':' @@ ';'"`
 }
 
 type ArgumentDefinition struct {
 	Pos  lexer.Position
 	Name string `parser:"@Ident"`
-	Type Type   `parser:"':' @@"`
+	Type *Type  `parser:"':' @@"`
 }
 
 type FuncName struct {
