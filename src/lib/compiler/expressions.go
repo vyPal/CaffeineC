@@ -16,324 +16,441 @@ import (
 )
 
 func (ctx *Context) compileExpression(e *parser.Expression) (value.Value, error) {
-	left, err := ctx.compileComparison(e.Left)
+	cond, err := ctx.compileLogicalOr(e.Condition)
 	if err != nil {
 		return nil, err
 	}
-	for _, right := range e.Right {
-		ctx.RequestedType = left.Type()
-		rightVal, err := ctx.compileComparison(right.Expression)
+
+	if e.True != nil && e.False != nil {
+		if cond.Type() != types.I1 {
+			return nil, posError(e.Condition.Pos, "condition in ternary expression must be a boolean")
+		}
+
+		trueVal, err := ctx.compileExpression(e.True)
 		if err != nil {
 			return nil, err
 		}
 
-		if !left.Type().Equal(rightVal.Type()) {
-			targetType := left.Type()
-
-			// Predefined bitcasts
-			switch targetType {
-			case types.Double:
-				if rightVal.Type().Equal(types.Float) {
-					rightVal = ctx.NewFPExt(rightVal, types.Double)
-				}
-			case types.Float:
-				if rightVal.Type().Equal(types.Double) {
-					rightVal = ctx.NewFPTrunc(rightVal, types.Float)
-				}
-			}
-
-			if valType, ok := rightVal.Type().(*types.IntType); ok {
-				if target, ok := targetType.(*types.IntType); ok {
-					if valType.BitSize < target.BitSize {
-						// Extend if valType is smaller than targetType
-						rightVal = ctx.NewSExt(rightVal, targetType)
-					} else if valType.BitSize > target.BitSize {
-						// Truncate if valType is larger than targetType
-						rightVal = ctx.NewTrunc(rightVal, targetType)
-					}
-				} else if targetType == types.Float {
-					rightVal = ctx.NewSIToFP(rightVal, targetType)
-				} else if targetType == types.Double {
-					rightVal = ctx.NewSIToFP(rightVal, targetType)
-				} else if targetType == types.Half {
-					rightVal = ctx.NewSIToFP(rightVal, targetType)
-				} else if targetType == types.FP128 {
-					rightVal = ctx.NewSIToFP(rightVal, targetType)
-				}
-			}
-
-			// If the value is a struct type or a pointer to a struct type, try to find a conversion function
-			if structType, ok := rightVal.Type().(*types.StructType); ok {
-				method, ok := ctx.lookupFunction(structType.Name() + ".get." + targetType.Name())
-				if ok {
-					// If a conversion function is found, call it and return the result
-					rightVal = ctx.NewCall(method, rightVal)
-				}
-			} else if ptrType, ok := rightVal.Type().(*types.PointerType); ok {
-				if structType, ok := ptrType.ElemType.(*types.StructType); ok {
-					method, ok := ctx.lookupFunction(structType.Name() + ".get." + targetType.Name())
-					if ok {
-						// If a conversion function is found, call it and return the result
-						rightVal = ctx.NewCall(method, rightVal)
-					}
-				}
-			}
-
-			if !rightVal.Type().Equal(targetType) {
-				return nil, posError(right.Pos, "Automated conversion from %s to %s failed.", rightVal.Type(), targetType)
-			}
+		falseVal, err := ctx.compileExpression(e.False)
+		if err != nil {
+			return nil, err
 		}
 
-		switch leftType := left.(type) {
-		case *ir.InstLoad, *ir.InstCall, *ir.InstAlloca:
-			if structType, ok := leftType.Type().(*types.PointerType); ok {
-				if _, ok := structType.ElemType.(*types.StructType); ok {
-					// Check if the class has a method with the name "classname.op.operator"
-					methodName := fmt.Sprintf("%s.op.%s", structType.ElemType.Name(), right.Op)
-					if method, ok := ctx.lookupFunction(methodName); ok {
-						// Call the method and use its result as the result
-						left = ctx.NewCall(method, left, rightVal)
-						continue
-					}
-				}
-			}
+		if trueVal.Type() != falseVal.Type() {
+			return nil, posError(e.Pos, "true and false expressions in ternary expression must be the same type")
 		}
-		switch rightVal.Type() {
-		case types.Float:
-			if !left.Type().Equal(types.Float) {
-				leftFloat := ctx.NewSIToFP(left, rightVal.Type())
-				left = leftFloat
-			}
 
-			switch right.Op {
-			case "+":
-				left = ctx.NewFAdd(left, rightVal)
-			case "-":
-				left = ctx.NewFSub(left, rightVal)
-			case "&&":
-				left = ctx.NewAnd(left, rightVal)
-			case "||":
-				left = ctx.NewOr(left, rightVal)
-			default:
-				return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
-			}
-		case types.Double:
-			if !left.Type().Equal(types.Double) {
-				leftFloat := ctx.NewSIToFP(left, rightVal.Type())
-				left = leftFloat
-			}
-
-			switch right.Op {
-			case "+":
-				left = ctx.NewFAdd(left, rightVal)
-			case "-":
-				left = ctx.NewFSub(left, rightVal)
-			case "&&":
-				left = ctx.NewAnd(left, rightVal)
-			case "||":
-				left = ctx.NewOr(left, rightVal)
-			default:
-				return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
-			}
-		default:
-			switch right.Op {
-			case "+":
-				left = ctx.NewAdd(left, rightVal)
-			case "-":
-				left = ctx.NewSub(left, rightVal)
-			case "&&":
-				left = ctx.NewAnd(left, rightVal)
-			case "||":
-				left = ctx.NewOr(left, rightVal)
-			default:
-				return nil, posError(right.Pos, "Unknown expression operator: %s", right.Op)
-			}
-		}
+		return ctx.NewSelect(cond, trueVal, falseVal), nil
 	}
-	ctx.RequestedType = nil
+
+	return cond, nil
+}
+
+func (ctx *Context) compileLogicalAnd(l *parser.LogicalAnd) (value.Value, error) {
+	left, err := ctx.compileBitwiseOr(l.Left)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(l.Right) != 0 && left.Type() != types.I1 {
+		return nil, posError(l.Left.Pos, "logical and operator requires boolean operands")
+	}
+
+	for _, right := range l.Right {
+		rightVal, err := ctx.compileLogicalAnd(right)
+		if err != nil {
+			return nil, err
+		}
+
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
+		}
+
+		if rightVal.Type() != types.I1 {
+			return nil, posError(right.Pos, "logical and operator requires boolean operands")
+		}
+
+		left = ctx.NewAnd(left, rightVal)
+	}
+
 	return left, nil
 }
 
-func (ctx *Context) compileComparison(c *parser.Comparison) (value.Value, error) {
-	left, err := ctx.compileTerm(c.Left)
+func (ctx *Context) compileLogicalOr(l *parser.LogicalOr) (value.Value, error) {
+	left, err := ctx.compileLogicalAnd(l.Left)
 	if err != nil {
 		return nil, err
 	}
-	for _, right := range c.Right {
-		ctx.RequestedType = left.Type()
-		rightVal, err := ctx.compileTerm(right.Comparison)
+
+	if len(l.Right) != 0 && left.Type() != types.I1 {
+		return nil, posError(l.Left.Pos, "logical or operator requires boolean operands")
+	}
+
+	for _, right := range l.Right {
+		rightVal, err := ctx.compileLogicalOr(right)
 		if err != nil {
 			return nil, err
 		}
 
-		if !left.Type().Equal(rightVal.Type()) {
-			targetType := left.Type()
-
-			// Predefined bitcasts
-			switch targetType {
-			case types.Double:
-				if rightVal.Type().Equal(types.Float) {
-					rightVal = ctx.NewFPExt(rightVal, types.Double)
-				}
-			case types.Float:
-				if rightVal.Type().Equal(types.Double) {
-					rightVal = ctx.NewFPTrunc(rightVal, types.Float)
-				}
-			}
-
-			if valType, ok := rightVal.Type().(*types.IntType); ok {
-				if target, ok := targetType.(*types.IntType); ok {
-					if valType.BitSize < target.BitSize {
-						// Extend if valType is smaller than targetType
-						rightVal = ctx.NewSExt(rightVal, targetType)
-					} else if valType.BitSize > target.BitSize {
-						// Truncate if valType is larger than targetType
-						rightVal = ctx.NewTrunc(rightVal, targetType)
-					}
-				} else if targetType == types.Float {
-					rightVal = ctx.NewSIToFP(rightVal, targetType)
-				} else if targetType == types.Double {
-					rightVal = ctx.NewSIToFP(rightVal, targetType)
-				} else if targetType == types.Half {
-					rightVal = ctx.NewSIToFP(rightVal, targetType)
-				} else if targetType == types.FP128 {
-					rightVal = ctx.NewSIToFP(rightVal, targetType)
-				}
-			}
-
-			// If the value is a struct type or a pointer to a struct type, try to find a conversion function
-			if structType, ok := rightVal.Type().(*types.StructType); ok {
-				method, ok := ctx.lookupFunction(structType.Name() + ".get." + targetType.Name())
-				if ok {
-					// If a conversion function is found, call it and return the result
-					rightVal = ctx.NewCall(method, rightVal)
-				}
-			} else if ptrType, ok := rightVal.Type().(*types.PointerType); ok {
-				if structType, ok := ptrType.ElemType.(*types.StructType); ok {
-					method, ok := ctx.lookupFunction(structType.Name() + ".get." + targetType.Name())
-					if ok {
-						// If a conversion function is found, call it and return the result
-						rightVal = ctx.NewCall(method, rightVal)
-					}
-				}
-			}
-
-			if !rightVal.Type().Equal(targetType) {
-				return nil, posError(right.Pos, "Automated conversion from %s to %s failed.", rightVal.Type(), targetType)
-			}
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
 		}
 
-		switch leftType := left.(type) {
-		case *ir.InstLoad, *ir.InstCall, *ir.InstAlloca:
-			if structType, ok := leftType.Type().(*types.PointerType); ok {
-				if _, ok := structType.ElemType.(*types.StructType); ok {
-					// Check if the class has a method with the name "classname.op.operator"
-					methodName := fmt.Sprintf("%s.op.%s", structType.ElemType.Name(), right.Op)
-					if method, ok := ctx.lookupFunction(methodName); ok {
-						// Call the method and use its result as the result
-						left = ctx.NewCall(method, left, rightVal)
-						continue
-					}
-				}
-			}
+		if rightVal.Type() != types.I1 {
+			return nil, posError(right.Pos, "logical or operator requires boolean operands")
+		}
+
+		left = ctx.NewOr(left, rightVal)
+	}
+
+	return left, nil
+}
+
+func (ctx *Context) compileBitwiseAnd(b *parser.BitwiseAnd) (value.Value, error) {
+	left, err := ctx.compileEquality(b.Left)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := left.Type().(*types.IntType); len(b.Right) != 0 && !ok {
+		return nil, posError(b.Left.Pos, "bitwise and operator requires integer operands")
+	}
+
+	for _, right := range b.Right {
+		rightVal, err := ctx.compileBitwiseAnd(right)
+		if err != nil {
+			return nil, err
+		}
+
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
+		}
+
+		if _, ok := rightVal.Type().(*types.IntType); !ok {
+			return nil, posError(right.Pos, "bitwise and operator requires integer operands")
+		}
+
+		if left.Type() != rightVal.Type() {
+			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
+		}
+
+		left = ctx.NewAnd(left, rightVal)
+	}
+
+	return left, nil
+}
+
+func (ctx *Context) compileBitwiseXor(b *parser.BitwiseXor) (value.Value, error) {
+	left, err := ctx.compileBitwiseAnd(b.Left)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := left.Type().(*types.IntType); len(b.Right) != 0 && !ok {
+		return nil, posError(b.Left.Pos, "bitwise xor operator requires integer operands")
+	}
+
+	for _, right := range b.Right {
+		rightVal, err := ctx.compileBitwiseXor(right)
+		if err != nil {
+			return nil, err
+		}
+
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
+		}
+
+		if _, ok := rightVal.Type().(*types.IntType); !ok {
+			return nil, posError(right.Pos, "bitwise xor operator requires integer operands")
+		}
+
+		if left.Type() != rightVal.Type() {
+			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
+		}
+
+		left = ctx.NewXor(left, rightVal)
+	}
+
+	return left, nil
+}
+
+func (ctx *Context) compileBitwiseOr(b *parser.BitwiseOr) (value.Value, error) {
+	left, err := ctx.compileBitwiseXor(b.Left)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := left.Type().(*types.IntType); len(b.Right) != 0 && !ok {
+		return nil, posError(b.Left.Pos, "bitwise or operator requires integer operands")
+	}
+
+	for _, right := range b.Right {
+		rightVal, err := ctx.compileBitwiseOr(right)
+		if err != nil {
+			return nil, err
+		}
+
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
+		}
+
+		if _, ok := rightVal.Type().(*types.IntType); !ok {
+			return nil, posError(right.Pos, "bitwise or operator requires integer operands")
+		}
+
+		if left.Type() != rightVal.Type() {
+			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
+		}
+
+		left = ctx.NewOr(left, rightVal)
+	}
+
+	return left, nil
+}
+
+func (ctx *Context) compileEquality(e *parser.Equality) (value.Value, error) {
+	left, err := ctx.compileRelational(e.Left)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, right := range e.Right {
+		rightVal, err := ctx.compileEquality(right)
+		if err != nil {
+			return nil, err
+		}
+
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
+		}
+
+		if left.Type() != rightVal.Type() {
+			return nil, posError(e.Left.Pos, "operands must be the same type")
 		}
 
 		switch right.Op {
 		case "==":
-			left = ctx.NewICmp(enum.IPredEQ, left, rightVal)
+			if types.IsFloat(left.Type()) {
+				left = ctx.NewFCmp(enum.FPredOEQ, left, rightVal)
+			} else {
+				left = ctx.NewICmp(enum.IPredEQ, left, rightVal)
+			}
 		case "!=":
-			left = ctx.NewICmp(enum.IPredNE, left, rightVal)
-		case ">":
-			left = ctx.NewICmp(enum.IPredSGT, left, rightVal)
-		case "<":
-			left = ctx.NewICmp(enum.IPredSLT, left, rightVal)
-		case ">=":
-			left = ctx.NewICmp(enum.IPredSGE, left, rightVal)
-		case "<=":
-			left = ctx.NewICmp(enum.IPredSLE, left, rightVal)
+			if types.IsFloat(left.Type()) {
+				left = ctx.NewFCmp(enum.FPredONE, left, rightVal)
+			} else {
+				left = ctx.NewICmp(enum.IPredNE, left, rightVal)
+			}
 		default:
-			return nil, posError(right.Pos, "Unknown comparison operator: %s", right.Op)
+			return nil, posError(right.Pos, "unknown equality operator: %s", right.Op)
 		}
 	}
-	ctx.RequestedType = nil
+
 	return left, nil
 }
 
-func (ctx *Context) compileTerm(t *parser.Term) (value.Value, error) {
-	left, err := ctx.compileFactor(t.Left)
+func (ctx *Context) compileRelational(r *parser.Relational) (value.Value, error) {
+	left, err := ctx.compileShift(r.Left)
 	if err != nil {
 		return nil, err
 	}
-	for _, right := range t.Right {
-		ctx.RequestedType = left.Type()
-		rightVal, err := ctx.compileFactor(right.Term)
+
+	if len(r.Right) != 0 && !isNumeric(left.Type()) {
+		return nil, posError(r.Left.Pos, "relational operator requires numeric operands")
+	}
+
+	lrop := r.Op
+	for _, right := range r.Right {
+		rightVal, err := ctx.compileRelational(right)
 		if err != nil {
 			return nil, err
 		}
 
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
+		}
+
+		if !isNumeric(rightVal.Type()) {
+			return nil, posError(right.Pos, "relational operator requires numeric operands")
+		}
+
 		if !left.Type().Equal(rightVal.Type()) {
-			targetType := left.Type()
+			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
+		}
 
-			// Predefined bitcasts
-			switch targetType {
-			case types.Double:
-				if rightVal.Type().Equal(types.Float) {
-					rightVal = ctx.NewFPExt(rightVal, types.Double)
-				}
-			case types.Float:
-				if rightVal.Type().Equal(types.Double) {
-					rightVal = ctx.NewFPTrunc(rightVal, types.Float)
-				}
+		switch lrop {
+		case "<=":
+			if types.IsFloat(left.Type()) {
+				left = ctx.NewFCmp(enum.FPredOLE, left, rightVal)
+			} else {
+				left = ctx.NewICmp(enum.IPredSLE, left, rightVal)
 			}
+		case ">=":
+			if types.IsFloat(left.Type()) {
+				left = ctx.NewFCmp(enum.FPredOGE, left, rightVal)
+			} else {
+				left = ctx.NewICmp(enum.IPredSGE, left, rightVal)
+			}
+		case "<":
+			if types.IsFloat(left.Type()) {
+				left = ctx.NewFCmp(enum.FPredOLT, left, rightVal)
+			} else {
+				left = ctx.NewICmp(enum.IPredSLT, left, rightVal)
+			}
+		case ">":
+			if types.IsFloat(left.Type()) {
+				left = ctx.NewFCmp(enum.FPredOGT, left, rightVal)
+			} else {
+				left = ctx.NewICmp(enum.IPredSGT, left, rightVal)
+			}
+		default:
+			return nil, posError(right.Pos, "unknown relational operator: %s", lrop)
+		}
+		lrop = right.Op
+	}
 
-			if valType, ok := rightVal.Type().(*types.IntType); ok {
-				if target, ok := targetType.(*types.IntType); ok {
-					if valType.BitSize < target.BitSize {
-						// Extend if valType is smaller than targetType
-						rightVal = ctx.NewSExt(rightVal, targetType)
-					} else if valType.BitSize > target.BitSize {
-						// Truncate if valType is larger than targetType
-						rightVal = ctx.NewTrunc(rightVal, targetType)
-					}
-				} else if targetType == types.Float {
-					rightVal = ctx.NewSIToFP(rightVal, targetType)
-				} else if targetType == types.Double {
-					rightVal = ctx.NewSIToFP(rightVal, targetType)
-				} else if targetType == types.Half {
-					rightVal = ctx.NewSIToFP(rightVal, targetType)
-				} else if targetType == types.FP128 {
-					rightVal = ctx.NewSIToFP(rightVal, targetType)
-				}
-			}
+	return left, nil
+}
 
-			// If the value is a struct type or a pointer to a struct type, try to find a conversion function
-			if structType, ok := rightVal.Type().(*types.StructType); ok {
-				method, ok := ctx.lookupFunction(structType.Name() + ".get." + targetType.Name())
-				if ok {
-					// If a conversion function is found, call it and return the result
-					rightVal = ctx.NewCall(method, rightVal)
-				}
-			} else if ptrType, ok := rightVal.Type().(*types.PointerType); ok {
-				if structType, ok := ptrType.ElemType.(*types.StructType); ok {
-					method, ok := ctx.lookupFunction(structType.Name() + ".get." + targetType.Name())
-					if ok {
-						// If a conversion function is found, call it and return the result
-						rightVal = ctx.NewCall(method, rightVal)
-					}
-				}
-			}
+func (ctx *Context) compileShift(s *parser.Shift) (value.Value, error) {
+	left, err := ctx.compileAdditive(s.Left)
+	if err != nil {
+		return nil, err
+	}
 
-			if !rightVal.Type().Equal(targetType) {
-				return nil, posError(right.Pos, "Automated conversion from %s to %s failed.", rightVal.Type(), targetType)
-			}
+	if _, ok := left.Type().(*types.IntType); len(s.Right) != 0 && !ok {
+		return nil, posError(s.Left.Pos, "shift operator requires integer operands")
+	}
+
+	for _, right := range s.Right {
+		rightVal, err := ctx.compileShift(right)
+		if err != nil {
+			return nil, err
+		}
+
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
+		}
+
+		if _, ok := rightVal.Type().(*types.IntType); !ok {
+			return nil, posError(right.Pos, "shift operator requires integer operands")
+		}
+
+		if left.Type() != rightVal.Type() {
+			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
+		}
+
+		switch right.Op {
+		case "<<":
+			left = ctx.NewShl(left, rightVal)
+		case ">>", ">>>":
+			left = ctx.NewLShr(left, rightVal)
+		default:
+			return nil, posError(right.Pos, "unknown shift operator: %s", right.Op)
+		}
+	}
+
+	return left, nil
+}
+
+func (ctx *Context) compileAdditive(a *parser.Additive) (value.Value, error) {
+	left, err := ctx.compileMultiplicative(a.Left)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(a.Right) != 0 && !isNumeric(left.Type()) {
+		return nil, posError(a.Left.Pos, "additive operator requires numeric operands")
+	}
+
+	for _, right := range a.Right {
+		rightVal, err := ctx.compileAdditive(right)
+		if err != nil {
+			return nil, err
+		}
+
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
+		}
+
+		if !isNumeric(rightVal.Type()) {
+			return nil, posError(right.Pos, "additive operator requires numeric operands")
+		}
+
+		if left.Type() != rightVal.Type() {
+			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
 		switch leftType := left.(type) {
 		case *ir.InstLoad, *ir.InstCall, *ir.InstAlloca:
-			if structType, ok := leftType.Type().(*types.PointerType); ok {
-				if _, ok := structType.ElemType.(*types.StructType); ok {
+			if ptrType, ok := leftType.Type().(*types.PointerType); ok {
+				if structType, ok := ptrType.ElemType.(*types.StructType); ok {
 					// Check if the class has a method with the name "classname.op.operator"
-					methodName := fmt.Sprintf("%s.op.%s", structType.ElemType.Name(), right.Op)
+					methodName := fmt.Sprintf("%s.op.%s", structType.Name(), a.Op)
+					if method, ok := ctx.lookupFunction(methodName); ok {
+						// Call the method and use its result as the result
+						left = ctx.NewCall(method, left, rightVal)
+						continue
+					}
+				}
+			}
+		}
+
+		switch a.Op {
+		case "+":
+			if types.IsFloat(left.Type()) {
+				left = ctx.NewFAdd(left, rightVal)
+			} else {
+				left = ctx.NewAdd(left, rightVal)
+			}
+		case "-":
+			if types.IsFloat(left.Type()) {
+				left = ctx.NewFSub(left, rightVal)
+			} else {
+				left = ctx.NewSub(left, rightVal)
+			}
+		default:
+			return nil, posError(right.Pos, "unknown additive operator: %s", a.Op)
+		}
+	}
+
+	return left, nil
+}
+
+func (ctx *Context) compileMultiplicative(m *parser.Multiplicative) (value.Value, error) {
+	left, err := ctx.compileLogicalNot(m.Left)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(m.Right) != 0 && !isNumeric(left.Type()) {
+		return nil, posError(m.Left.Pos, "multiplicative operator requires numeric operands")
+	}
+
+	for _, right := range m.Right {
+		rightVal, err := ctx.compileMultiplicative(right)
+		if err != nil {
+			return nil, err
+		}
+
+		if ptrType, ok := rightVal.Type().(*types.PointerType); ok && ptrType.ElemType == left.Type() {
+			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
+		}
+
+		if !isNumeric(rightVal.Type()) {
+			return nil, posError(right.Pos, "multiplicative operator requires numeric operands")
+		}
+
+		if left.Type() != rightVal.Type() {
+			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
+		}
+
+		switch leftType := left.(type) {
+		case *ir.InstLoad, *ir.InstCall, *ir.InstAlloca:
+			if ptrType, ok := leftType.Type().(*types.PointerType); ok {
+				if structType, ok := ptrType.ElemType.(*types.StructType); ok {
+					// Check if the class has a method with the name "classname.op.operator"
+					methodName := fmt.Sprintf("%s.op.%s", structType.Name(), right.Op)
 					if method, ok := ctx.lookupFunction(methodName); ok {
 						// Call the method and use its result as the result
 						left = ctx.NewCall(method, left, rightVal)
@@ -363,10 +480,100 @@ func (ctx *Context) compileTerm(t *parser.Term) (value.Value, error) {
 				left = ctx.NewSRem(left, rightVal)
 			}
 		default:
-			return nil, posError(right.Pos, "Unknown term operator: %s", right.Op)
+			return nil, posError(right.Pos, "unknown multiplicative operator: %s", right.Op)
 		}
 	}
-	ctx.RequestedType = nil
+
+	return left, nil
+}
+
+func (ctx *Context) compileLogicalNot(l *parser.LogicalNot) (value.Value, error) {
+	right, err := ctx.compileBitwiseNot(l.Right)
+	if err != nil {
+		return nil, err
+	}
+
+	if l.Op != "" {
+		if right.Type() != types.I1 {
+			return nil, posError(l.Right.Pos, "logical not operator requires a boolean operand")
+		}
+		right = ctx.NewXor(right, constant.NewInt(types.I1, 1))
+	}
+
+	return right, nil
+}
+
+func (ctx *Context) compileBitwiseNot(b *parser.BitwiseNot) (value.Value, error) {
+	right, err := ctx.compilePrefixAdditive(b.Right)
+	if err != nil {
+		return nil, err
+	}
+
+	if b.Op != "" {
+		intType, ok := right.Type().(*types.IntType)
+		if !ok {
+			return nil, posError(b.Right.Pos, "bitwise not operator requires an integer operand")
+		}
+
+		mask := constant.NewInt(intType, -1)
+		right = ctx.NewXor(right, mask)
+	}
+
+	return right, nil
+}
+
+func (ctx *Context) compilePrefixAdditive(p *parser.PrefixAdditive) (value.Value, error) {
+	right, err := ctx.compilePostfixAdditive(p.Right)
+	if err != nil {
+		return nil, err
+	}
+
+	if p.Op != "" {
+		if _, ok := right.Type().(*types.FloatType); ok {
+			if p.Op == "++" {
+				return ctx.NewFAdd(right, constant.NewFloat(types.Float, 1)), nil
+			} else {
+				return ctx.NewFSub(right, constant.NewFloat(types.Float, 1)), nil
+			}
+		} else {
+			if p.Op == "++" {
+				return ctx.NewAdd(right, constant.NewInt(types.I8, 1)), nil
+			} else {
+				return ctx.NewSub(right, constant.NewInt(types.I8, 1)), nil
+			}
+		}
+	}
+
+	return right, nil
+}
+
+func (ctx *Context) compilePostfixAdditive(p *parser.PostfixAdditive) (value.Value, error) {
+	left, err := ctx.compileFactor(p.Left)
+	if err != nil {
+		return nil, err
+	}
+
+	if p.Op != "" {
+		original := left
+		if _, ok := left.Type().(*types.FloatType); ok {
+			if p.Op == "++" {
+				left = ctx.NewFAdd(left, constant.NewFloat(types.Float, 1))
+			} else {
+				left = ctx.NewFSub(left, constant.NewFloat(types.Float, 1))
+			}
+		} else {
+			if p.Op == "++" {
+				left = ctx.NewAdd(left, constant.NewInt(types.I8, 1))
+			} else {
+				left = ctx.NewSub(left, constant.NewInt(types.I8, 1))
+			}
+		}
+		if _, ok := original.Type().(*types.PointerType); ok {
+			ctx.NewStore(left, original)
+		}
+		return original, nil
+	}
+
 	return left, nil
 }
 
@@ -412,11 +619,11 @@ func (ctx *Context) compileBitCast(bc *parser.BitCast) (value.Value, error) {
 		return nil, err
 	}
 
-	if bc.Type == "" {
+	if bc.Type == nil {
 		return val, nil
 	}
 
-	targetType := ctx.StringToType(bc.Type)
+	targetType := ctx.CFTypeToLLType(bc.Type)
 
 	// If the value is already of the target type, just return it
 	if val.Type().Equal(targetType) {
@@ -455,7 +662,7 @@ func (ctx *Context) compileBitCast(bc *parser.BitCast) (value.Value, error) {
 
 	// If the value is a struct type or a pointer to a struct type, try to find a conversion function
 	if structType, ok := val.Type().(*types.StructType); ok {
-		method, ok := ctx.lookupFunction(structType.Name() + ".get." + bc.Type)
+		method, ok := ctx.lookupFunction(structType.Name() + ".get." + ctx.CFTypeToLLType(bc.Type).Name())
 		if ok {
 			// If a conversion function is found, call it and return the result
 			result := ctx.NewCall(method, val)
@@ -463,7 +670,7 @@ func (ctx *Context) compileBitCast(bc *parser.BitCast) (value.Value, error) {
 		}
 	} else if ptrType, ok := val.Type().(*types.PointerType); ok {
 		if structType, ok := ptrType.ElemType.(*types.StructType); ok {
-			method, ok := ctx.lookupFunction(structType.Name() + ".get." + bc.Type)
+			method, ok := ctx.lookupFunction(structType.Name() + ".get." + ctx.CFTypeToLLType(bc.Type).Name())
 			if ok {
 				// If a conversion function is found, call it and return the result
 				result := ctx.NewCall(method, val)
@@ -478,7 +685,7 @@ func (ctx *Context) compileBitCast(bc *parser.BitCast) (value.Value, error) {
 		return bitcast, nil
 	}
 
-	return nil, posError(bc.Pos, "Cannot convert %s to %s", val.Type().Name(), bc.Type)
+	return nil, posError(bc.Pos, "Cannot convert %s to %s", val.Type().Name(), ctx.CFTypeToLLType(bc.Type).Name())
 }
 
 func (ctx *Context) compileClassInitializer(ci *parser.ClassInitializer) (value.Value, error) {
@@ -615,25 +822,6 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 		strGlobal.Immutable = true
 		strGlobal.Linkage = enum.LinkagePrivate
 		return strGlobal, nil
-	} else if v.Duration != nil {
-		var factor float64
-		switch v.Duration.Unit {
-		case "h":
-			factor = 3600
-		case "m":
-			factor = 60
-		case "s":
-			factor = 1
-		case "ms":
-			factor = 0.001
-		case "us":
-			factor = 0.000001
-		case "ns":
-			factor = 0.000000001
-		default:
-			return nil, posError(v.Pos, "Unknown duration unit: %s", v.Duration.Unit)
-		}
-		return constant.NewFloat(types.Double, v.Duration.Number*factor), nil
 	} else if v.Null {
 		return constant.NewNull(types.I8Ptr), nil
 	} else {
@@ -656,9 +844,18 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 			}
 			ctx.RequestedType = nil
 
-			// Run GetElementPtr on the loaded value
-			v := ctx.NewGetElementPtr(val.Type.(*types.PointerType).ElemType, val.Value, gepExpr)
-			return v, v.Type(), nil
+			var elementType types.Type
+			switch t := val.Type.(type) {
+			case *types.PointerType:
+				elementType = t.ElemType
+			case *types.ArrayType:
+				elementType = t.ElemType
+			default:
+				return nil, nil, posError(i.GEP.Pos, "unsupported type for GetElementPtr: %s", t)
+			}
+
+			v := ctx.NewGetElementPtr(elementType, val.Value, gepExpr)
+			return v, elementType, nil
 		}
 		// Handle referencing
 		for j := 0; j < len(i.Ref); j++ {
@@ -770,7 +967,7 @@ func (ctx *Context) compileSubIdentifier(f *Variable, sub *parser.Identifier) (F
 			return nil, nil, false, posError(sub.Pos, "Field %s not found in struct %s", sub.Name, elemtypename)
 		}
 
-		fieldPtr := ctx.NewGetElementPtr(ctx.StringToType(field.Type), f.Value, constant.NewInt(types.I32, int64(nfield)))
+		fieldPtr := ctx.NewGetElementPtr(ctx.CFTypeToLLType(field.Type), f.Value, constant.NewInt(types.I32, int64(nfield)))
 		if sub.GEP != nil {
 			ctx.RequestedType = types.I32
 			gepExpr, err := ctx.compileExpression(sub.GEP)

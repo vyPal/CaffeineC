@@ -17,6 +17,16 @@ type CfConf struct {
 	Dependencies []CFConfDependency `yaml:"dependencies"`
 	Author       string             `yaml:"author"`
 	License      string             `yaml:"license"`
+	Scripts      map[string]string  `yaml:"scripts"`
+	Compiler     CFConfCompiler     `yaml:"compiler"`
+}
+
+type CFConfCompiler struct {
+	Target            string `yaml:"target"`
+	OptimizationLevel int    `yaml:"optimization"`
+	ClangFlags        string `yaml:"clangFlags"`
+	GCCFlags          string `yaml:"gccFlags"`
+	LLCFlags          string `yaml:"llcFlags"`
 }
 
 type CFConfDependency struct {
@@ -25,8 +35,11 @@ type CFConfDependency struct {
 	Identifier string `yaml:"identifier"`
 }
 
-func (c *CfConf) CreateDefault() {
-	c.Name = "NewProject"
+func (c *CfConf) CreateDefault(name string) {
+	if name == "." {
+		name = "NewProject"
+	}
+	c.Name = name
 	c.Description = "A new CaffeineC project"
 	c.Version = "1.0.0"
 	c.Main = "src/main.cffc"

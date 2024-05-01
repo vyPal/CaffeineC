@@ -137,7 +137,7 @@ func WriteHeader(f *os.File, comp *Compiler) error {
 			if !field.Private {
 				continue
 			}
-			_, err = f.WriteString(convertCffTypeToCType(comp.Context.StringToType(field.Type)) + " " + field.Name + ";\n")
+			_, err = f.WriteString(convertCffTypeToCType(comp.Context.CFTypeToLLType(field.Type)) + " " + field.Name + ";\n")
 			if err != nil {
 				return err
 			}
@@ -152,7 +152,7 @@ func WriteHeader(f *os.File, comp *Compiler) error {
 			if field.Private {
 				continue
 			}
-			_, err = f.WriteString(convertCffTypeToCType(comp.Context.StringToType(field.Type)) + " " + field.Name + ";\n")
+			_, err = f.WriteString(convertCffTypeToCType(comp.Context.CFTypeToLLType(field.Type)) + " " + field.Name + ";\n")
 			if err != nil {
 				return err
 			}

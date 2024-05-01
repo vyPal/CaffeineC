@@ -6,6 +6,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
+	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 	"github.com/urfave/cli/v2"
@@ -17,8 +18,7 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 		_, _, _, err := ctx.compileVariableDefinition(s.VariableDefinition)
 		return err
 	} else if s.Assignment != nil {
-		_, _, err := ctx.compileAssignment(s.Assignment)
-		return err
+		return ctx.compileAssignment(s.Assignment)
 	} else if s.FunctionDefinition != nil {
 		_, _, _, err := ctx.compileFunctionDefinition(s.FunctionDefinition)
 		return err
@@ -31,6 +31,8 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 		return ctx.compileFor(s.For)
 	} else if s.While != nil {
 		return ctx.compileWhile(s.While)
+	} else if s.Until != nil {
+		return ctx.compileUntil(s.Until)
 	} else if s.Return != nil {
 		return ctx.compileReturn(s.Return)
 	} else if s.Break != nil {
@@ -45,43 +47,37 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 	} else if s.External != nil {
 		ctx.compileExternalFunction(s.External)
 	} else if s.Import != nil {
-		//return ctx.Compiler.ImportAll(s.Import.Package, ctx)
+		return ctx.Compiler.ImportAll(s.Import.Package, ctx)
 	} else if s.FromImport != nil {
-		/*
-			symbols := map[string]string{strings.Trim(s.FromImport.Symbol, "\""): strings.Trim(s.FromImport.Symbol, "\"")}
-			ctx.Compiler.ImportAs(s.FromImport.Package, symbols, ctx)
-		*/
+		symbols := map[string]string{strings.Trim(s.FromImport.Symbol, "\""): strings.Trim(s.FromImport.Symbol, "\"")}
+		ctx.Compiler.ImportAs(s.FromImport.Package, symbols, ctx)
 	} else if s.FromImportMultiple != nil {
-		/*
-			symbols := map[string]string{}
-			for _, symbol := range s.FromImportMultiple.Symbols {
-				if symbol.Alias == "" {
-					symbol.Alias = symbol.Name
-				}
-				symbols[strings.Trim(symbol.Name, "\"")] = strings.Trim(symbol.Alias, "\"")
+		symbols := map[string]string{}
+		for _, symbol := range s.FromImportMultiple.Symbols {
+			if symbol.Alias == "" {
+				symbol.Alias = symbol.Name
 			}
-			ctx.Compiler.ImportAs(s.FromImportMultiple.Package, symbols, ctx)
-		*/
+			symbols[strings.Trim(symbol.Name, "\"")] = strings.Trim(symbol.Alias, "\"")
+		}
+		ctx.Compiler.ImportAs(s.FromImportMultiple.Package, symbols, ctx)
 	} else if s.Export != nil {
 		return ctx.compileStatement(s.Export)
 	} else if s.Comment != nil {
 		return nil
-	} else {
-		return posError(s.Pos, "Unknown statement")
 	}
 	return nil
 }
 
 func (ctx *Context) compileExternalFunction(v *parser.ExternalFunctionDefinition) {
 	var retType types.Type
-	if v.ReturnType == "" {
+	if len(v.ReturnType) == 0 {
 		retType = types.Void
 	} else {
-		retType = ctx.StringToType(v.ReturnType)
+		retType = ctx.CFMultiTypeToLLType(v.ReturnType)
 	}
 	var args []*ir.Param
 	for _, arg := range v.Parameters {
-		args = append(args, ir.NewParam(arg.Name, ctx.StringToType(arg.Type)))
+		args = append(args, ir.NewParam(arg.Name, ctx.CFTypeToLLType(arg.Type)))
 	}
 
 	v.Name = strings.Trim(v.Name, "\"")
@@ -92,7 +88,27 @@ func (ctx *Context) compileExternalFunction(v *parser.ExternalFunctionDefinition
 
 func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Name string, Type types.Type, Value value.Value, Err error) {
 	// If there is no assignment, create an uninitialized variable
-	valType := ctx.StringToType(v.Type)
+	valType := ctx.CFTypeToLLType(v.Type)
+
+	if v.Constant == "const" {
+		if v.Assignment == nil {
+			return "", nil, nil, posError(v.Pos, "Constant definition must have assignment")
+		}
+
+		cVal, err := ctx.compileExpression(v.Assignment)
+		if err != nil {
+			return "", nil, nil, err
+		}
+
+		ctx.vars[v.Name] = &Variable{
+			Name:  v.Name,
+			Type:  valType,
+			Value: cVal,
+		}
+
+		return v.Name, valType, cVal, nil
+	}
+
 	if v.Assignment == nil {
 		alloc := ctx.NewAlloca(valType)
 		ctx.NewStore(constant.NewZeroInitializer(valType), alloc)
@@ -144,60 +160,168 @@ func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Nam
 	return v.Name, alloc.Type(), alloc, nil
 }
 
-func (ctx *Context) compileAssignment(a *parser.Assignment) (Name string, Value value.Value, Err error) {
-	// Compile the identifier to get the variable
-	variable, vType, err := ctx.compileIdentifier(a.Left, false)
-	if err != nil {
-		return "", nil, err
+func (ctx *Context) compileAssignment(a *parser.Assignment) (Err error) {
+	type Ident struct {
+		Value value.Value
+		Type  types.Type
+	}
+	var idents = make([]Ident, len(a.Idents))
+
+	for index, ident := range a.Idents {
+		i, t, err := ctx.compileIdentifier(ident, false)
+		if err != nil {
+			return err
+		}
+
+		if a.Op != "=" && !isNumeric(t) {
+			return posError(ident.Pos, "Numeric operator used on non-numeric identifier %s", ident.Name)
+		}
+
+		idents[index] = Ident{Value: i, Type: t}
 	}
 
-	if ptr, ok := variable.(*ir.InstGetElementPtr); ok {
-		/*
-			fmt.Println("This now")
-			fmt.Println("vType: ", vType)
-			fmt.Println("ElemType: ", ptr.ElemType)
-		*/
-		ctx.RequestedType = ptr.ElemType
-	} else if ptr, ok := vType.(*types.PointerType); ok {
-		ctx.RequestedType = ptr.ElemType
-	} else {
-		ctx.RequestedType = vType
-	}
+	ctx.RequestedType = idents[0].Type
 	val, err := ctx.compileExpression(a.Right)
 	if err != nil {
-		return "", nil, err
+		return err
 	}
 	ctx.RequestedType = nil
 
-	ptr, ok := variable.(*ir.InstGetElementPtr)
-	if !ok {
-		aptr, ok := variable.(*ir.InstAlloca)
-		if !ok {
-			ctx.vars[a.Left.Name] = &Variable{
-				Name:  a.Left.Name,
-				Type:  vType,
-				Value: val,
+	if a.Op != "=" {
+		if !isNumeric(val.Type()) {
+			return posError(a.Right.Pos, "Numeric operator used on non-numeric value")
+		}
+
+		for i, ident := range idents {
+			_, isFloat := ident.Value.Type().(*types.FloatType)
+			var v value.Value
+			switch a.Op {
+			case "+=":
+				if isFloat {
+					v = ctx.NewFAdd(ident.Value, val)
+				} else {
+					v = ctx.NewAdd(ident.Value, val)
+				}
+			case "-=":
+				if isFloat {
+					v = ctx.NewFSub(ident.Value, val)
+				} else {
+					v = ctx.NewSub(ident.Value, val)
+				}
+			case "*=":
+				if isFloat {
+					v = ctx.NewFMul(ident.Value, val)
+				} else {
+					v = ctx.NewMul(ident.Value, val)
+				}
+			case "/=":
+				if isFloat {
+					v = ctx.NewFDiv(ident.Value, val)
+				} else {
+					v = ctx.NewSDiv(ident.Value, val)
+				}
+			case "%=":
+				if isFloat {
+					return posError(a.Pos, "Modulus operator not allowed on float")
+				}
+				v = ctx.NewSRem(ident.Value, val)
+			case "&=":
+				v = ctx.NewAnd(ident.Value, val)
+			case "|=":
+				v = ctx.NewOr(ident.Value, val)
+			case "^=":
+				v = ctx.NewXor(ident.Value, val)
+			case "<<=":
+				v = ctx.NewShl(ident.Value, val)
+			case ">>=":
+				v = ctx.NewLShr(ident.Value, val)
+			case ">>>=":
+				v = ctx.NewAShr(ident.Value, val)
+			case "??=":
+				isNull := ctx.NewICmp(enum.IPredEQ, ident.Value, constant.NewNull(ident.Value.Type().(*types.PointerType)))
+				v = ctx.NewSelect(isNull, val, ident.Value)
 			}
-		} else {
-			ctx.NewStore(val, aptr)
+
+			ptr, ok := ident.Value.(*ir.InstGetElementPtr)
+			if !ok {
+				aptr, ok := ident.Value.(*ir.InstAlloca)
+				if !ok {
+					ctx.vars[a.Idents[i].Name] = &Variable{
+						Name:  a.Idents[i].Name,
+						Type:  ident.Type,
+						Value: v,
+					}
+				} else {
+					ctx.NewStore(v, aptr)
+				}
+			} else {
+				ctx.NewStore(v, ptr)
+			}
 		}
 	} else {
-		ctx.NewStore(val, ptr)
+		if len(idents) == 1 {
+			ptr, ok := idents[0].Value.(*ir.InstGetElementPtr)
+			if !ok {
+				aptr, ok := idents[0].Value.(*ir.InstAlloca)
+				if !ok {
+					ctx.vars[a.Idents[0].Name] = &Variable{
+						Name:  a.Idents[0].Name,
+						Type:  idents[0].Type,
+						Value: val,
+					}
+				} else {
+					ctx.NewStore(val, aptr)
+				}
+			} else {
+				ctx.NewStore(val, ptr)
+			}
+		} else {
+			if _, ok := val.Type().(*types.StructType); !ok {
+				return posError(a.Right.Pos, "Cannot assign non-struct value to multiple variables")
+			}
+
+			if len(val.Type().(*types.StructType).Fields) != len(idents) {
+				return posError(a.Right.Pos, "Unable to unpack %d values into %d variables", len(val.Type().(*types.StructType).Fields), len(idents))
+			}
+
+			for i, ident := range idents {
+				ptr, ok := ident.Value.(*ir.InstGetElementPtr)
+				if !ok {
+					aptr, ok := ident.Value.(*ir.InstAlloca)
+					if !ok {
+						ctx.vars[a.Idents[i].Name] = &Variable{
+							Name:  a.Idents[i].Name,
+							Type:  ident.Type,
+							Value: ctx.NewExtractValue(val, uint64(i)),
+						}
+					} else {
+						ctx.NewStore(ctx.NewExtractValue(val, uint64(i)), aptr)
+					}
+				} else {
+					ctx.NewStore(ctx.NewExtractValue(val, uint64(i)), ptr)
+				}
+			}
+		}
 	}
 
-	return a.Left.Name, val, nil
+	return nil
 }
 
 func (ctx *Context) compileFunctionDefinition(f *parser.FunctionDefinition) (Name string, ReturnType types.Type, Args []*ir.Param, err error) {
 	var params []*ir.Param
 	for _, arg := range f.Parameters {
-		params = append(params, ir.NewParam(arg.Name, ctx.StringToType(arg.Type)))
+		params = append(params, ir.NewParam(arg.Name, ctx.CFTypeToLLType(arg.Type)))
+	}
+	if f.Variadic != "" {
+		params = append(params, ir.NewParam(f.Variadic, types.I8Ptr))
 	}
 
-	retType := ctx.StringToType(f.ReturnType)
+	retType := ctx.CFMultiTypeToLLType(f.ReturnType)
 
 	fn := ctx.Module.NewFunc(f.Name.Name, retType, params...)
-	fn.Sig.Variadic = f.Variadic
+	if f.Variadic != "" {
+		fn.Sig.Variadic = true
+	}
 	block := fn.NewBlock("")
 	nctx := NewContext(block, ctx.Compiler)
 	ctx.SymbolTable[f.Name.Name] = fn
@@ -226,7 +350,7 @@ func (ctx *Context) compileClassDefinition(c *parser.ClassDefinition) (Name stri
 	ctx.Module.NewTypeDef(c.Name, classType)
 	for _, s := range c.Body {
 		if s.FieldDefinition != nil {
-			classType.Fields = append(classType.Fields, ctx.StringToType(s.FieldDefinition.Type))
+			classType.Fields = append(classType.Fields, ctx.CFTypeToLLType(s.FieldDefinition.Type))
 			ctx.Compiler.StructFields[c.Name] = append(ctx.Compiler.StructFields[c.Name], s.FieldDefinition)
 		} else if s.FunctionDefinition != nil {
 			err := ctx.compileClassMethodDefinition(s.FunctionDefinition, c.Name, classType)
@@ -243,10 +367,13 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 	var params []*ir.Param
 	params = append(params, ir.NewParam("this", types.NewPointer(ctype)))
 	for _, arg := range f.Parameters {
-		params = append(params, ir.NewParam(arg.Name, ctx.StringToType(arg.Type)))
+		params = append(params, ir.NewParam(arg.Name, ctx.CFTypeToLLType(arg.Type)))
+	}
+	if f.Variadic != "" {
+		params = append(params, ir.NewParam(f.Variadic, types.I8Ptr))
 	}
 
-	trimmed := strings.Trim(f.Name.String, "\"")
+	trimmed := strings.Trim(f.Name.Name, "\"")
 	ms := "." + f.Name.Name
 	if f.Name.Op {
 		ms = ".op." + trimmed
@@ -256,10 +383,12 @@ func (ctx *Context) compileClassMethodDefinition(f *parser.FunctionDefinition, c
 		ms = ".set." + trimmed
 	}
 
-	retType := ctx.StringToType(f.ReturnType)
+	retType := ctx.CFMultiTypeToLLType(f.ReturnType)
 
 	fn := ctx.Module.NewFunc(cname+ms, retType, params...)
-	fn.Sig.Variadic = false
+	if f.Variadic != "" {
+		fn.Sig.Variadic = true
+	}
 	block := fn.NewBlock("")
 	nctx := NewContext(block, ctx.Compiler)
 	ctx.SymbolTable[cname+ms] = fn
@@ -429,15 +558,69 @@ func (ctx *Context) compileWhile(w *parser.While) error {
 	return nil
 }
 
+func (ctx *Context) compileUntil(u *parser.Until) error {
+	cond, err := ctx.compileExpression(u.Condition)
+	if err != nil {
+		return err
+	}
+
+	loopB := ctx.Block.Parent.NewBlock("")
+	leaveB := ctx.Block.Parent.NewBlock("")
+	loopCtx := ctx.NewContext(loopB)
+
+	ctx.NewCondBr(cond, leaveB, loopB)
+	loopCtx.fc.Leave = leaveB
+	loopCtx.fc.Continue = loopB
+
+	for _, stmt := range u.Body {
+		err := loopCtx.compileStatement(stmt)
+		if err != nil {
+			return err
+		}
+	}
+
+	cond, err = loopCtx.compileExpression(u.Condition)
+	if err != nil {
+		return err
+	}
+	loopCtx.NewCondBr(cond, leaveB, loopB)
+	ctx.Block = leaveB
+
+	return nil
+}
+
 func (ctx *Context) compileReturn(r *parser.Return) error {
-	if r.Expression != nil {
+	if len(r.Expressions) == 1 {
 		ctx.RequestedType = ctx.Block.Parent.Sig.RetType
-		val, err := ctx.compileExpression(r.Expression)
+		val, err := ctx.compileExpression(r.Expressions[0])
 		if err != nil {
 			return posError(r.Pos, "Error compiling return expression: %s", err.Error())
 		}
 		ctx.RequestedType = nil
 		ctx.NewRet(val)
+	} else if len(r.Expressions) > 1 {
+		if _, ok := ctx.Block.Parent.Sig.RetType.(*types.StructType); !ok {
+			return posError(r.Pos, "Cannot return multiple values from a non-struct function")
+		}
+
+		var vals []constant.Constant
+		for i, expr := range r.Expressions {
+			ctx.RequestedType = ctx.Block.Parent.Sig.RetType.(*types.StructType).Fields[i]
+			val, err := ctx.compileExpression(expr)
+			ctx.RequestedType = nil
+			if err != nil {
+				return posError(r.Pos, "Error compiling return expression: %s", err.Error())
+			}
+
+			constVal, ok := val.(constant.Constant)
+			if !ok {
+				return posError(r.Pos, "Return expression did not evaluate to a constant")
+			}
+
+			vals = append(vals, constVal)
+		}
+
+		ctx.NewRet(constant.NewStruct(ctx.Block.Parent.Sig.RetType.(*types.StructType), vals...))
 	} else {
 		ctx.NewRet(nil)
 	}

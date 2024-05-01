@@ -450,7 +450,7 @@ func initProject(c *cli.Context) error {
 
 	if util.PromptYN("Use default configuration?", false) {
 		conf := project.CfConf{}
-		conf.CreateDefault()
+		conf.CreateDefault(rootDir)
 
 		err := conf.Save(path.Join(rootDir, "cfconf.yaml"), false)
 		if err != nil {

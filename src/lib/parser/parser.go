@@ -8,8 +8,17 @@ import (
 )
 
 var parser *participle.Parser[Program]
+var parsed map[string]*Program
 
 func ParseFile(filename string) *Program {
+	if parsed == nil {
+		parsed = make(map[string]*Program)
+	}
+
+	if parsed[filename] != nil {
+		return parsed[filename]
+	}
+
 	if parser == nil {
 		parser = participle.MustBuild[Program](participle.Lexer(cflex.DefaultDefinition))
 	}
@@ -23,6 +32,7 @@ func ParseFile(filename string) *Program {
 	if err != nil {
 		panic(err)
 	}
+	parsed[filename] = ast
 	return ast
 }
 
