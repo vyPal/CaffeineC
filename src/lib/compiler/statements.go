@@ -31,6 +31,8 @@ func (ctx *Context) compileStatement(s *parser.Statement) error {
 		return ctx.compileFor(s.For)
 	} else if s.While != nil {
 		return ctx.compileWhile(s.While)
+	} else if s.Until != nil {
+		return ctx.compileUntil(s.Until)
 	} else if s.Return != nil {
 		return ctx.compileReturn(s.Return)
 	} else if s.Break != nil {
@@ -551,6 +553,37 @@ func (ctx *Context) compileWhile(w *parser.While) error {
 		return err
 	}
 	loopCtx.NewCondBr(cond, loopB, leaveB)
+	ctx.Block = leaveB
+
+	return nil
+}
+
+func (ctx *Context) compileUntil(u *parser.Until) error {
+	cond, err := ctx.compileExpression(u.Condition)
+	if err != nil {
+		return err
+	}
+
+	loopB := ctx.Block.Parent.NewBlock("")
+	leaveB := ctx.Block.Parent.NewBlock("")
+	loopCtx := ctx.NewContext(loopB)
+
+	ctx.NewCondBr(cond, leaveB, loopB)
+	loopCtx.fc.Leave = leaveB
+	loopCtx.fc.Continue = loopB
+
+	for _, stmt := range u.Body {
+		err := loopCtx.compileStatement(stmt)
+		if err != nil {
+			return err
+		}
+	}
+
+	cond, err = loopCtx.compileExpression(u.Condition)
+	if err != nil {
+		return err
+	}
+	loopCtx.NewCondBr(cond, leaveB, loopB)
 	ctx.Block = leaveB
 
 	return nil
