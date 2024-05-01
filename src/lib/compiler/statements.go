@@ -278,9 +278,8 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Err error) {
 				return posError(a.Right.Pos, "Cannot assign non-struct value to multiple variables")
 			}
 
-			v := val.(*constant.Struct)
-			if len(v.Fields) != len(idents) {
-				return posError(a.Right.Pos, "Unable to unpack %d values into %d variables", len(v.Fields), len(idents))
+			if len(val.Type().(*types.StructType).Fields) != len(idents) {
+				return posError(a.Right.Pos, "Unable to unpack %d values into %d variables", len(val.Type().(*types.StructType).Fields), len(idents))
 			}
 
 			for i, ident := range idents {
@@ -291,13 +290,13 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Err error) {
 						ctx.vars[a.Idents[i].Name] = &Variable{
 							Name:  a.Idents[i].Name,
 							Type:  ident.Type,
-							Value: v.Fields[i],
+							Value: ctx.NewExtractValue(val, uint64(i)),
 						}
 					} else {
-						ctx.NewStore(v.Fields[i], aptr)
+						ctx.NewStore(ctx.NewExtractValue(val, uint64(i)), aptr)
 					}
 				} else {
-					ctx.NewStore(v.Fields[i], ptr)
+					ctx.NewStore(ctx.NewExtractValue(val, uint64(i)), ptr)
 				}
 			}
 		}
