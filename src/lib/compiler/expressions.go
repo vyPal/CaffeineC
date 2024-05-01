@@ -630,6 +630,13 @@ func (ctx *Context) compileBitCast(bc *parser.BitCast) (value.Value, error) {
 		return val, nil
 	}
 
+	if targetType.Equal(&types.PointerType{ElemType: types.I8}) {
+		if _, ok := val.Type().(*types.IntType); ok {
+			fmt.Println("Using inttoptr")
+			return ctx.NewIntToPtr(val, targetType), nil
+		}
+	}
+
 	// Predefined bitcasts
 	switch targetType {
 	case types.Double:
