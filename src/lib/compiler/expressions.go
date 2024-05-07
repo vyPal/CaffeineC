@@ -130,7 +130,7 @@ func (ctx *Context) compileBitwiseAnd(b *parser.BitwiseAnd) (value.Value, error)
 			return nil, posError(right.Pos, "bitwise and operator requires integer operands")
 		}
 
-		if left.Type() != rightVal.Type() {
+		if !left.Type().Equal(rightVal.Type()) {
 			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
@@ -164,7 +164,7 @@ func (ctx *Context) compileBitwiseXor(b *parser.BitwiseXor) (value.Value, error)
 			return nil, posError(right.Pos, "bitwise xor operator requires integer operands")
 		}
 
-		if left.Type() != rightVal.Type() {
+		if !left.Type().Equal(rightVal.Type()) {
 			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
@@ -198,7 +198,7 @@ func (ctx *Context) compileBitwiseOr(b *parser.BitwiseOr) (value.Value, error) {
 			return nil, posError(right.Pos, "bitwise or operator requires integer operands")
 		}
 
-		if left.Type() != rightVal.Type() {
+		if !left.Type().Equal(rightVal.Type()) {
 			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
@@ -224,7 +224,7 @@ func (ctx *Context) compileEquality(e *parser.Equality) (value.Value, error) {
 			rightVal = ctx.NewLoad(ptrType.ElemType, rightVal)
 		}
 
-		if left.Type() != rightVal.Type() {
+		if !left.Type().Equal(rightVal.Type()) {
 			return nil, posError(e.Left.Pos, "operands must be the same type")
 		}
 
@@ -336,7 +336,7 @@ func (ctx *Context) compileShift(s *parser.Shift) (value.Value, error) {
 			return nil, posError(right.Pos, "shift operator requires integer operands")
 		}
 
-		if left.Type() != rightVal.Type() {
+		if !left.Type().Equal(rightVal.Type()) {
 			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
@@ -377,7 +377,7 @@ func (ctx *Context) compileAdditive(a *parser.Additive) (value.Value, error) {
 			return nil, posError(right.Pos, "additive operator requires numeric operands")
 		}
 
-		if left.Type() != rightVal.Type() {
+		if !left.Type().Equal(rightVal.Type()) {
 			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
@@ -441,7 +441,7 @@ func (ctx *Context) compileMultiplicative(m *parser.Multiplicative) (value.Value
 			return nil, posError(right.Pos, "multiplicative operator requires numeric operands")
 		}
 
-		if left.Type() != rightVal.Type() {
+		if !left.Type().Equal(rightVal.Type()) {
 			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
@@ -614,6 +614,7 @@ func (ctx *Context) compileFactor(f *parser.Factor) (value.Value, error) {
 }
 
 func (ctx *Context) compileBitCast(bc *parser.BitCast) (value.Value, error) {
+	ctx.RequestedType = nil
 	val, err := ctx.compileExpression(bc.Expr)
 	if err != nil {
 		return nil, err
@@ -632,7 +633,7 @@ func (ctx *Context) compileBitCast(bc *parser.BitCast) (value.Value, error) {
 
 	if targetType.Equal(&types.PointerType{ElemType: types.I8}) {
 		if _, ok := val.Type().(*types.IntType); ok {
-			fmt.Println("Using inttoptr")
+			fmt.Printf("Using inttoptr on %s\n", val.Type())
 			return ctx.NewIntToPtr(val, targetType), nil
 		}
 	}
@@ -641,17 +642,17 @@ func (ctx *Context) compileBitCast(bc *parser.BitCast) (value.Value, error) {
 	switch targetType {
 	case types.Double:
 		if val.Type().Equal(types.Float) {
-			val = ctx.NewFPExt(val, types.Double)
+			return ctx.NewFPExt(val, types.Double), nil
 		}
 		if _, ok := val.Type().(*types.IntType); ok {
-			val = ctx.NewSIToFP(val, targetType)
+			return ctx.NewSIToFP(val, targetType), nil
 		}
 	case types.Float:
 		if val.Type().Equal(types.Double) {
-			val = ctx.NewFPTrunc(val, types.Float)
+			return ctx.NewFPTrunc(val, types.Float), nil
 		}
 		if _, ok := val.Type().(*types.IntType); ok {
-			val = ctx.NewSIToFP(val, targetType)
+			return ctx.NewSIToFP(val, targetType), nil
 		}
 	}
 
@@ -659,10 +660,10 @@ func (ctx *Context) compileBitCast(bc *parser.BitCast) (value.Value, error) {
 		if targetType, ok := targetType.(*types.IntType); ok {
 			if valType.BitSize < targetType.BitSize {
 				// Extend if valType is smaller than targetType
-				val = ctx.NewSExt(val, targetType)
+				return ctx.NewSExt(val, targetType), nil
 			} else if valType.BitSize > targetType.BitSize {
 				// Truncate if valType is larger than targetType
-				val = ctx.NewTrunc(val, targetType)
+				return ctx.NewTrunc(val, targetType), nil
 			}
 		}
 	}
@@ -760,11 +761,7 @@ func (ctx *Context) compileFunctionCall(fc *parser.FunctionCall) (value.Value, e
 func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 	if v.Float != nil {
 		if ctx.RequestedType != nil {
-			if ptrType, ok := ctx.RequestedType.(*types.PointerType); ok {
-				local := ctx.NewAlloca(ptrType.ElemType.(*types.FloatType))
-				ctx.NewStore(constant.NewFloat(ptrType.ElemType.(*types.FloatType), *v.Float), local)
-				return local, nil
-			} else if ctx.RequestedType == types.Float {
+			if ctx.RequestedType == types.Float {
 				return constant.NewFloat(types.Float, *v.Float), nil
 			} else if ctx.RequestedType == types.Double {
 				return constant.NewFloat(types.Double, *v.Float), nil
@@ -782,18 +779,12 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 				} else {
 					return constant.NewInt(types.I1, 1), nil
 				}
-			} else {
-				return nil, posError(v.Pos, "Cannot convert float to %s", ctx.RequestedType.Name())
 			}
 		}
 		return constant.NewFloat(types.Double, *v.Float), nil
 	} else if v.Int != nil {
 		if ctx.RequestedType != nil {
-			if ptrType, ok := ctx.RequestedType.(*types.PointerType); ok {
-				local := ctx.NewAlloca(ptrType.ElemType.(*types.IntType))
-				ctx.NewStore(constant.NewInt(ptrType.ElemType.(*types.IntType), *v.Int), local)
-				return local, nil
-			} else if intType, ok := ctx.RequestedType.(*types.IntType); ok {
+			if intType, ok := ctx.RequestedType.(*types.IntType); ok {
 				return constant.NewInt(intType, *v.Int), nil
 			} else if ctx.RequestedType == types.Float {
 				return constant.NewFloat(types.Float, float64(*v.Int)), nil
@@ -803,17 +794,9 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 				return constant.NewFloat(types.Half, float64(*v.Int)), nil
 			} else if ctx.RequestedType == types.FP128 {
 				return constant.NewFloat(types.FP128, float64(*v.Int)), nil
-			} else {
-				return nil, posError(v.Pos, "Cannot convert int to %T", ctx.RequestedType)
 			}
 		}
 		return constant.NewInt(types.I64, *v.Int), nil
-	} else if v.HexInt != nil {
-		hexInt, err := strconv.ParseInt(*v.HexInt, 16, 64)
-		if err != nil {
-			return nil, posError(v.Pos, "Error parsing hex int: %s", err)
-		}
-		return constant.NewInt(types.I64, hexInt), nil
 	} else if v.Bool != nil {
 		var b int64 = 0
 		if *v.Bool {

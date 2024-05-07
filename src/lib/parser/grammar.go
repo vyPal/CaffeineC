@@ -26,7 +26,6 @@ type Value struct {
 	Array  []*Expression `parser:"'[' ( @@ ( ',' @@ )* )? ']'"`
 	Float  *float64      `parser:"  @('-'? Float)"`
 	Int    *int64        `parser:"| @('-'? Int)"`
-	HexInt *string       `parser:"| @('-'? '0x' (Int | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F')+)"`
 	Bool   *Bool         `parser:"| @('true' | 'True' | 'false' | 'False')"`
 	String *string       `parser:"| @String"`
 	Null   bool          `parser:"| @'null'"`
@@ -340,7 +339,7 @@ type Symbol struct {
 type Statement struct {
 	Pos                lexer.Position
 	VariableDefinition *VariableDefinition         `parser:"(?= ('const' | 'var') Ident) @@? (';' | '\\n')?"`
-	Assignment         *Assignment                 `parser:"| (?= Ident ('['~']'']')?('.'Ident('['~']'']')?)*(','Ident('['~']'']')?('.'Ident('['~']'']')?)*)*('+'|'-'|'*'|'/'|'%'|'&'|'|'|'^'|'<''<'|'>''>'|'>''>''>'|'?''?')?'=')@@?(';' | '\\n')?"`
+	Assignment         *Assignment                 `parser:"| (?= '*'*'&'*Ident ('['~']'']')?('.''*'*'&'*Ident('['~']'']')?)*(',''*'*'&'*Ident('['~']'']')?('.''*'*'&'*Ident('['~']'']')?)*)*('+'|'-'|'*'|'/'|'%'|'&'|'|'|'^'|'<''<'|'>''>'|'>''>''>'|'?''?')?'=')@@?(';' | '\\n')?"`
 	External           *ExternalFunctionDefinition `parser:"| 'extern' @@ ';'"`
 	Export             *Statement                  `parser:"| 'export' @@"`
 	FunctionDefinition *FunctionDefinition         `parser:"| (?= 'private'? 'static'? 'func') @@?"`

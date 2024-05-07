@@ -120,19 +120,6 @@ func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Nam
 		return v.Name, alloc.Type(), alloc, nil
 	}
 
-	if _, isPointer := valType.(*types.PointerType); isPointer && v.Assignment != nil {
-		val, err := ctx.compileExpression(v.Assignment)
-		if err != nil {
-			return "", nil, nil, err
-		}
-		ctx.vars[v.Name] = &Variable{
-			Name:  v.Name,
-			Type:  valType,
-			Value: val,
-		}
-		return v.Name, valType, val, nil
-	}
-
 	ctx.RequestedType = valType
 	val, err := ctx.compileExpression(v.Assignment)
 	if err != nil {
@@ -140,17 +127,7 @@ func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Nam
 	}
 	ctx.RequestedType = nil
 
-	ptr, ok := val.(*ir.InstAlloca)
-	if ok {
-		ctx.vars[v.Name] = &Variable{
-			Name:  v.Name,
-			Type:  valType,
-			Value: ptr,
-		}
-		return v.Name, ptr.Type(), ptr, nil
-	}
-
-	alloc := ctx.NewAlloca(val.Type())
+	alloc := ctx.NewAlloca(valType)
 	ctx.NewStore(val, alloc)
 	ctx.vars[v.Name] = &Variable{
 		Name:  v.Name,
@@ -180,7 +157,7 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Err error) {
 		idents[index] = Ident{Value: i, Type: t}
 	}
 
-	ctx.RequestedType = idents[0].Type
+	ctx.RequestedType = idents[0].Type.(*types.PointerType).ElemType
 	val, err := ctx.compileExpression(a.Right)
 	if err != nil {
 		return err
@@ -260,20 +237,19 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Err error) {
 		}
 	} else {
 		if len(idents) == 1 {
-			ptr, ok := idents[0].Value.(*ir.InstGetElementPtr)
-			if !ok {
-				aptr, ok := idents[0].Value.(*ir.InstAlloca)
-				if !ok {
-					ctx.vars[a.Idents[0].Name] = &Variable{
-						Name:  a.Idents[0].Name,
-						Type:  idents[0].Type,
-						Value: val,
-					}
-				} else {
-					ctx.NewStore(val, aptr)
+			switch value := idents[0].Value.(type) {
+			case *ir.InstGetElementPtr:
+				ctx.NewStore(val, value)
+			case *ir.InstAlloca:
+				ctx.NewStore(val, value)
+			case *ir.InstLoad:
+				ctx.NewStore(val, value)
+			default:
+				ctx.vars[a.Idents[0].Name] = &Variable{
+					Name:  a.Idents[0].Name,
+					Type:  idents[0].Type,
+					Value: val,
 				}
-			} else {
-				ctx.NewStore(val, ptr)
 			}
 		} else {
 			if _, ok := val.Type().(*types.StructType); !ok {
