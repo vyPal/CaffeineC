@@ -214,6 +214,7 @@ func (ctx *Context) compileEquality(e *parser.Equality) (value.Value, error) {
 		return nil, err
 	}
 
+	lrop := e.Op
 	for _, right := range e.Right {
 		rightVal, err := ctx.compileEquality(right)
 		if err != nil {
@@ -228,7 +229,7 @@ func (ctx *Context) compileEquality(e *parser.Equality) (value.Value, error) {
 			return nil, posError(e.Left.Pos, "operands must be the same type")
 		}
 
-		switch right.Op {
+		switch lrop {
 		case "==":
 			if types.IsFloat(left.Type()) {
 				left = ctx.NewFCmp(enum.FPredOEQ, left, rightVal)
@@ -244,6 +245,7 @@ func (ctx *Context) compileEquality(e *parser.Equality) (value.Value, error) {
 		default:
 			return nil, posError(right.Pos, "unknown equality operator: %s", right.Op)
 		}
+		lrop = right.Op
 	}
 
 	return left, nil
