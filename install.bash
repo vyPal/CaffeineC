@@ -48,7 +48,7 @@ case $OS in
           PACKAGE_MANAGER="sudo zypper"
           ;;
 
-        arch)
+        arch|manjaro)
           PACKAGE_MANAGER="sudo pacman"
           ;;
 
@@ -61,6 +61,10 @@ case $OS in
     ;;
 
   darwin)
+    if ! command -v brew &> /dev/null; then
+      echo "Homebrew not installed. Please install Homebrew (https://brew.sh/) and try again."
+      exit 1
+    fi
     DOWNLOAD_URL="https://github.com/vyPal/CaffeineC/releases/latest/download/CaffeineC-macOS"
     PACKAGE_MANAGER="brew"
     ;;
