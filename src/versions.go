@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/user"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -150,19 +149,19 @@ func update(c *cli.Context) error {
 		fmt.Printf("A new version is available: %s. Updating...\n", release.TagName)
 
 		osSuffix := "Linux"
-		baseDir := filepath.Join("/usr", "local", "bin")
+		execPath, err := os.Executable()
+		if err != nil {
+			fmt.Println("Failed to get the current executable path:", err)
+			return nil
+		}
+
+		baseDir := filepath.Dir(execPath)
 		osEnd := ""
 		if runtime.GOOS == "darwin" {
 			osSuffix = "macOS"
 		} else if runtime.GOOS == "android" {
 			osSuffix = "Android"
 		} else if runtime.GOOS == "windows" {
-			user, err := user.Current()
-			if err != nil {
-				fmt.Println("Failed to get the current user:", err)
-				return nil
-			}
-			baseDir = filepath.Join(user.HomeDir, "AppData", "Local", "Programs", "CaffeineC")
 			osSuffix = "Windows"
 			osEnd = "exe"
 		}
