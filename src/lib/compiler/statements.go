@@ -127,8 +127,14 @@ func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Nam
 	}
 	ctx.RequestedType = nil
 
-	alloc := ctx.NewAlloca(valType)
-	ctx.NewStore(val, alloc)
+	var alloc *ir.InstAlloca
+
+	if ptr, ok := val.(*ir.InstAlloca); ok {
+		alloc = ptr
+	} else {
+		alloc = ctx.NewAlloca(val.Type())
+		ctx.NewStore(val, alloc)
+	}
 	ctx.vars[v.Name] = &Variable{
 		Name:  v.Name,
 		Type:  valType,
