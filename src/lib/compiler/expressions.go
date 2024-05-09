@@ -369,7 +369,9 @@ func (ctx *Context) compileAdditive(a *parser.Additive) (value.Value, error) {
 
 	lrop := a.Op
 	for _, right := range a.Right {
+		ctx.RequestedType = left.Type()
 		rightVal, err := ctx.compileAdditive(right)
+		ctx.RequestedType = nil
 		if err != nil {
 			return nil, err
 		}
@@ -435,7 +437,9 @@ func (ctx *Context) compileMultiplicative(m *parser.Multiplicative) (value.Value
 
 	lrop := m.Op
 	for _, right := range m.Right {
+		ctx.RequestedType = left.Type()
 		rightVal, err := ctx.compileMultiplicative(right)
+		ctx.RequestedType = nil
 		if err != nil {
 			return nil, err
 		}
