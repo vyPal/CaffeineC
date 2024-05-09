@@ -163,7 +163,10 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Err error) {
 		idents[index] = Ident{Value: i, Type: t}
 	}
 
-	ctx.RequestedType = idents[0].Type.(*types.PointerType).ElemType
+	if _, ok := idents[0].Type.(*types.PointerType); ok {
+		ctx.RequestedType = idents[0].Type.(*types.PointerType).ElemType
+	}
+	ctx.RequestedType = idents[0].Type
 	val, err := ctx.compileExpression(a.Right)
 	if err != nil {
 		return err
