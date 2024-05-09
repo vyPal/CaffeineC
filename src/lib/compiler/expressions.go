@@ -324,6 +324,7 @@ func (ctx *Context) compileShift(s *parser.Shift) (value.Value, error) {
 		return nil, posError(s.Left.Pos, "shift operator requires integer operands")
 	}
 
+	lrop := s.Op
 	for _, right := range s.Right {
 		rightVal, err := ctx.compileShift(right)
 		if err != nil {
@@ -342,14 +343,15 @@ func (ctx *Context) compileShift(s *parser.Shift) (value.Value, error) {
 			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
-		switch right.Op {
+		switch lrop {
 		case "<<":
 			left = ctx.NewShl(left, rightVal)
 		case ">>", ">>>":
 			left = ctx.NewLShr(left, rightVal)
 		default:
-			return nil, posError(right.Pos, "unknown shift operator: %s", right.Op)
+			return nil, posError(right.Pos, "unknown shift operator: %s", lrop)
 		}
+		lrop = right.Op
 	}
 
 	return left, nil
@@ -365,6 +367,7 @@ func (ctx *Context) compileAdditive(a *parser.Additive) (value.Value, error) {
 		return nil, posError(a.Left.Pos, "additive operator requires numeric operands")
 	}
 
+	lrop := a.Op
 	for _, right := range a.Right {
 		rightVal, err := ctx.compileAdditive(right)
 		if err != nil {
@@ -398,7 +401,7 @@ func (ctx *Context) compileAdditive(a *parser.Additive) (value.Value, error) {
 			}
 		}
 
-		switch a.Op {
+		switch lrop {
 		case "+":
 			if types.IsFloat(left.Type()) {
 				left = ctx.NewFAdd(left, rightVal)
@@ -412,8 +415,9 @@ func (ctx *Context) compileAdditive(a *parser.Additive) (value.Value, error) {
 				left = ctx.NewSub(left, rightVal)
 			}
 		default:
-			return nil, posError(right.Pos, "unknown additive operator: %s", a.Op)
+			return nil, posError(right.Pos, "unknown additive operator: %s", lrop)
 		}
+		lrop = right.Op
 	}
 
 	return left, nil
@@ -429,6 +433,7 @@ func (ctx *Context) compileMultiplicative(m *parser.Multiplicative) (value.Value
 		return nil, posError(m.Left.Pos, "multiplicative operator requires numeric operands")
 	}
 
+	lrop := m.Op
 	for _, right := range m.Right {
 		rightVal, err := ctx.compileMultiplicative(right)
 		if err != nil {
@@ -462,7 +467,7 @@ func (ctx *Context) compileMultiplicative(m *parser.Multiplicative) (value.Value
 			}
 		}
 
-		switch right.Op {
+		switch lrop {
 		case "*":
 			if types.IsFloat(left.Type()) {
 				left = ctx.NewFMul(left, rightVal)
@@ -482,8 +487,9 @@ func (ctx *Context) compileMultiplicative(m *parser.Multiplicative) (value.Value
 				left = ctx.NewSRem(left, rightVal)
 			}
 		default:
-			return nil, posError(right.Pos, "unknown multiplicative operator: %s", right.Op)
+			return nil, posError(right.Pos, "unknown multiplicative operator: %s", lrop)
 		}
+		lrop = right.Op
 	}
 
 	return left, nil
