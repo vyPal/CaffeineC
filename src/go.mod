@@ -3,7 +3,7 @@ module github.com/vyPal/CaffeineC
 go 1.21.3
 
 require (
-	github.com/alecthomas/participle/v2 v2.1.0
+	github.com/alecthomas/participle/v2 v2.1.1
 	github.com/fatih/color v1.16.0
 	github.com/llir/llvm v0.3.6
 	github.com/urfave/cli/v2 v2.25.7

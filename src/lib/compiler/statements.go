@@ -248,7 +248,11 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Err error) {
 		if len(idents) == 1 {
 			switch value := idents[0].Value.(type) {
 			case *ir.InstGetElementPtr:
-				ctx.NewStore(val, value)
+				if pt, ok := val.Type().(*types.PointerType); ok {
+					ctx.NewStore(ctx.NewLoad(pt.ElemType, val), value)
+				} else {
+					ctx.NewStore(val, value)
+				}
 			case *ir.InstAlloca:
 				ctx.NewStore(val, value)
 			case *ir.InstLoad:

@@ -23,12 +23,12 @@ func (b *Bool) Capture(values []string) error {
 
 type Value struct {
 	Pos    lexer.Position
-	Array  []*Expression `parser:"'[' ( @@ ( ',' @@ )* )? ']'"`
 	Float  *float64      `parser:"  @('-'? Float)"`
 	Int    *int64        `parser:"| @('-'? Int)"`
 	Bool   *Bool         `parser:"| @('true' | 'True' | 'false' | 'False')"`
 	String *string       `parser:"| @String"`
 	Null   bool          `parser:"| @'null'"`
+	Array  []*Expression `parser:"| '[' ( @@ ( ',' @@ )* )? ']'"`
 }
 
 type Identifier struct {
@@ -147,15 +147,15 @@ type Shift struct {
 type Additive struct {
 	Pos   lexer.Position
 	Left  *Multiplicative `parser:"@@"`
-	Op    string          `parser:"@( '+' | '-' )?"`
-	Right []*Additive     `parser:"@@?"`
+	Op    string          `parser:"(@( '+' | '-' )"`
+	Right []*Additive     `parser:"@@)?"`
 }
 
 type Multiplicative struct {
 	Pos   lexer.Position
 	Left  *LogicalNot       `parser:"@@"`
-	Op    string            `parser:"@( '*' | '/' | '%' )?"`
-	Right []*Multiplicative `parser:"@@?"`
+	Op    string            `parser:"(@( '*' | '/' | '%' )"`
+	Right []*Multiplicative `parser:"@@)?"`
 }
 
 type LogicalNot struct {

@@ -226,7 +226,7 @@ func (ctx *Context) compileEquality(e *parser.Equality) (value.Value, error) {
 		}
 
 		if !left.Type().Equal(rightVal.Type()) {
-			return nil, posError(e.Left.Pos, "operands must be the same type")
+			return nil, posError(right.Pos, "operands must be the same type (%s != %s)", left.Type(), rightVal.Type())
 		}
 
 		switch lrop {
@@ -772,7 +772,11 @@ func (ctx *Context) compileFunctionCall(fc *parser.FunctionCall) (value.Value, e
 func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 	if v.Float != nil {
 		if ctx.RequestedType != nil {
-			if ctx.RequestedType == types.Float {
+			if ptrType, ok := ctx.RequestedType.(*types.PointerType); ok {
+				if floatType, ok := ptrType.ElemType.(*types.FloatType); ok {
+					return constant.NewFloat(floatType, *v.Float), nil
+				}
+			} else if ctx.RequestedType == types.Float {
 				return constant.NewFloat(types.Float, *v.Float), nil
 			} else if ctx.RequestedType == types.Double {
 				return constant.NewFloat(types.Double, *v.Float), nil
@@ -795,7 +799,11 @@ func (ctx *Context) compileValue(v *parser.Value) (value.Value, error) {
 		return constant.NewFloat(types.Double, *v.Float), nil
 	} else if v.Int != nil {
 		if ctx.RequestedType != nil {
-			if intType, ok := ctx.RequestedType.(*types.IntType); ok {
+			if ptrType, ok := ctx.RequestedType.(*types.PointerType); ok {
+				if intType, ok := ptrType.ElemType.(*types.IntType); ok {
+					return constant.NewInt(intType, *v.Int), nil
+				}
+			} else if intType, ok := ctx.RequestedType.(*types.IntType); ok {
 				return constant.NewInt(intType, *v.Int), nil
 			} else if ctx.RequestedType == types.Float {
 				return constant.NewFloat(types.Float, float64(*v.Int)), nil
@@ -861,11 +869,10 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 		// Handle referencing
 		for j := 0; j < len(i.Ref); j++ {
 			// Create a pointer to the variable
-			ptrType := types.NewPointer(val.Value.Type())
-			ptr := ctx.NewAlloca(ptrType)
+			ptr := ctx.NewAlloca(val.Value.Type())
 			ctx.NewStore(val.Value, ptr)
 			val.Value = ptr
-			val.Type = ptrType
+			val.Type = ptr.Type()
 		}
 
 		// Handle dereferencing
@@ -874,7 +881,7 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 			val.Value = ctx.NewLoad(val.Value.Type().(*types.PointerType).ElemType, val.Value)
 			val.Type = val.Value.Type()
 		}
-		return val.Value, val.Value.Type(), nil
+		return val.Value, val.Type, nil
 	}
 
 	originalVal := val
@@ -919,7 +926,9 @@ func (ctx *Context) compileIdentifier(i *parser.Identifier, returnTopLevelStruct
 		}
 
 		// Otherwise, load the field and continue
-		currentVal.Value = ctx.NewLoad(fieldType, fieldPtr)
+		if !fieldType.Equal(fieldPtr.Type()) {
+			currentVal.Value = ctx.NewLoad(fieldType, fieldPtr)
+		}
 		currentSub = nextSub
 	}
 
@@ -953,8 +962,10 @@ func (ctx *Context) compileSubIdentifier(f *Variable, sub *parser.Identifier) (F
 
 		var field *parser.FieldDefinition
 		var nfield int
-		elemtypename := f.Value.Type().(*types.PointerType).ElemType.Name()
-		if elemtypename == "" {
+		var elemtypename string
+		if ptrType, ok := f.Type.(*types.PointerType); ok {
+			elemtypename = ptrType.ElemType.Name()
+		} else {
 			elemtypename = f.Type.Name()
 		}
 		for f := range ctx.Compiler.StructFields[elemtypename] {
@@ -985,7 +996,7 @@ func (ctx *Context) compileSubIdentifier(f *Variable, sub *parser.Identifier) (F
 
 			return elemPtr.Type().(*types.PointerType).ElemType.(*types.PointerType).ElemType, elemPtr, false, nil
 		}
-		return ctx.compileSubIdentifier(&Variable{Value: fieldPtr, Type: fieldPtr.Type()}, sub.Sub)
+		return fieldPtr.Type(), fieldPtr, false, nil
 	}
 	return f.Type, f.Value, false, nil
 }
