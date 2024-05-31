@@ -22,6 +22,8 @@ type Context struct {
 	structNames   map[*types.StructType]string
 	fc            *FlowControl
 	RequestedType types.Type
+	DestPtr       value.Value
+	StoredInDest  bool
 }
 
 type Variable struct {

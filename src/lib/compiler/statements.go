@@ -120,21 +120,22 @@ func (ctx *Context) compileVariableDefinition(v *parser.VariableDefinition) (Nam
 		return v.Name, alloc.Type(), alloc, nil
 	}
 
+	alloc := ctx.NewAlloca(valType)
+
 	ctx.RequestedType = valType
+	ctx.DestPtr = alloc
+	ctx.StoredInDest = false
 	val, err := ctx.compileExpression(v.Assignment)
 	if err != nil {
 		return "", nil, nil, err
 	}
 	ctx.RequestedType = nil
-
-	var alloc *ir.InstAlloca
-
-	if ptr, ok := val.(*ir.InstAlloca); ok {
-		alloc = ptr
-	} else {
-		alloc = ctx.NewAlloca(val.Type())
+	ctx.DestPtr = nil
+	if !ctx.StoredInDest {
 		ctx.NewStore(val, alloc)
+		ctx.StoredInDest = false
 	}
+
 	ctx.vars[v.Name] = &Variable{
 		Name:  v.Name,
 		Type:  valType,
@@ -167,6 +168,8 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Err error) {
 		ctx.RequestedType = idents[0].Type.(*types.PointerType).ElemType
 	}
 	ctx.RequestedType = idents[0].Type
+	ctx.DestPtr = idents[0].Value
+	ctx.StoredInDest = false
 	val, err := ctx.compileExpression(a.Right)
 	if err != nil {
 		return err
@@ -246,22 +249,26 @@ func (ctx *Context) compileAssignment(a *parser.Assignment) (Err error) {
 		}
 	} else {
 		if len(idents) == 1 {
-			switch value := idents[0].Value.(type) {
-			case *ir.InstGetElementPtr:
-				if pt, ok := val.Type().(*types.PointerType); ok {
-					ctx.NewStore(ctx.NewLoad(pt.ElemType, val), value)
-				} else {
+			if ctx.StoredInDest {
+				return nil
+			} else {
+				switch value := idents[0].Value.(type) {
+				case *ir.InstGetElementPtr:
+					if pt, ok := val.Type().(*types.PointerType); ok {
+						ctx.NewStore(ctx.NewLoad(pt.ElemType, val), value)
+					} else {
+						ctx.NewStore(val, value)
+					}
+				case *ir.InstAlloca:
 					ctx.NewStore(val, value)
-				}
-			case *ir.InstAlloca:
-				ctx.NewStore(val, value)
-			case *ir.InstLoad:
-				ctx.NewStore(val, value)
-			default:
-				ctx.vars[a.Idents[0].Name] = &Variable{
-					Name:  a.Idents[0].Name,
-					Type:  idents[0].Type,
-					Value: val,
+				case *ir.InstLoad:
+					ctx.NewStore(val, value)
+				default:
+					ctx.vars[a.Idents[0].Name] = &Variable{
+						Name:  a.Idents[0].Name,
+						Type:  idents[0].Type,
+						Value: val,
+					}
 				}
 			}
 		} else {

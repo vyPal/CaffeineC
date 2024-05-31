@@ -582,6 +582,10 @@ func (ctx *Context) compilePostfixAdditive(p *parser.PostfixAdditive) (value.Val
 		}
 		if _, ok := original.Type().(*types.PointerType); ok {
 			ctx.NewStore(left, original)
+		} else if ctx.DestPtr != nil {
+			ctx.NewStore(left, ctx.DestPtr)
+			ctx.StoredInDest = true
+			ctx.DestPtr = nil
 		}
 		return original, nil
 	}
@@ -597,6 +601,7 @@ func (ctx *Context) compileFactor(f *parser.Factor) (value.Value, error) {
 		if err != nil {
 			return nil, err
 		}
+		ctx.DestPtr = val
 		if v, ok := val.(*ir.InstAlloca); ok {
 			elemType := v.Type().(*types.PointerType).ElemType
 			if _, isStruct := elemType.(*types.StructType); isStruct {
@@ -714,9 +719,13 @@ func (ctx *Context) compileClassInitializer(ci *parser.ClassInitializer) (value.
 		return nil, posError(ci.Pos, "Class %s not found", ci.ClassName)
 	}
 	class = class.(*types.StructType)
-
-	// Allocate memory for the class
-	classPtr := ctx.NewAlloca(class)
+	var classPtr value.Value
+	if ctx.DestPtr == nil {
+		classPtr = ctx.NewAlloca(class)
+	} else {
+		classPtr = ctx.DestPtr
+		ctx.StoredInDest = true
+	}
 
 	// Initialize the class
 	constructor, exists := ctx.lookupFunction(class.Name() + ".constructor")
@@ -728,6 +737,7 @@ func (ctx *Context) compileClassInitializer(ci *parser.ClassInitializer) (value.
 		compiledArgs := make([]value.Value, len(ci.Args.Arguments))
 		for i, arg := range ci.Args.Arguments {
 			ctx.RequestedType = constructor.Sig.Params[i+1]
+			ctx.DestPtr = nil
 			expr, err := ctx.compileExpression(arg)
 			if err != nil {
 				return nil, err
