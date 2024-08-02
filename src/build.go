@@ -83,6 +83,11 @@ func init() {
 					"Useful for linking with C code. ",
 				Aliases: []string{"T"},
 			},
+			&cli.BoolFlag{
+				Name:    "no-cache",
+				Aliases: []string{"n"},
+				Usage:   "Disables caching",
+			},
 		},
 		Action: build,
 	},
@@ -141,6 +146,11 @@ func init() {
 						"Useful for linking with C code. ",
 					Aliases: []string{"T"},
 				},
+				&cli.BoolFlag{
+					Name:    "no-cache",
+					Aliases: []string{"n"},
+					Usage:   "Disables caching",
+				},
 			},
 			Action: run,
 		},
@@ -155,6 +165,9 @@ var debug bool
 var header bool
 var pcache cache.PackageCache
 var compiledCache map[string]bool
+var precompiledCache map[string]string
+var cwd string
+var builtFiles []cache.BuiltFile
 
 func build(c *cli.Context) error {
 	outpath = c.String("output")
@@ -172,11 +185,16 @@ func build(c *cli.Context) error {
 		}
 	}
 
+	cwd, err = os.Getwd()
+	if err != nil {
+		return cli.Exit(color.RedString("Error getting current working directory: %s", err), 1)
+	}
+
 	var conf project.CfConf
 
 	f := c.Args().First()
 	if f == "" {
-		confPath := "." + string(filepath.Separator) + "cfconf.yaml"
+		confPath := cwd + string(filepath.Separator) + "cfconf.yaml"
 
 		if c.String("config") != "" {
 			confPath = c.String("config")
@@ -196,8 +214,34 @@ func build(c *cli.Context) error {
 	pcache.CacheScan(false)
 
 	compiledCache = make(map[string]bool)
+	precompiledCache = make(map[string]string)
 	header = c.Bool("header")
 	debug = c.Bool("debug")
+
+	builtFiles = []cache.BuiltFile{}
+
+	proj, err := pcache.CreateProject(cwd)
+	if err != nil {
+		return err
+	}
+
+	ic := []string{}
+	if !c.Bool("no-cache") {
+		ic, err = proj.SumDiff()
+		if err != nil {
+			return err
+		}
+
+		abf, err := proj.GetBuiltFiles(ic)
+		if err != nil {
+			return err
+		}
+		builtFiles = abf
+
+		for _, cached := range abf {
+			precompiledCache[cached.FilePath] = cached.ObjPath
+		}
+	}
 
 	llFiles, imports, err := processIncludes(append([]string{f}, c.StringSlice("include")...))
 	if err != nil {
@@ -232,6 +276,13 @@ func build(c *cli.Context) error {
 				return err
 			}
 			imports = append(imports, strings.TrimSuffix(file, ".ll")+".o")
+			if !c.Bool("no-cache") {
+				rp, err := filepath.Rel(tmpDir, file)
+				if err != nil {
+					log.Println(err)
+				}
+				builtFiles = append(builtFiles, cache.BuiltFile{FilePath: string(filepath.Separator) + rp, ObjPath: strings.TrimSuffix(file, ".ll") + ".o"})
+			}
 		}
 
 		gccArgs := append([]string{"-o", outpath}, imports...)
@@ -258,6 +309,29 @@ func build(c *cli.Context) error {
 			log.Println(err)
 		}
 	} else {
+		if !c.Bool("no-cache") {
+			for _, file := range llFiles {
+				args := append([]string{"clang", file}, "-c")
+				args = append(args, []string{"-o", strings.TrimSuffix(file, ".ll") + ".o"}...)
+				args = append(args, c.StringSlice("clang-args")...)
+
+				cmd := exec.Command(args[0], args[1:]...)
+				cmd.Stderr = &stderr
+				cmd.Dir = tmpDir
+
+				err = cmd.Run()
+				if err != nil {
+					log.Println("stderr:", stderr.String())
+					log.Println(err)
+				}
+				rp, err := filepath.Rel(tmpDir, file)
+				if err != nil {
+					log.Println(err)
+				}
+				builtFiles = append(builtFiles, cache.BuiltFile{FilePath: string(filepath.Separator) + rp, ObjPath: strings.TrimSuffix(file, ".ll") + ".o"})
+			}
+		}
+
 		args := append([]string{"clang"}, imports...)
 		args = append(args, llFiles...)
 		args = append(args, extra...)
@@ -274,6 +348,13 @@ func build(c *cli.Context) error {
 		if err != nil {
 			log.Println("stderr:", stderr.String())
 			log.Println(err)
+		}
+	}
+
+	if !c.Bool("no-cache") {
+		err = proj.SaveBuiltFiles(builtFiles, ic)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -327,11 +408,6 @@ func run(c *cli.Context) error {
 func parseAndCompile(path string, wg *sync.WaitGroup, errs chan<- error, files *[]string, llfiles *[]string) (string, error) {
 	ast := parser.ParseFile(path)
 	if debug {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return "", cli.Exit(color.RedString("Error getting current working directory: %s", err), 1)
-		}
-
 		relativePath, err := filepath.Rel(cwd, path)
 		if err != nil || filepath.IsAbs(relativePath) {
 			relativePath = filepath.Base(path)
@@ -365,47 +441,71 @@ func parseAndCompile(path string, wg *sync.WaitGroup, errs chan<- error, files *
 		return "", err
 	}
 	comp.Init(ast, wDir)
-	err = comp.FindImports()
-	if err != nil {
-		return "", err
-	}
-	reqs := comp.RequiredImports
-	for _, req := range reqs {
-		if compiledCache[req] {
-			continue
-		}
-		err := processFile(req, files, llfiles, wg, errs)
+	if precompiledCache[path] == "" {
+		err = comp.FindImports()
 		if err != nil {
 			return "", err
 		}
-	}
-	err = comp.Compile()
-	if err != nil {
-		return "", cli.Exit(color.RedString("Error compiling: %s", err), 1)
-	}
+		reqs := comp.RequiredImports
+		for _, req := range reqs {
+			if compiledCache[req] {
+				continue
+			}
+			err := processFile(req, files, llfiles, wg, errs)
+			if err != nil {
+				return "", err
+			}
+		}
+		err = comp.Compile()
+		if err != nil {
+			return "", cli.Exit(color.RedString("Error compiling: %s", err), 1)
+		}
 
-	f, err := os.CreateTemp(tmpDir, "caffeinec*.ll")
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-
-	_, err = f.WriteString(comp.Module.String())
-	if err != nil {
-		return "", err
-	}
-
-	if header {
-		hf, err := os.CreateTemp(tmpDir, "caffeinec*.h")
+		err := os.MkdirAll(filepath.Dir(filepath.Join(tmpDir, strings.TrimSuffix(path, ".cffc")+".ll")), 0755)
 		if err != nil {
 			return "", err
 		}
-		defer hf.Close()
 
-		compiler.WriteHeader(hf, comp)
+		f, err := os.Create(filepath.Join(tmpDir, strings.TrimSuffix(path, ".cffc")+".ll"))
+		if err != nil {
+			return "", err
+		}
+		defer f.Close()
+
+		_, err = f.WriteString(comp.Module.String())
+		if err != nil {
+			return "", err
+		}
+
+		if header {
+			hf, err := os.CreateTemp(tmpDir, "caffeinec*.h")
+			if err != nil {
+				return "", err
+			}
+			defer hf.Close()
+
+			compiler.WriteHeader(hf, comp)
+		}
+
+		return f.Name(), nil
+	} else {
+		*files = append(*files, precompiledCache[path])
+		reqs, err := comp.ListImportedFiles()
+		if err != nil {
+			return "", err
+		}
+		for _, req := range reqs {
+			if compiledCache[req] {
+				continue
+			}
+			err := processFile(req, files, llfiles, wg, errs)
+			if err != nil {
+				return "", err
+			}
+		}
 	}
 
-	return f.Name(), nil
+	return "", nil
 }
 
 func processIncludes(includes []string) ([]string, []string, error) {
@@ -452,7 +552,9 @@ func processFile(path string, files *[]string, llfiles *[]string, wg *sync.WaitG
 				errs <- err
 				return
 			}
-			*llfiles = append(*llfiles, llFile)
+			if llFile != "" {
+				*llfiles = append(*llfiles, llFile)
+			}
 		}(path)
 	} else if ext == "" {
 		dir, err := os.ReadDir(path)

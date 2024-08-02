@@ -100,7 +100,6 @@ func (p *PackageCache) DeepCacheScan() error {
 			cmd := exec.Command("CaffeineC", "build", "--obj", path)
 			cmd.Dir = objDir
 			err = cmd.Run()
-			fmt.Println("Ran", cmd.String(), "command in", objDir, "with directory", path)
 			if err != nil {
 				return err
 			}

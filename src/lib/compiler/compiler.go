@@ -143,6 +143,43 @@ func (c *Compiler) Compile() (err error) {
 	return nil
 }
 
+func (c *Compiler) ListImportedFiles() (requiredImports []string, err error) {
+	for _, s := range c.AST.Statements {
+		if s.Import != nil {
+			path := strings.Trim(s.Import.Package, "\"")
+			_, importpath, err := ResolveImportPath(path, c.PackageCache)
+			if err != nil {
+				return []string{}, err
+			}
+			if !filepath.IsAbs(importpath) {
+				importpath = filepath.Clean(filepath.Join(c.workingDir, importpath))
+			}
+			requiredImports = append(requiredImports, importpath)
+		} else if s.FromImport != nil {
+			path := strings.Trim(s.FromImport.Package, "\"")
+			_, importpath, err := ResolveImportPath(path, c.PackageCache)
+			if err != nil {
+				return []string{}, err
+			}
+			if !filepath.IsAbs(importpath) {
+				importpath = filepath.Clean(filepath.Join(c.workingDir, importpath))
+			}
+			requiredImports = append(requiredImports, importpath)
+		} else if s.FromImportMultiple != nil {
+			path := strings.Trim(s.FromImportMultiple.Package, "\"")
+			_, importpath, err := ResolveImportPath(path, c.PackageCache)
+			if err != nil {
+				return []string{}, err
+			}
+			if !filepath.IsAbs(importpath) {
+				importpath = filepath.Clean(filepath.Join(c.workingDir, importpath))
+			}
+			requiredImports = append(requiredImports, importpath)
+		}
+	}
+	return requiredImports, nil
+}
+
 func (c *Compiler) FindImports() error {
 	for i := len(c.AST.Statements) - 1; i >= 0; i-- {
 		s := c.AST.Statements[i]
