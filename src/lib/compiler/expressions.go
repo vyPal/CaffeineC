@@ -216,6 +216,7 @@ func (ctx *Context) compileEquality(e *parser.Equality) (value.Value, error) {
 
 	lrop := e.Op
 	for _, right := range e.Right {
+		ctx.RequestedType = left.Type()
 		rightVal, err := ctx.compileEquality(right)
 		if err != nil {
 			return nil, err
@@ -263,6 +264,7 @@ func (ctx *Context) compileRelational(r *parser.Relational) (value.Value, error)
 
 	lrop := r.Op
 	for _, right := range r.Right {
+		ctx.RequestedType = left.Type()
 		rightVal, err := ctx.compileRelational(right)
 		if err != nil {
 			return nil, err
